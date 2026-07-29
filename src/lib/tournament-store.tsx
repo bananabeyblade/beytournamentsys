@@ -170,7 +170,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       }
       setCurrentAdmin({
         id: user.id,
-        email: user.email ?? "",
+        email: displayAccount(user.email),
         isSuper: cloudRole === "superadmin",
       });
       setRoleState("admin");

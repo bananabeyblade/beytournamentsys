@@ -45,7 +45,8 @@ export const listAdminsFn = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { requireAdmin } = await import("./admin.server");
     await requireAdmin(context.supabase, context.userId, true);
-    const { data, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
       .from("admin_roles")
       .select("id,user_id,email,role")
       .order("created_at", { ascending: true });

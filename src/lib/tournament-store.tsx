@@ -690,8 +690,9 @@ export function TournamentProvider({
 
     matches,
     tableCount,
-    role,
-    currentAdmin,
+    role: spectator ? "player" : role,
+    currentAdmin: spectator ? null : currentAdmin,
+
     authReady,
     setRole,
     signIn,

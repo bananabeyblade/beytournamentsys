@@ -6,6 +6,8 @@ import { fetchTournamentByCode, type TournamentRow } from "@/lib/tournaments";
 import { supabase } from "@/integrations/supabase/client";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
+import { writeJoinedName } from "@/lib/joined-name";
+
 
 export const Route = createFileRoute("/register")({
   validateSearch: (search: Record<string, unknown>) => ({

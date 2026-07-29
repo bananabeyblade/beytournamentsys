@@ -31,6 +31,7 @@ export const Route = createFileRoute("/register")({
 });
 
 const JOINED_KEY = "beyx-joined";
+export const JOINED_NAME_KEY = "beyx-joined-name";
 
 function RegisterPage() {
   const { t: code } = Route.useSearch();

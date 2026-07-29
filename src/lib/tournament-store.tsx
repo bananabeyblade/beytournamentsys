@@ -1,7 +1,15 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   WIN_TARGET,
-  type AdminAccount,
+  type CloudAdmin,
   type FinishType,
   type Match,
   type Player,
@@ -9,6 +17,9 @@ import {
   type TournamentState,
 } from "./tournament-types";
 import { SAMPLE_NAMES } from "./sample-names";
+import { supabase } from "@/integrations/supabase/client";
+import { bootstrapSuperadminFn, getMyRoleFn } from "./admin.functions";
+
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 

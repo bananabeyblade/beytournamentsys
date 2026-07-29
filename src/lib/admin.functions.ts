@@ -2,8 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const emailPassword = z.object({
-  email: z.string().email().max(200),
+const usernamePassword = z.object({
+  username: z
+    .string()
+    .trim()
+    .regex(/^[a-zA-Z0-9_.-]{3,30}$/, "帳號僅能使用英數字、底線、點與連字號（3-30 字）"),
   password: z.string().min(8).max(200),
 });
 
@@ -57,22 +60,24 @@ export const listAdminsFn = createServerFn({ method: "GET" })
 /** Superadmin only: create a cloud admin account. */
 export const createAdminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => emailPassword.parse(data))
+  .inputValidator((data: unknown) => usernamePassword.parse(data))
   .handler(async ({ data, context }) => {
     const { requireAdmin } = await import("./admin.server");
     await requireAdmin(context.supabase, context.userId, true);
+    const { toLoginEmail } = await import("./account-id");
+    const username = data.username.toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const created = await supabaseAdmin.auth.admin.createUser({
-      email: data.email,
+      email: toLoginEmail(username),
       password: data.password,
       email_confirm: true,
     });
     if (created.error || !created.data.user) {
-      throw new Error(created.error?.message ?? "建立帳號失敗");
+      throw new Error(created.error?.message ?? "建立帳號失敗（帳號可能已存在）");
     }
     const { error } = await supabaseAdmin.from("admin_roles").insert({
       user_id: created.data.user.id,
-      email: data.email,
+      email: username,
       role: "admin",
     });
     if (error) throw new Error("授予管理者權限失敗");

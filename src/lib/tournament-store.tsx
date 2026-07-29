@@ -27,6 +27,7 @@ import {
   type TournamentRow,
 } from "./tournaments";
 import { computeTop4 } from "./standings";
+import { displayAccount, toLoginEmail } from "./account-id";
 
 const ACTIVE_KEY = "beyx-active-tournament";
 
@@ -170,7 +171,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       }
       setCurrentAdmin({
         id: user.id,
-        email: user.email ?? "",
+        email: displayAccount(user.email),
         isSuper: cloudRole === "superadmin",
       });
       setRoleState("admin");
@@ -203,9 +204,9 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   );
 
   const signIn = useCallback(
-    async (email: string, password: string) => {
+    async (account: string, password: string) => {
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: toLoginEmail(account),
         password,
       });
       if (error) return "帳號或密碼錯誤";

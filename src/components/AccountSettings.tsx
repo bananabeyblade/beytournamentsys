@@ -8,6 +8,7 @@ import {
   removeAdminFn,
   setAdminPasswordFn,
 } from "@/lib/admin.functions";
+import { USERNAME_RE, displayAccount } from "@/lib/account-id";
 
 type Msg = { ok: boolean; text: string } | null;
 
@@ -20,6 +21,7 @@ interface AdminRow {
 
 function MyAccount() {
   const { currentAdmin, refreshRole } = useTournament();
+  const isSuper = !!currentAdmin?.isSuper;
   const [email, setEmail] = useState(currentAdmin?.email ?? "");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -37,7 +39,9 @@ function MyAccount() {
     }
     setBusy(true);
     const payload: { email?: string; password?: string } = {};
-    if (email.trim() && email.trim() !== currentAdmin?.email) payload.email = email.trim();
+    if (isSuper && email.trim() && email.trim() !== currentAdmin?.email) {
+      payload.email = email.trim();
+    }
     if (password) payload.password = password;
     if (!payload.email && !payload.password) {
       setBusy(false);
@@ -62,14 +66,20 @@ function MyAccount() {
         <KeyRound className="h-4 w-4" /> 我的帳號 MY ACCOUNT
       </h2>
       <p className="text-xs text-muted-foreground">
-        {currentAdmin?.isSuper ? "總管理者帳號（雲端）" : "管理者帳號（雲端）"}
+        {isSuper ? "總管理者帳號（使用信箱登入）" : "管理者帳號（自訂帳號登入）"}
       </p>
-      <input
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="登入信箱"
-        className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-      />
+      {isSuper ? (
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="登入信箱"
+          className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+        />
+      ) : (
+        <div className="min-h-12 w-full rounded-xl border border-border bg-secondary/40 px-3 py-3 text-sm">
+          帳號：<span className="text-primary">{currentAdmin?.email}</span>
+        </div>
+      )}
       <input
         value={password}
         type="password"
@@ -114,9 +124,17 @@ function ManageAdmins() {
   useEffect(load, [load]);
 
   const create = async () => {
+    if (!USERNAME_RE.test(email.trim())) {
+      setMsg({ ok: false, text: "帳號僅能使用英數字、底線、點與連字號（3-30 字）" });
+      return;
+    }
+    if (password.length < 8) {
+      setMsg({ ok: false, text: "密碼至少需 8 碼" });
+      return;
+    }
     setBusy(true);
     try {
-      await createAdminFn({ data: { email: email.trim(), password } });
+      await createAdminFn({ data: { username: email.trim(), password } });
       setEmail("");
       setPassword("");
       setMsg({ ok: true, text: "已建立管理者帳號" });
@@ -161,7 +179,7 @@ function ManageAdmins() {
         {admins.map((a) => (
           <li key={a.id} className="rounded-lg border border-border bg-secondary/40 p-3">
             <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
-              <span className="truncate text-sm">{a.email ?? a.user_id}</span>
+              <span className="truncate text-sm">{displayAccount(a.email) || a.user_id}</span>
               <button
                 onClick={() => setEditId(editId === a.user_id ? null : a.user_id)}
                 className="min-h-10 shrink-0 rounded-lg px-2 text-xs text-primary"
@@ -201,7 +219,10 @@ function ManageAdmins() {
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="新管理者信箱"
+          placeholder="新管理者帳號（英數字，免信箱）"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
         />
         <input

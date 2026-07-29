@@ -81,9 +81,11 @@ export function SettingsTab() {
             <input
               value={u}
               onChange={(e) => setU(e.target.value)}
-              placeholder="登入信箱"
-              autoComplete="email"
-              inputMode="email"
+              placeholder="帳號（總管理者請輸入信箱）"
+              autoComplete="username"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
             />
             <input
@@ -98,8 +100,8 @@ export function SettingsTab() {
             <button
               disabled={busy}
               onClick={async () => {
-                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u.trim())) {
-                  setErr("請輸入正確的登入信箱");
+                if (!u.trim()) {
+                  setErr("請輸入帳號");
                   return;
                 }
                 if (!p) {

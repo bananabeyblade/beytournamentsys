@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LogIn, LogOut, Shuffle, RotateCcw, UserPlus, Trash2, Shield, Eye } from "lucide-react";
+import { LogIn, LogOut, Shuffle, RotateCcw, Shield, Eye } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { AccountSettings } from "./AccountSettings";
 import { QrRegisterCard } from "./QrRegisterCard";
@@ -9,11 +9,10 @@ export function SettingsTab() {
     role,
     setRole,
     currentAdmin,
-    login,
+    signIn,
+    signUp,
+    claimSuperadmin,
     logout,
-    admins,
-    addAdmin,
-    removeAdmin,
     tableCount,
     setTableCount,
     generateBracket,
@@ -25,8 +24,9 @@ export function SettingsTab() {
   const [u, setU] = useState("");
   const [p, setP] = useState("");
   const [err, setErr] = useState("");
-  const [nu, setNu] = useState("");
-  const [np, setNp] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"signin" | "setup">("signin");
+
 
   return (
     <div className="space-y-4">

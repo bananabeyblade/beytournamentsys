@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { QrCode, Copy, Check, Plus } from "lucide-react";
+import { QrCode, Copy, Check, Plus, Flag } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 
 export function QrRegisterCard() {
-  const { currentTournament, startNewTournament, currentAdmin } = useTournament();
+  const { currentTournament, startNewTournament, currentAdmin, forceFinishTournament } =
+    useTournament();
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState("");
   const [img, setImg] = useState("");
   const [copied, setCopied] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
   useEffect(() => {
     if (!currentTournament) {
@@ -34,6 +37,15 @@ export function QrRegisterCard() {
     if (fail) setErr(fail);
     else setName("");
     setBusy(false);
+  };
+
+  const end = async () => {
+    setEnding(true);
+    setErr("");
+    const fail = await forceFinishTournament();
+    if (fail) setErr(fail);
+    setEnding(false);
+    setConfirmEnd(false);
   };
 
   return (
@@ -69,6 +81,36 @@ export function QrRegisterCard() {
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? "已複製連結" : "複製報名連結"}
           </button>
+          {currentAdmin?.isSuper &&
+            (confirmEnd ? (
+              <div className="space-y-2 rounded-xl border border-destructive/60 bg-destructive/10 p-3">
+                <p className="text-xs text-muted-foreground">
+                  確定要強制結束「{currentTournament.name}」嗎？結束後將停止報名並以目前戰績產生成績頁。
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setConfirmEnd(false)}
+                    className="min-h-12 rounded-xl border border-border text-sm text-muted-foreground"
+                  >
+                    取消
+                  </button>
+                  <button
+                    disabled={ending}
+                    onClick={() => void end()}
+                    className="min-h-12 rounded-xl bg-destructive font-display text-sm text-foreground disabled:opacity-40"
+                  >
+                    {ending ? "結束中…" : "確定結束"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmEnd(true)}
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-destructive/60 text-destructive"
+              >
+                <Flag className="h-4 w-4" /> 強制結束賽事
+              </button>
+            ))}
         </>
       ) : currentTournament ? (
         <p className="text-xs text-muted-foreground">

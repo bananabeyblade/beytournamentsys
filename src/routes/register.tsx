@@ -101,9 +101,13 @@ function RegisterPage() {
         setErr("這個名稱在本場賽事已經報名過了，請換一個名稱。");
         return;
       }
+      const joinedName = name.trim();
       await addRegistration(tournament.id, name);
       setName("");
-      if (typeof window !== "undefined") window.localStorage.setItem(JOINED_KEY, tournament.code);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(JOINED_KEY, tournament.code);
+        window.localStorage.setItem(JOINED_NAME_KEY, joinedName);
+      }
       setDone(true);
     } catch (e) {
       setErr(

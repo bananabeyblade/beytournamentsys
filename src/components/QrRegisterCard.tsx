@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { QrCode, Copy, Check, Plus, Trophy } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { QrCode, Copy, Check, Plus } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 
 export function QrRegisterCard() {
@@ -72,19 +71,9 @@ export function QrRegisterCard() {
           </button>
         </>
       ) : currentTournament ? (
-        <>
-          <p className="text-xs text-muted-foreground">
-            本場賽事（{currentTournament.name}）已結束，報名 QR Code 已停止顯示。
-          </p>
-          <Link
-            to="/results/$code"
-            params={{ code: currentTournament.code }}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 font-display text-primary"
-          >
-            <Trophy className="h-4 w-4" /> 查看前四名成績
-          </Link>
-        </>
-
+        <p className="text-xs text-muted-foreground">
+          本場賽事（{currentTournament.name}）已結束，報名 QR Code 已停止顯示。
+        </p>
       ) : (
         <p className="text-xs text-muted-foreground">
           建立一場新賽事後即可產生專屬報名 QR Code。

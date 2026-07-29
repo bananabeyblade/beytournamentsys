@@ -624,15 +624,20 @@ export function TournamentProvider({
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentTournament) return;
     if (!matches.length && !players.length) return;
+    // Nothing actually changed locally → don't write (avoids write/echo storms).
+    const payload = JSON.stringify({ players, matches, tableCount });
+    if (payload === lastPayload.current) return;
 
     const timer = setTimeout(() => {
+      lastPayload.current = payload;
       const stamp = new Date().toISOString();
-      lastPublishedStamp.current = `${currentTournament.status}|${stamp}`;
-      lastAppliedStamp.current = `${currentTournament.status}|${stamp}`;
+      lastPublishedStamp.current = stampOf(currentTournament.status, stamp);
+      lastAppliedStamp.current = lastPublishedStamp.current;
       void publishLiveState(currentTournament.id, { players, matches, tableCount }, stamp);
     }, 300);
     return () => clearTimeout(timer);
   }, [spectator, hydrated, role, currentTournament, players, matches, tableCount]);
+
 
 
   const results = useMemo(() => computeTop4(matches, players), [matches, players]);

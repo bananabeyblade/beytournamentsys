@@ -61,11 +61,11 @@ export function SettingsTab() {
       {currentAdmin ? (
         <div className="panel p-3">
           <p className="text-sm">
-            已登入：<span className="text-primary">{currentAdmin.username}</span>
+            已登入：<span className="text-primary">{currentAdmin.email}</span>
             {currentAdmin.isSuper && " · 總管理者"}
           </p>
           <button
-            onClick={logout}
+            onClick={() => void logout()}
             className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-destructive/60 text-destructive"
           >
             <LogOut className="h-4 w-4" /> 登出
@@ -73,90 +73,64 @@ export function SettingsTab() {
         </div>
       ) : (
         <div className="panel space-y-3 p-3">
-          <h2 className="text-sm tracking-widest text-muted-foreground">管理者登入 ADMIN LOGIN</h2>
+          <h2 className="text-sm tracking-widest text-muted-foreground">
+            {mode === "signin" ? "管理者登入 ADMIN LOGIN" : "建立總管理者 SETUP"}
+          </h2>
           <input
             value={u}
             onChange={(e) => setU(e.target.value)}
-            placeholder="帳號"
+            placeholder="登入信箱"
+            autoComplete="email"
             className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
           />
           <input
             value={p}
             type="password"
             onChange={(e) => setP(e.target.value)}
-            placeholder="密碼"
+            placeholder={mode === "signin" ? "密碼" : "密碼（至少 8 碼）"}
+            autoComplete={mode === "signin" ? "current-password" : "new-password"}
             className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
           />
           {err && <p className="text-xs text-destructive">{err}</p>}
           <button
-            onClick={() => setErr(login(u, p) ? "" : "帳號或密碼錯誤")}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setErr("");
+              const fail =
+                mode === "signin" ? await signIn(u, p) : await signUp(u, p);
+              if (fail) {
+                setErr(fail);
+              } else if (mode === "setup") {
+                const claimErr = await claimSuperadmin();
+                if (claimErr) setErr(claimErr);
+              }
+              setBusy(false);
+            }}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-50"
           >
-            <LogIn className="h-4 w-4" /> 登入
+            <LogIn className="h-4 w-4" />
+            {mode === "signin" ? "登入" : "建立並成為總管理者"}
+          </button>
+          <button
+            onClick={() => {
+              setMode(mode === "signin" ? "setup" : "signin");
+              setErr("");
+            }}
+            className="min-h-11 w-full text-xs text-primary"
+          >
+            {mode === "signin"
+              ? "尚未建立總管理者？點此進行首次設定"
+              : "返回登入"}
           </button>
           <p className="text-xs text-muted-foreground">
-            預設總管理者：superadmin / beyx2024
+            帳號權限存放於雲端，核准與刪除報名皆由伺服器驗證身分。
           </p>
         </div>
       )}
 
       <AccountSettings />
 
-
-      {currentAdmin?.isSuper && (
-        <div className="panel space-y-3 p-3">
-          <h2 className="text-sm tracking-widest text-muted-foreground">
-            管理者帳號 ADMIN ACCOUNTS
-          </h2>
-          <ul className="space-y-2">
-            {admins.map((a) => (
-              <li
-                key={a.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2"
-              >
-                <span className="truncate text-sm">
-                  {a.username}
-                  {a.isSuper && <span className="ml-2 text-xs text-primary">總管理者</span>}
-                </span>
-                {!a.isSuper && (
-                  <button
-                    aria-label={`移除 ${a.username}`}
-                    onClick={() => removeAdmin(a.id)}
-                    className="grid h-10 w-10 place-items-center rounded-lg text-destructive"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-          <input
-            value={nu}
-            onChange={(e) => setNu(e.target.value)}
-            placeholder="新管理者帳號"
-            className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-          />
-          <input
-            value={np}
-            onChange={(e) => setNp(e.target.value)}
-            placeholder="新管理者密碼"
-            className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-          />
-          <button
-            onClick={() => {
-              const e = addAdmin(nu, np);
-              setErr(e ?? "");
-              if (!e) {
-                setNu("");
-                setNp("");
-              }
-            }}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 font-display text-primary"
-          >
-            <UserPlus className="h-4 w-4" /> 新增管理者
-          </button>
-        </div>
-      )}
 
       {role === "admin" && <QrRegisterCard />}
 

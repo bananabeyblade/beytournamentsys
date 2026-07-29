@@ -169,6 +169,24 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [tableCount, setTableCount] = useState(2);
   const [currentTournament, setCurrentTournament] = useState<TournamentRow | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Restore the in-progress bracket so leaving the page (e.g. viewing past
+  // results) and coming back does not wipe the live tournament.
+  useEffect(() => {
+    const saved = readPersisted();
+    if (saved) {
+      setPlayers(saved.players);
+      setMatches(saved.matches);
+      if (typeof saved.tableCount === "number") setTableCount(saved.tableCount);
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    localStorage.setItem(STATE_KEY, JSON.stringify({ players, matches, tableCount }));
+  }, [hydrated, players, matches, tableCount]);
 
   const [role, setRoleState] = useState<Role>("player");
   const [currentAdmin, setCurrentAdmin] = useState<CloudAdmin | null>(null);

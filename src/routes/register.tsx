@@ -34,7 +34,9 @@ function RegisterPage() {
     setErr(null);
     try {
       await addRegistration(name);
+      setName("");
       setDone(true);
+
     } catch {
       setErr("送出失敗，請確認網路後再試一次。");
     } finally {

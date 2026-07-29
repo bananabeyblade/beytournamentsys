@@ -28,6 +28,14 @@ export function AppShell({ title }: { title?: string }) {
   const [tab, setTab] = useState<TabId>("live");
   const { role, setRole, currentAdmin, authReady, matches, spectator } = useTournament();
   const [showLogin, setShowLogin] = useState(false);
+  const [joinedName, setJoinedName] = useState("");
+
+  // Spectators arrive via the QR flow; surface the name they registered with.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setJoinedName(window.localStorage.getItem("beyx-joined-name") ?? "");
+  }, []);
+
 
   // Remember the last tab so a refresh returns to where the user was.
   useEffect(() => {

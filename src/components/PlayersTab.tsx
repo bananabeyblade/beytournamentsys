@@ -11,6 +11,10 @@ export function PlayersTab() {
   const [pending, setPending] = useState<Registration[]>([]);
 
   useEffect(() => {
+    if (!currentAdmin) {
+      setPending([]);
+      return;
+    }
     let alive = true;
     const sync = () => {
       fetchRegistrations()
@@ -28,7 +32,8 @@ export function PlayersTab() {
       window.clearInterval(timer);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [currentAdmin]);
+
 
   const resolve = async (id: string, accept: boolean) => {
     const item = pending.find((r) => r.id === id);

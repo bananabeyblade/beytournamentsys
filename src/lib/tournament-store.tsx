@@ -301,11 +301,13 @@ export function TournamentProvider({
 
   const setRole = useCallback(
     (r: Role) => {
-      if (r === "admin" && !currentAdmin) return;
+      // Spectator (QR) sessions are strictly view-only — never allow admin UI.
+      if (r === "admin" && (!currentAdmin || spectator)) return;
       setRoleState(r);
     },
-    [currentAdmin],
+    [currentAdmin, spectator],
   );
+
 
   const signIn = useCallback(
     async (account: string, password: string) => {
@@ -506,8 +508,10 @@ export function TournamentProvider({
       setCurrentTournament(row);
       // Push the closed bracket immediately so spectators/other admins refresh.
       const stamp = new Date().toISOString();
-      lastPublishedStamp.current = `finished|${stamp}`;
-      lastAppliedStamp.current = `finished|${stamp}`;
+      lastPublishedStamp.current = stampOf("finished", stamp);
+      lastAppliedStamp.current = lastPublishedStamp.current;
+      lastPayload.current = JSON.stringify({ players, matches: closed, tableCount });
+
       await publishLiveState(
         currentTournament.id,
         { players, matches: closed, tableCount },
@@ -541,6 +545,16 @@ export function TournamentProvider({
   const lastPublishedStamp = useRef<string>("");
   const lastAppliedStamp = useRef<string>("");
   const followedId = useRef<string>("");
+  /** Serialized snapshot of the last state pushed/applied — blocks echo loops. */
+  const lastPayload = useRef<string>("");
+
+
+  // Timestamps come back from Postgres as `+00:00` while we send `Z`; compare
+  // them as epoch millis so a device never re-applies its own publish (which
+  // used to bounce state forever between pull → publish → realtime → pull).
+  const stampOf = (status: string, iso: string | null | undefined) =>
+    `${status}|${iso ? Date.parse(iso) : ""}`;
+
 
 
   useEffect(() => {
@@ -561,7 +575,7 @@ export function TournamentProvider({
       // never wipe local edits on the first pull after login.
       const switched = followedId.current !== "" && followedId.current !== row.id;
       followedId.current = row.id;
-      const stamp = `${row.status}|${row.live_updated_at ?? ""}`;
+      const stamp = stampOf(row.status, row.live_updated_at);
       if (!row.live_state || !row.live_updated_at) {
         // Fresh event with nothing published yet: drop leftovers from the
         // previous tournament so this device doesn't republish stale data.
@@ -575,9 +589,20 @@ export function TournamentProvider({
       if (stamp === lastPublishedStamp.current || stamp === lastAppliedStamp.current) return;
       lastAppliedStamp.current = stamp;
 
-      setPlayers((row.live_state.players ?? []) as Player[]);
-      setMatches((row.live_state.matches ?? []) as Match[]);
-      if (typeof row.live_state.tableCount === "number") setTableCount(row.live_state.tableCount);
+      const incoming = {
+        players: (row.live_state.players ?? []) as Player[],
+        matches: (row.live_state.matches ?? []) as Match[],
+        tableCount:
+          typeof row.live_state.tableCount === "number" ? row.live_state.tableCount : tableCount,
+      };
+      const serialized = JSON.stringify(incoming);
+      if (serialized === lastPayload.current) return;
+      lastPayload.current = serialized;
+      setPlayers(incoming.players);
+      setMatches(incoming.matches);
+      setTableCount(incoming.tableCount);
+
+
 
     };
     void pull();
@@ -603,15 +628,20 @@ export function TournamentProvider({
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentTournament) return;
     if (!matches.length && !players.length) return;
+    // Nothing actually changed locally → don't write (avoids write/echo storms).
+    const payload = JSON.stringify({ players, matches, tableCount });
+    if (payload === lastPayload.current) return;
 
     const timer = setTimeout(() => {
+      lastPayload.current = payload;
       const stamp = new Date().toISOString();
-      lastPublishedStamp.current = `${currentTournament.status}|${stamp}`;
-      lastAppliedStamp.current = `${currentTournament.status}|${stamp}`;
+      lastPublishedStamp.current = stampOf(currentTournament.status, stamp);
+      lastAppliedStamp.current = lastPublishedStamp.current;
       void publishLiveState(currentTournament.id, { players, matches, tableCount }, stamp);
     }, 300);
     return () => clearTimeout(timer);
   }, [spectator, hydrated, role, currentTournament, players, matches, tableCount]);
+
 
 
   const results = useMemo(() => computeTop4(matches, players), [matches, players]);
@@ -660,8 +690,9 @@ export function TournamentProvider({
 
     matches,
     tableCount,
-    role,
-    currentAdmin,
+    role: spectator ? "player" : role,
+    currentAdmin: spectator ? null : currentAdmin,
+
     authReady,
     setRole,
     signIn,

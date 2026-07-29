@@ -5,7 +5,7 @@ import { fetchRegistrations, deleteRegistration, type Registration } from "@/lib
 import { supabase } from "@/integrations/supabase/client";
 
 export function PlayersTab() {
-  const { players, addPlayers, removePlayer, role } = useTournament();
+  const { players, addPlayers, removePlayer, role, currentAdmin } = useTournament();
   const [single, setSingle] = useState("");
   const [bulk, setBulk] = useState("");
   const [pending, setPending] = useState<Registration[]>([]);
@@ -32,10 +32,11 @@ export function PlayersTab() {
 
   const resolve = async (id: string, accept: boolean) => {
     const item = pending.find((r) => r.id === id);
+    if (!currentAdmin) return;
     if (accept && item) addPlayers([item.name]);
     setPending((prev) => prev.filter((r) => r.id !== id));
     try {
-      await deleteRegistration(id);
+      await deleteRegistration(id, currentAdmin.password);
     } catch {
       /* 下次同步會還原 */
     }

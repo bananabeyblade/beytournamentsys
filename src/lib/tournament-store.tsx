@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -22,6 +23,7 @@ import { bootstrapSuperadminFn, getMyRoleFn } from "./admin.functions";
 import {
   createTournament,
   fetchTournamentByCode,
+  fetchLatestOpenTournament,
   finishTournament,
   publishLiveState,
   type TournamentResults,
@@ -498,7 +500,7 @@ export function TournamentProvider({
     const pull = async () => {
       const row = await fetchLatestOpenTournament().catch(() => null);
       if (!alive || !row) return;
-      setCurrentTournament((prev) => (prev?.id === row.id && prev.status === row.status ? prev : row));
+      setCurrentTournament((prev) => (prev && prev.id === row.id && prev.status === row.status ? prev : row));
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
       const stamp = row.live_updated_at ?? "";
       if (!row.live_state || !stamp) return;

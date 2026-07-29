@@ -30,6 +30,26 @@ import { computeTop4 } from "./standings";
 import { displayAccount, toLoginEmail } from "./account-id";
 
 const ACTIVE_KEY = "beyx-active-tournament";
+const STATE_KEY = "beyx-live-state";
+
+interface PersistedState {
+  players: Player[];
+  matches: Match[];
+  tableCount: number;
+}
+
+function readPersisted(): PersistedState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedState;
+    if (!Array.isArray(parsed.players) || !Array.isArray(parsed.matches)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -149,6 +169,24 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [tableCount, setTableCount] = useState(2);
   const [currentTournament, setCurrentTournament] = useState<TournamentRow | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Restore the in-progress bracket so leaving the page (e.g. viewing past
+  // results) and coming back does not wipe the live tournament.
+  useEffect(() => {
+    const saved = readPersisted();
+    if (saved) {
+      setPlayers(saved.players);
+      setMatches(saved.matches);
+      if (typeof saved.tableCount === "number") setTableCount(saved.tableCount);
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    localStorage.setItem(STATE_KEY, JSON.stringify({ players, matches, tableCount }));
+  }, [hydrated, players, matches, tableCount]);
 
   const [role, setRoleState] = useState<Role>("player");
   const [currentAdmin, setCurrentAdmin] = useState<CloudAdmin | null>(null);

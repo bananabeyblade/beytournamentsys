@@ -1,0 +1,1 @@
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS live_state jsonb, ADD COLUMN IF NOT EXISTS live_updated_at timestamptz;

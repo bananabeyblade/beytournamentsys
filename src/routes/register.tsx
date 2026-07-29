@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { UserPlus, Check, AlertTriangle } from "lucide-react";
 import { addRegistration, isNameTaken } from "@/lib/registration";
@@ -27,14 +27,40 @@ export const Route = createFileRoute("/register")({
   component: RegisterPage,
 });
 
+const JOINED_KEY = "beyx-joined";
+
 function RegisterPage() {
   const { t: code } = Route.useSearch();
+  const navigate = useNavigate();
   const [tournament, setTournament] = useState<TournamentRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Remember the scanned event so a refresh keeps the waiting screen.
+  useEffect(() => {
+    if (!code || typeof window === "undefined") return;
+    if (window.localStorage.getItem(JOINED_KEY) === code) setDone(true);
+  }, [code]);
+
+  // Once the referee starts the event, viewers jump straight to the live screen.
+  useEffect(() => {
+    if (!done || !code) return;
+    let alive = true;
+    const check = async () => {
+      const row = await fetchTournamentByCode(code).catch(() => null);
+      if (!alive || !row?.live_state) return;
+      void navigate({ to: "/watch/$code", params: { code } });
+    };
+    void check();
+    const timer = setInterval(check, 5000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [done, code, navigate]);
 
   useEffect(() => {
     let alive = true;
@@ -61,6 +87,7 @@ function RegisterPage() {
       }
       await addRegistration(tournament.id, name);
       setName("");
+      if (typeof window !== "undefined") window.localStorage.setItem(JOINED_KEY, tournament.code);
       setDone(true);
     } catch (e) {
       setErr(
@@ -91,6 +118,25 @@ function RegisterPage() {
 
       {loading ? (
         <div className="panel p-4 text-sm text-muted-foreground">讀取賽事資訊中…</div>
+      ) : done ? (
+        <div className="panel space-y-3 p-4 text-center">
+          <Check className="mx-auto h-10 w-10 text-primary" />
+          <p className="font-display text-lg">報名已送出</p>
+          <p className="text-sm text-muted-foreground">
+            請等待裁判於現場確認加入選手名單，比賽開始後會自動進入賽事畫面。
+          </p>
+          <p className="text-xs text-primary">等待比賽開始中…</p>
+          <button
+            onClick={() => {
+              setName("");
+              if (typeof window !== "undefined") window.localStorage.removeItem(JOINED_KEY);
+              setDone(false);
+            }}
+            className="min-h-12 w-full rounded-xl border border-primary/60 bg-accent/40 text-primary"
+          >
+            再報名一位
+          </button>
+        </div>
       ) : blocked ? (
         <div className="panel space-y-2 p-4 text-center">
           <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
@@ -100,21 +146,6 @@ function RegisterPage() {
               ? "此 QR Code 已失效，請向裁判索取最新的報名 QR Code。"
               : "本場賽事已結束報名。"}
           </p>
-        </div>
-      ) : done ? (
-        <div className="panel space-y-3 p-4 text-center">
-          <Check className="mx-auto h-10 w-10 text-primary" />
-          <p className="font-display text-lg">報名已送出</p>
-          <p className="text-sm text-muted-foreground">請等待裁判於現場確認加入選手名單。</p>
-          <button
-            onClick={() => {
-              setName("");
-              setDone(false);
-            }}
-            className="min-h-12 w-full rounded-xl border border-primary/60 bg-accent/40 text-primary"
-          >
-            再報名一位
-          </button>
         </div>
       ) : (
         <div className="panel space-y-3 p-4">

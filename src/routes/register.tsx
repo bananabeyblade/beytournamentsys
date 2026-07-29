@@ -26,6 +26,21 @@ export const Route = createFileRoute("/register")({
 function RegisterPage() {
   const [name, setName] = useState("");
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await addRegistration(name);
+      setDone(true);
+    } catch {
+      setErr("送出失敗，請確認網路後再試一次。");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 px-4 py-8">
@@ -56,18 +71,17 @@ function RegisterPage() {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
+            maxLength={40}
             placeholder="選手名稱 / 暱稱"
             className="min-h-14 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
           />
+          {err && <p className="text-sm text-destructive">{err}</p>}
           <button
-            disabled={!name.trim()}
-            onClick={() => {
-              addRegistration(name);
-              setDone(true);
-            }}
+            disabled={!name.trim() || busy}
+            onClick={submit}
             className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
           >
-            <UserPlus className="h-5 w-5" /> 送出報名
+            <UserPlus className="h-5 w-5" /> {busy ? "送出中…" : "送出報名"}
           </button>
         </div>
       )}

@@ -10,6 +10,30 @@ const toneClass: Record<string, string> = {
   xtreme: "bg-xtreme/25 border-xtreme text-xtreme danger-edge",
 };
 
+function SlotCard({
+  active,
+  onClick,
+  name,
+  score,
+}: {
+  active: boolean;
+  onClick: () => void;
+  name: string;
+  score: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-xl border p-3 text-center transition ${
+        active ? "neon-edge bg-accent/40" : "border-border bg-secondary/50"
+      }`}
+    >
+      <p className="truncate text-sm font-semibold">{name}</p>
+      <p className="font-display text-4xl neon-text">{score}</p>
+    </button>
+  );
+}
+
 export function ScoringModal({ match, onClose }: { match: Match; onClose: () => void }) {
   const { playerName, addScore, undoScore, confirmWinner, roundName } = useTournament();
   const [slot, setSlot] = useState<1 | 2>(1);

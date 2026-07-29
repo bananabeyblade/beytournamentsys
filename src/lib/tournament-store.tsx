@@ -568,7 +568,7 @@ export function TournamentProvider({
       // never wipe local edits on the first pull after login.
       const switched = followedId.current !== "" && followedId.current !== row.id;
       followedId.current = row.id;
-      const stamp = `${row.status}|${row.live_updated_at ?? ""}`;
+      const stamp = stampOf(row.status, row.live_updated_at);
       if (!row.live_state || !row.live_updated_at) {
         // Fresh event with nothing published yet: drop leftovers from the
         // previous tournament so this device doesn't republish stale data.
@@ -582,9 +582,20 @@ export function TournamentProvider({
       if (stamp === lastPublishedStamp.current || stamp === lastAppliedStamp.current) return;
       lastAppliedStamp.current = stamp;
 
-      setPlayers((row.live_state.players ?? []) as Player[]);
-      setMatches((row.live_state.matches ?? []) as Match[]);
-      if (typeof row.live_state.tableCount === "number") setTableCount(row.live_state.tableCount);
+      const incoming = {
+        players: (row.live_state.players ?? []) as Player[],
+        matches: (row.live_state.matches ?? []) as Match[],
+        tableCount:
+          typeof row.live_state.tableCount === "number" ? row.live_state.tableCount : tableCount,
+      };
+      const serialized = JSON.stringify(incoming);
+      if (serialized === lastPayload.current) return;
+      lastPayload.current = serialized;
+      setPlayers(incoming.players);
+      setMatches(incoming.matches);
+      setTableCount(incoming.tableCount);
+
+
 
     };
     void pull();

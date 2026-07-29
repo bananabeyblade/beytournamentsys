@@ -557,7 +557,9 @@ export function TournamentProvider({
       if (!alive || !row) return;
       setCurrentTournament((prev) => (prev && prev.id === row!.id && prev.status === row!.status ? prev : row));
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
-      const switched = followedId.current !== row.id;
+      // Only treat it as a switch once we've already followed another event —
+      // never wipe local edits on the first pull after login.
+      const switched = followedId.current !== "" && followedId.current !== row.id;
       followedId.current = row.id;
       const stamp = `${row.status}|${row.live_updated_at ?? ""}`;
       if (!row.live_state || !row.live_updated_at) {
@@ -569,6 +571,7 @@ export function TournamentProvider({
         }
         return;
       }
+
       if (stamp === lastPublishedStamp.current || stamp === lastAppliedStamp.current) return;
       lastAppliedStamp.current = stamp;
 

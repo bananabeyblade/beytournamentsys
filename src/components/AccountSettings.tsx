@@ -219,7 +219,10 @@ function ManageAdmins() {
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="新管理者信箱"
+          placeholder="新管理者帳號（英數字，免信箱）"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
         />
         <input

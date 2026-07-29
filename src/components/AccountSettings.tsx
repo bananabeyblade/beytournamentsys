@@ -8,6 +8,7 @@ import {
   removeAdminFn,
   setAdminPasswordFn,
 } from "@/lib/admin.functions";
+import { USERNAME_RE, displayAccount } from "@/lib/account-id";
 
 type Msg = { ok: boolean; text: string } | null;
 

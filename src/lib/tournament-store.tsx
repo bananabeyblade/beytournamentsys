@@ -161,6 +161,7 @@ interface Ctx extends TournamentState {
   currentTournament: TournamentRow | null;
   startNewTournament: (name: string) => Promise<string | null>;
   resumeTournament: (code: string) => Promise<string | null>;
+  forceFinishTournament: () => Promise<string | null>;
   results: TournamentResults | null;
   spectator: boolean;
   playerName: (id: string | null) => string;
@@ -473,6 +474,22 @@ export function TournamentProvider({
     }
   }, []);
 
+  /** Superadmin escape hatch: close the event even if the final isn't played. */
+  const forceFinishTournament = useCallback(async () => {
+    if (!currentTournament) return "目前沒有進行中的賽事";
+    try {
+      const snapshot = computeTop4(matches, players) ?? {
+        top4: [],
+        playerCount: players.length,
+      };
+      const row = await finishTournament(currentTournament.id, snapshot);
+      setCurrentTournament(row);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "結束賽事失敗";
+    }
+  }, [currentTournament, matches, players]);
+
   // Restore the last created tournament so the QR card survives reloads.
   useEffect(() => {
     if (spectator) return;
@@ -583,6 +600,7 @@ export function TournamentProvider({
     currentTournament,
     startNewTournament,
     resumeTournament,
+    forceFinishTournament,
     results,
 
     matches,

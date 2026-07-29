@@ -541,6 +541,9 @@ export function TournamentProvider({
   const lastPublishedStamp = useRef<string>("");
   const lastAppliedStamp = useRef<string>("");
   const followedId = useRef<string>("");
+  /** Serialized snapshot of the last state pushed/applied — blocks echo loops. */
+  const lastPayload = useRef<string>("");
+
 
   // Timestamps come back from Postgres as `+00:00` while we send `Z`; compare
   // them as epoch millis so a device never re-applies its own publish (which

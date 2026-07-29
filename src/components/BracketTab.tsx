@@ -124,7 +124,9 @@ export function BracketTab() {
                       </p>
                     )}
                   </button>
-                ))}
+                  );
+                })}
+
             </div>
           ))}
         </div>

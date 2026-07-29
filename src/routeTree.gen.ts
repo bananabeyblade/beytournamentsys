@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WatchCodeRouteImport } from './routes/watch.$code'
 import { Route as ResultsCodeRouteImport } from './routes/results.$code'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -29,6 +30,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WatchCodeRoute = WatchCodeRouteImport.update({
+  id: '/watch/$code',
+  path: '/watch/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResultsCodeRoute = ResultsCodeRouteImport.update({
   id: '/results/$code',
   path: '/results/$code',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/results/$code': typeof ResultsCodeRoute
+  '/watch/$code': typeof WatchCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/results/$code': typeof ResultsCodeRoute
+  '/watch/$code': typeof WatchCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,25 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/results/$code': typeof ResultsCodeRoute
+  '/watch/$code': typeof WatchCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/register' | '/sitemap.xml' | '/results/$code'
+  fullPaths:
+    | '/'
+    | '/register'
+    | '/sitemap.xml'
+    | '/results/$code'
+    | '/watch/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/register' | '/sitemap.xml' | '/results/$code'
-  id: '__root__' | '/' | '/register' | '/sitemap.xml' | '/results/$code'
+  to: '/' | '/register' | '/sitemap.xml' | '/results/$code' | '/watch/$code'
+  id:
+    | '__root__'
+    | '/'
+    | '/register'
+    | '/sitemap.xml'
+    | '/results/$code'
+    | '/watch/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +87,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ResultsCodeRoute: typeof ResultsCodeRoute
+  WatchCodeRoute: typeof WatchCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -92,6 +113,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/watch/$code': {
+      id: '/watch/$code'
+      path: '/watch/$code'
+      fullPath: '/watch/$code'
+      preLoaderRoute: typeof WatchCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/results/$code': {
       id: '/results/$code'
       path: '/results/$code'
@@ -107,6 +135,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ResultsCodeRoute: ResultsCodeRoute,
+  WatchCodeRoute: WatchCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

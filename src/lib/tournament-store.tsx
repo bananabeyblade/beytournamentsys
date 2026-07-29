@@ -487,16 +487,58 @@ export function TournamentProvider({
     };
   }, []);
 
+  // Every signed-in admin (not just the creator) follows the current event:
+  // pick up the newest open tournament and mirror its published bracket.
+  const lastPublishedStamp = useRef<string>("");
+  const lastAppliedStamp = useRef<string>("");
+
+  useEffect(() => {
+    if (spectator || !hydrated || role !== "admin" || !currentAdmin) return;
+    let alive = true;
+    const pull = async () => {
+      const row = await fetchLatestOpenTournament().catch(() => null);
+      if (!alive || !row) return;
+      setCurrentTournament((prev) => (prev?.id === row.id && prev.status === row.status ? prev : row));
+      if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      const stamp = row.live_updated_at ?? "";
+      if (!row.live_state || !stamp) return;
+      if (stamp === lastPublishedStamp.current || stamp === lastAppliedStamp.current) return;
+      lastAppliedStamp.current = stamp;
+      setPlayers((row.live_state.players ?? []) as Player[]);
+      setMatches((row.live_state.matches ?? []) as Match[]);
+      if (typeof row.live_state.tableCount === "number") setTableCount(row.live_state.tableCount);
+    };
+    void pull();
+    const timer = setInterval(pull, 5000);
+    const channel = supabase
+      .channel("admin-tournament-follow")
+      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, () =>
+        void pull(),
+      )
+      .subscribe();
+    const onBack = () => void pull();
+    if (typeof window !== "undefined") window.addEventListener(RECONNECT_EVENT, onBack);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      supabase.removeChannel(channel);
+      if (typeof window !== "undefined") window.removeEventListener(RECONNECT_EVENT, onBack);
+    };
+  }, [spectator, hydrated, role, currentAdmin]);
 
   // Admins publish the bracket so QR spectators can follow the event live.
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentTournament) return;
     if (!matches.length) return;
     const timer = setTimeout(() => {
-      void publishLiveState(currentTournament.id, { players, matches, tableCount });
+      const stamp = new Date().toISOString();
+      lastPublishedStamp.current = stamp;
+      lastAppliedStamp.current = stamp;
+      void publishLiveState(currentTournament.id, { players, matches, tableCount }, stamp);
     }, 300);
     return () => clearTimeout(timer);
   }, [spectator, hydrated, role, currentTournament, players, matches, tableCount]);
+
 
   const results = useMemo(() => computeTop4(matches, players), [matches, players]);
 

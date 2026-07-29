@@ -43,7 +43,7 @@ export function QrRegisterCard() {
         <QrCode className="h-4 w-4" /> 報名 QR CODE
       </h2>
 
-      {currentTournament ? (
+      {currentTournament && currentTournament.status === "open" ? (
         <>
           <p className="text-sm">
             <span className="text-primary">{currentTournament.name}</span> · 代碼{" "}

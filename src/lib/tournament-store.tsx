@@ -542,6 +542,13 @@ export function TournamentProvider({
   const lastAppliedStamp = useRef<string>("");
   const followedId = useRef<string>("");
 
+  // Timestamps come back from Postgres as `+00:00` while we send `Z`; compare
+  // them as epoch millis so a device never re-applies its own publish (which
+  // used to bounce state forever between pull → publish → realtime → pull).
+  const stampOf = (status: string, iso: string | null | undefined) =>
+    `${status}|${iso ? Date.parse(iso) : ""}`;
+
+
 
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentAdmin) return;

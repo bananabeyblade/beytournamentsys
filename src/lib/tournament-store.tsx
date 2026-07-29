@@ -339,6 +339,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     try {
       const row = await createTournament(clean);
       setCurrentTournament(row);
+      if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
       setPlayers([]);
       setMatches([]);
       return null;
@@ -346,6 +347,22 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       return e instanceof Error ? e.message : "建立賽事失敗";
     }
   }, []);
+
+  // Restore the last created tournament so the QR card survives reloads.
+  useEffect(() => {
+    const code = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_KEY) : null;
+    if (!code) return;
+    let alive = true;
+    fetchTournamentByCode(code)
+      .then((row) => {
+        if (alive && row) setCurrentTournament(row);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
 
   const results = useMemo(() => computeTop4(matches, players), [matches, players]);
 

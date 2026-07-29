@@ -23,6 +23,7 @@ import {
   createTournament,
   fetchTournamentByCode,
   finishTournament,
+  publishLiveState,
   type TournamentResults,
   type TournamentRow,
 } from "./tournaments";
@@ -157,6 +158,7 @@ interface Ctx extends TournamentState {
   currentTournament: TournamentRow | null;
   startNewTournament: (name: string) => Promise<string | null>;
   results: TournamentResults | null;
+  spectator: boolean;
   playerName: (id: string | null) => string;
   roundName: (round: number) => string;
 
@@ -164,7 +166,15 @@ interface Ctx extends TournamentState {
 
 const TournamentContext = createContext<Ctx | null>(null);
 
-export function TournamentProvider({ children }: { children: ReactNode }) {
+export function TournamentProvider({
+  children,
+  spectatorCode,
+}: {
+  children: ReactNode;
+  /** When set, the provider mirrors a cloud tournament read-only (QR viewers). */
+  spectatorCode?: string;
+}) {
+  const spectator = !!spectatorCode;
   const [players, setPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [tableCount, setTableCount] = useState(2);
@@ -174,6 +184,10 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   // Restore the in-progress bracket so leaving the page (e.g. viewing past
   // results) and coming back does not wipe the live tournament.
   useEffect(() => {
+    if (spectator) {
+      setHydrated(true);
+      return;
+    }
     const saved = readPersisted();
     if (saved) {
       setPlayers(saved.players);
@@ -181,12 +195,35 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       if (typeof saved.tableCount === "number") setTableCount(saved.tableCount);
     }
     setHydrated(true);
-  }, []);
+  }, [spectator]);
 
   useEffect(() => {
-    if (!hydrated || typeof window === "undefined") return;
+    if (!hydrated || spectator || typeof window === "undefined") return;
     localStorage.setItem(STATE_KEY, JSON.stringify({ players, matches, tableCount }));
-  }, [hydrated, players, matches, tableCount]);
+  }, [hydrated, spectator, players, matches, tableCount]);
+
+  // Spectator mode: follow the published bracket of the scanned tournament.
+  useEffect(() => {
+    if (!spectatorCode) return;
+    let alive = true;
+    const pull = async () => {
+      const row = await fetchTournamentByCode(spectatorCode).catch(() => null);
+      if (!alive || !row) return;
+      setCurrentTournament(row);
+      const live = row.live_state;
+      if (live) {
+        setPlayers((live.players ?? []) as Player[]);
+        setMatches((live.matches ?? []) as Match[]);
+        if (typeof live.tableCount === "number") setTableCount(live.tableCount);
+      }
+    };
+    void pull();
+    const timer = setInterval(pull, 5000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [spectatorCode]);
 
   const [role, setRoleState] = useState<Role>("player");
   const [currentAdmin, setCurrentAdmin] = useState<CloudAdmin | null>(null);
@@ -391,6 +428,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
 
   // Restore the last created tournament so the QR card survives reloads.
   useEffect(() => {
+    if (spectator) return;
     const code = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_KEY) : null;
     if (!code) return;
     let alive = true;
@@ -405,11 +443,21 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   }, []);
 
 
+  // Admins publish the bracket so QR spectators can follow the event live.
+  useEffect(() => {
+    if (spectator || !hydrated || role !== "admin" || !currentTournament) return;
+    if (!matches.length) return;
+    const timer = setTimeout(() => {
+      void publishLiveState(currentTournament.id, { players, matches, tableCount });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [spectator, hydrated, role, currentTournament, players, matches, tableCount]);
+
   const results = useMemo(() => computeTop4(matches, players), [matches, players]);
 
   // Once the final is decided, archive the podium so the results page exists.
   useEffect(() => {
-    if (!results || !currentTournament || currentTournament.status !== "open") return;
+    if (spectator || !results || !currentTournament || currentTournament.status !== "open") return;
     let alive = true;
     finishTournament(currentTournament.id, results)
       .then((row) => alive && setCurrentTournament(row))
@@ -417,7 +465,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     return () => {
       alive = false;
     };
-  }, [results, currentTournament]);
+  }, [spectator, results, currentTournament]);
 
 
   const playerName = useCallback(
@@ -469,6 +517,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     confirmWinner,
     resetTournament,
     loadSample,
+    spectator,
     playerName,
     roundName,
   };

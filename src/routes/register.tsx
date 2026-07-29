@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { UserPlus, Check, AlertTriangle } from "lucide-react";
 import { addRegistration, isNameTaken } from "@/lib/registration";
 import { fetchTournamentByCode, type TournamentRow } from "@/lib/tournaments";
+import { supabase } from "@/integrations/supabase/client";
+import { RECONNECT_EVENT } from "@/hooks/use-connection";
+import { ConnectionBanner } from "@/components/ConnectionBanner";
 
 export const Route = createFileRoute("/register")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -45,7 +48,8 @@ function RegisterPage() {
     if (window.localStorage.getItem(JOINED_KEY) === code) setDone(true);
   }, [code]);
 
-  // Once the referee starts the event, viewers jump straight to the live screen.
+  // Once the referee starts the event, viewers jump straight to the live
+  // screen — pushed instantly by realtime, with polling as a fallback.
   useEffect(() => {
     if (!done || !code) return;
     let alive = true;
@@ -56,9 +60,21 @@ function RegisterPage() {
     };
     void check();
     const timer = setInterval(check, 5000);
+    const channel = supabase
+      .channel(`register-${code}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tournaments", filter: `code=eq.${code}` },
+        () => void check(),
+      )
+      .subscribe();
+    const onBack = () => void check();
+    window.addEventListener(RECONNECT_EVENT, onBack);
     return () => {
       alive = false;
       clearInterval(timer);
+      supabase.removeChannel(channel);
+      window.removeEventListener(RECONNECT_EVENT, onBack);
     };
   }, [done, code, navigate]);
 
@@ -104,6 +120,7 @@ function RegisterPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 px-4 py-8">
+      <ConnectionBanner />
       <div>
         <h1 className="font-display text-2xl neon-text">賽事報名</h1>
         <p className="text-[11px] tracking-widest text-muted-foreground">

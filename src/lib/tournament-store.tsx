@@ -208,9 +208,14 @@ export function TournamentProvider({
   useEffect(() => {
     if (!spectatorCode) return;
     let alive = true;
+    let lastStamp = "";
     const pull = async () => {
       const row = await fetchTournamentByCode(spectatorCode).catch(() => null);
       if (!alive || !row) return;
+      // Skip re-rendering the whole bracket when nothing actually changed.
+      const stamp = `${row.status}|${row.live_updated_at ?? ""}`;
+      if (stamp === lastStamp) return;
+      lastStamp = stamp;
       setCurrentTournament(row);
       const live = row.live_state;
       if (live) {
@@ -220,7 +225,7 @@ export function TournamentProvider({
       }
     };
     void pull();
-    const timer = setInterval(pull, 5000);
+    const timer = setInterval(pull, 4000);
     const channel = supabase
       .channel(`tournament-${spectatorCode}`)
       .on(

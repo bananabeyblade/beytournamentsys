@@ -38,28 +38,21 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
         </div>
 
         <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          {([1, 2] as const).map((s, i) => (
-            <>
-              {i === 1 && (
-                <div className="text-center font-display text-xs text-muted-foreground">VS</div>
-              )}
-              <button
-                key={s}
-                onClick={() => setSlot(s)}
-                className={`rounded-xl border p-3 text-center transition ${
-                  slot === s ? "neon-edge bg-accent/40" : "border-border bg-secondary/50"
-                }`}
-              >
-                <p className="truncate text-sm font-semibold">
-                  {playerName(s === 1 ? match.p1 : match.p2)}
-                </p>
-                <p className="font-display text-4xl neon-text">
-                  {s === 1 ? match.score1 : match.score2}
-                </p>
-              </button>
-            </>
-          ))}
+          <SlotCard
+            active={slot === 1}
+            onClick={() => setSlot(1)}
+            name={playerName(match.p1)}
+            score={match.score1}
+          />
+          <div className="text-center font-display text-xs text-muted-foreground">VS</div>
+          <SlotCard
+            active={slot === 2}
+            onClick={() => setSlot(2)}
+            name={playerName(match.p2)}
+            score={match.score2}
+          />
         </div>
+
         <p className="mt-2 text-center text-xs text-muted-foreground">
           先取 {WIN_TARGET} 分獲勝 · 目前為 <span className="text-primary">選手 {slot}</span> 加分
         </p>

@@ -2,7 +2,9 @@ import { useState } from "react";
 import { LogIn, LogOut, Shuffle, RotateCcw, Shield, Eye } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { AccountSettings } from "./AccountSettings";
+import { FirstTimeSetup } from "./FirstTimeSetup";
 import { QrRegisterCard } from "./QrRegisterCard";
+
 
 export function SettingsTab() {
   const {
@@ -10,8 +12,6 @@ export function SettingsTab() {
     setRole,
     currentAdmin,
     signIn,
-    signUp,
-    claimSuperadmin,
     logout,
     tableCount,
     setTableCount,
@@ -25,7 +25,7 @@ export function SettingsTab() {
   const [p, setP] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<"signin" | "setup">("signin");
+
 
 
   return (
@@ -72,64 +72,57 @@ export function SettingsTab() {
           </button>
         </div>
       ) : (
-        <div className="panel space-y-3 p-3">
-          <h2 className="text-sm tracking-widest text-muted-foreground">
-            {mode === "signin" ? "管理者登入 ADMIN LOGIN" : "建立總管理者 SETUP"}
-          </h2>
-          <input
-            value={u}
-            onChange={(e) => setU(e.target.value)}
-            placeholder="登入信箱"
-            autoComplete="email"
-            className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-          />
-          <input
-            value={p}
-            type="password"
-            onChange={(e) => setP(e.target.value)}
-            placeholder={mode === "signin" ? "密碼" : "密碼（至少 8 碼）"}
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
-            className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-          />
-          {err && <p className="text-xs text-destructive">{err}</p>}
-          <button
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setErr("");
-              const fail =
-                mode === "signin" ? await signIn(u, p) : await signUp(u, p);
-              if (fail) {
-                setErr(fail);
-              } else if (mode === "setup") {
-                const claimErr = await claimSuperadmin();
-                if (claimErr) setErr(claimErr);
-              }
-              setBusy(false);
-            }}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-50"
-          >
-            <LogIn className="h-4 w-4" />
-            {mode === "signin" ? "登入" : "建立並成為總管理者"}
-          </button>
-          <button
-            onClick={() => {
-              setMode(mode === "signin" ? "setup" : "signin");
-              setErr("");
-            }}
-            className="min-h-11 w-full text-xs text-primary"
-          >
-            {mode === "signin"
-              ? "尚未建立總管理者？點此進行首次設定"
-              : "返回登入"}
-          </button>
-          <p className="text-xs text-muted-foreground">
-            帳號權限存放於雲端，核准與刪除報名皆由伺服器驗證身分。
-          </p>
-        </div>
+        <>
+          <FirstTimeSetup />
+          <div className="panel space-y-3 p-3">
+            <h2 className="text-sm tracking-widest text-muted-foreground">管理者登入 ADMIN LOGIN</h2>
+            <input
+              value={u}
+              onChange={(e) => setU(e.target.value)}
+              placeholder="登入信箱"
+              autoComplete="email"
+              inputMode="email"
+              className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+            />
+            <input
+              value={p}
+              type="password"
+              onChange={(e) => setP(e.target.value)}
+              placeholder="密碼"
+              autoComplete="current-password"
+              className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+            />
+            {err && <p className="text-xs text-destructive">{err}</p>}
+            <button
+              disabled={busy}
+              onClick={async () => {
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u.trim())) {
+                  setErr("請輸入正確的登入信箱");
+                  return;
+                }
+                if (!p) {
+                  setErr("請輸入密碼");
+                  return;
+                }
+                setBusy(true);
+                setErr("");
+                const fail = await signIn(u.trim(), p);
+                if (fail) setErr(fail);
+                setBusy(false);
+              }}
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-50"
+            >
+              <LogIn className="h-4 w-4" /> 登入
+            </button>
+            <p className="text-xs text-muted-foreground">
+              帳號權限存放於雲端，核准與刪除報名皆由伺服器驗證身分。
+            </p>
+          </div>
+        </>
       )}
 
       <AccountSettings />
+
 
 
       {role === "admin" && <QrRegisterCard />}

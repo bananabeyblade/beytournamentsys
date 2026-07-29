@@ -48,9 +48,8 @@ export function QrRegisterCard() {
           <p className="text-sm">
             <span className="text-primary">{currentTournament.name}</span> · 代碼{" "}
             <span className="font-display">{currentTournament.code}</span>
-            {currentTournament.status === "finished" && " · 已結束"}
           </p>
-          {img && currentTournament.status === "open" && (
+          {img && (
             <img
               src={img}
               alt={`${currentTournament.name} 報名 QR Code`}
@@ -60,28 +59,32 @@ export function QrRegisterCard() {
           <p className="text-xs text-muted-foreground">
             每建立一場新賽事都會產生新的 QR Code，舊的 QR Code 會自動失效；同一場賽事不可重複報名相同名稱。
           </p>
-          {currentTournament.status === "open" ? (
-            <button
-              onClick={() => {
-                navigator.clipboard?.writeText(url);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              }}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 text-primary"
-            >
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {copied ? "已複製連結" : "複製報名連結"}
-            </button>
-          ) : (
-            <Link
-              to="/results/$code"
-              params={{ code: currentTournament.code }}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 font-display text-primary"
-            >
-              <Trophy className="h-4 w-4" /> 查看前四名成績
-            </Link>
-          )}
+          <button
+            onClick={() => {
+              navigator.clipboard?.writeText(url);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 text-primary"
+          >
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? "已複製連結" : "複製報名連結"}
+          </button>
         </>
+      ) : currentTournament ? (
+        <>
+          <p className="text-xs text-muted-foreground">
+            本場賽事（{currentTournament.name}）已結束，報名 QR Code 已停止顯示。
+          </p>
+          <Link
+            to="/results/$code"
+            params={{ code: currentTournament.code }}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 font-display text-primary"
+          >
+            <Trophy className="h-4 w-4" /> 查看前四名成績
+          </Link>
+        </>
+
       ) : (
         <p className="text-xs text-muted-foreground">
           建立一場新賽事後即可產生專屬報名 QR Code。

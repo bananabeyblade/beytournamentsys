@@ -179,7 +179,7 @@ function ManageAdmins() {
         {admins.map((a) => (
           <li key={a.id} className="rounded-lg border border-border bg-secondary/40 p-3">
             <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
-              <span className="truncate text-sm">{a.email ?? a.user_id}</span>
+              <span className="truncate text-sm">{displayAccount(a.email) || a.user_id}</span>
               <button
                 onClick={() => setEditId(editId === a.user_id ? null : a.user_id)}
                 className="min-h-10 shrink-0 rounded-lg px-2 text-xs text-primary"

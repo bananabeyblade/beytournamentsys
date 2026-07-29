@@ -107,8 +107,9 @@ function RegisterPage() {
       setName("");
       if (typeof window !== "undefined") {
         window.localStorage.setItem(JOINED_KEY, tournament.code);
-        window.localStorage.setItem(JOINED_NAME_KEY, joinedName);
       }
+      writeJoinedName(joinedName);
+
       setDone(true);
     } catch (e) {
       setErr(

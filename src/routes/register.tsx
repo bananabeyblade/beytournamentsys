@@ -31,6 +31,7 @@ export const Route = createFileRoute("/register")({
 });
 
 const JOINED_KEY = "beyx-joined";
+export const JOINED_NAME_KEY = "beyx-joined-name";
 
 function RegisterPage() {
   const { t: code } = Route.useSearch();
@@ -101,9 +102,13 @@ function RegisterPage() {
         setErr("這個名稱在本場賽事已經報名過了，請換一個名稱。");
         return;
       }
+      const joinedName = name.trim();
       await addRegistration(tournament.id, name);
       setName("");
-      if (typeof window !== "undefined") window.localStorage.setItem(JOINED_KEY, tournament.code);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(JOINED_KEY, tournament.code);
+        window.localStorage.setItem(JOINED_NAME_KEY, joinedName);
+      }
       setDone(true);
     } catch (e) {
       setErr(
@@ -146,7 +151,10 @@ function RegisterPage() {
           <button
             onClick={() => {
               setName("");
-              if (typeof window !== "undefined") window.localStorage.removeItem(JOINED_KEY);
+              if (typeof window !== "undefined") {
+                window.localStorage.removeItem(JOINED_KEY);
+                window.localStorage.removeItem(JOINED_NAME_KEY);
+              }
               setDone(false);
             }}
             className="min-h-12 w-full rounded-xl border border-primary/60 bg-accent/40 text-primary"

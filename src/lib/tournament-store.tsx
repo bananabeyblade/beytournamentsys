@@ -582,10 +582,12 @@ export function TournamentProvider({
     };
   }, [spectator, hydrated, role, currentAdmin]);
 
-  // Admins publish the bracket so QR spectators can follow the event live.
+  // Admins publish players + bracket so spectators and the other admins follow
+  // the same event state — the roster must sync before the bracket exists too.
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentTournament) return;
-    if (!matches.length) return;
+    if (!matches.length && !players.length) return;
+
     const timer = setTimeout(() => {
       const stamp = new Date().toISOString();
       lastPublishedStamp.current = `${currentTournament.status}|${stamp}`;

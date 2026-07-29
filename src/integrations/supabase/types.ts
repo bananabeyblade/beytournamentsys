@@ -74,6 +74,8 @@ export type Database = {
           created_by: string | null
           finished_at: string | null
           id: string
+          live_state: Json | null
+          live_updated_at: string | null
           name: string
           results: Json | null
           status: string
@@ -84,6 +86,8 @@ export type Database = {
           created_by?: string | null
           finished_at?: string | null
           id?: string
+          live_state?: Json | null
+          live_updated_at?: string | null
           name: string
           results?: Json | null
           status?: string
@@ -94,6 +98,8 @@ export type Database = {
           created_by?: string | null
           finished_at?: string | null
           id?: string
+          live_state?: Json | null
+          live_updated_at?: string | null
           name?: string
           results?: Json | null
           status?: string

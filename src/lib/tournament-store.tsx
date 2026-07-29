@@ -165,6 +165,21 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     setAdmins((prev) => prev.filter((a) => a.id !== id || a.isSuper));
   }, []);
 
+  const updateAdmin = useCallback(
+    (id: string, username: string, password: string) => {
+      const u = username.trim();
+      if (!u) return "帳號不可為空";
+      if (!password) return "密碼不可為空";
+      if (admins.some((a) => a.username === u && a.id !== id)) return "帳號已存在";
+      const next = admins.map((a) => (a.id === id ? { ...a, username: u, password } : a));
+      setAdmins(next);
+      setCurrentAdmin((cur) => (cur && cur.id === id ? { ...cur, username: u, password } : cur));
+      return null;
+    },
+    [admins],
+  );
+
+
   const addPlayers = useCallback((names: string[]) => {
     const clean = names.map((n) => n.trim()).filter(Boolean);
     if (!clean.length) return;

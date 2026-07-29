@@ -94,13 +94,14 @@ function buildBracket(players: Player[]): Match[] {
 
 interface Ctx extends TournamentState {
   role: Role;
-  currentAdmin: AdminAccount | null;
+  currentAdmin: CloudAdmin | null;
+  authReady: boolean;
   setRole: (r: Role) => void;
-  login: (u: string, p: string) => boolean;
-  logout: () => void;
-  addAdmin: (u: string, p: string) => string | null;
-  removeAdmin: (id: string) => void;
-  updateAdmin: (id: string, username: string, password: string) => string | null;
+  signIn: (email: string, password: string) => Promise<string | null>;
+  signUp: (email: string, password: string) => Promise<string | null>;
+  claimSuperadmin: () => Promise<string | null>;
+  refreshRole: () => Promise<void>;
+  logout: () => Promise<void>;
   addPlayers: (names: string[]) => void;
   removePlayer: (id: string) => void;
   setTableCount: (n: number) => void;
@@ -117,67 +118,107 @@ interface Ctx extends TournamentState {
 
 const TournamentContext = createContext<Ctx | null>(null);
 
-const DEFAULT_ADMINS: AdminAccount[] = [
-  { id: "super", username: "superadmin", password: "beyx2024", isSuper: true },
-];
-
 export function TournamentProvider({ children }: { children: ReactNode }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [tableCount, setTableCount] = useState(2);
-  const [admins, setAdmins] = useState<AdminAccount[]>(DEFAULT_ADMINS);
   const [role, setRoleState] = useState<Role>("player");
-  const [currentAdmin, setCurrentAdmin] = useState<AdminAccount | null>(null);
+  const [currentAdmin, setCurrentAdmin] = useState<CloudAdmin | null>(null);
+  const [authReady, setAuthReady] = useState(false);
 
-  const setRole = useCallback((r: Role) => {
-    setRoleState(r);
-    if (r === "player") setCurrentAdmin(null);
+  const syncRole = useCallback(async () => {
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+    if (!user) {
+      setCurrentAdmin(null);
+      setRoleState("player");
+      return;
+    }
+    try {
+      const { role: cloudRole } = await getMyRoleFn();
+      if (!cloudRole) {
+        setCurrentAdmin(null);
+        setRoleState("player");
+        return;
+      }
+      setCurrentAdmin({
+        id: user.id,
+        email: user.email ?? "",
+        isSuper: cloudRole === "superadmin",
+      });
+      setRoleState("admin");
+    } catch {
+      setCurrentAdmin(null);
+      setRoleState("player");
+    }
   }, []);
 
-  const login = useCallback(
-    (u: string, p: string) => {
-      const found = admins.find((a) => a.username === u.trim() && a.password === p);
-      if (!found) return false;
-      setCurrentAdmin(found);
-      setRoleState("admin");
-      return true;
+  useEffect(() => {
+    let alive = true;
+    void syncRole().finally(() => alive && setAuthReady(true));
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        void syncRole();
+      }
+    });
+    return () => {
+      alive = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [syncRole]);
+
+  const setRole = useCallback(
+    (r: Role) => {
+      if (r === "admin" && !currentAdmin) return;
+      setRoleState(r);
     },
-    [admins],
+    [currentAdmin],
   );
 
-  const logout = useCallback(() => {
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) return "帳號或密碼錯誤";
+      await syncRole();
+      return null;
+    },
+    [syncRole],
+  );
+
+  const signUp = useCallback(
+    async (email: string, password: string) => {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { emailRedirectTo: window.location.origin },
+      });
+      if (error) return error.message;
+      await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      await syncRole();
+      return null;
+    },
+    [syncRole],
+  );
+
+  const claimSuperadmin = useCallback(async () => {
+    try {
+      await bootstrapSuperadminFn();
+      await syncRole();
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "設定失敗";
+    }
+  }, [syncRole]);
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
     setCurrentAdmin(null);
     setRoleState("player");
   }, []);
 
-  const addAdmin = useCallback(
-    (u: string, p: string) => {
-      const username = u.trim();
-      if (!username || !p) return "帳號與密碼不可為空";
-      if (admins.some((a) => a.username === username)) return "帳號已存在";
-      setAdmins((prev) => [...prev, { id: uid(), username, password: p, isSuper: false }]);
-      return null;
-    },
-    [admins],
-  );
-
-  const removeAdmin = useCallback((id: string) => {
-    setAdmins((prev) => prev.filter((a) => a.id !== id || a.isSuper));
-  }, []);
-
-  const updateAdmin = useCallback(
-    (id: string, username: string, password: string) => {
-      const u = username.trim();
-      if (!u) return "帳號不可為空";
-      if (!password) return "密碼不可為空";
-      if (admins.some((a) => a.username === u && a.id !== id)) return "帳號已存在";
-      const next = admins.map((a) => (a.id === id ? { ...a, username: u, password } : a));
-      setAdmins(next);
-      setCurrentAdmin((cur) => (cur && cur.id === id ? { ...cur, username: u, password } : cur));
-      return null;
-    },
-    [admins],
-  );
 
 
   const addPlayers = useCallback((names: string[]) => {

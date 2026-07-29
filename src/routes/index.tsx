@@ -51,7 +51,7 @@ function App() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
         <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
           <div className="min-w-0">
-            <h1 className="truncate font-display text-lg neon-text">BEYBLADE X</h1>
+            <h1 className="truncate font-display text-lg neon-text">竹塹陀螺集會所</h1>
             <p className="truncate text-[11px] tracking-widest text-muted-foreground">
               TOURNAMENT SYSTEM · 賽事管理
             </p>

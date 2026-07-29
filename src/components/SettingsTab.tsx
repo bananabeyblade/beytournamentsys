@@ -2,7 +2,9 @@ import { useState } from "react";
 import { LogIn, LogOut, Shuffle, RotateCcw, Shield, Eye } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { AccountSettings } from "./AccountSettings";
+import { FirstTimeSetup } from "./FirstTimeSetup";
 import { QrRegisterCard } from "./QrRegisterCard";
+
 
 export function SettingsTab() {
   const {

@@ -301,11 +301,13 @@ export function TournamentProvider({
 
   const setRole = useCallback(
     (r: Role) => {
-      if (r === "admin" && !currentAdmin) return;
+      // Spectator (QR) sessions are strictly view-only — never allow admin UI.
+      if (r === "admin" && (!currentAdmin || spectator)) return;
       setRoleState(r);
     },
-    [currentAdmin],
+    [currentAdmin, spectator],
   );
+
 
   const signIn = useCallback(
     async (account: string, password: string) => {

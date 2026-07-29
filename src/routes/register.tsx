@@ -118,16 +118,6 @@ function RegisterPage() {
 
       {loading ? (
         <div className="panel p-4 text-sm text-muted-foreground">讀取賽事資訊中…</div>
-      ) : blocked ? (
-        <div className="panel space-y-2 p-4 text-center">
-          <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
-          <p className="font-display text-lg">無法報名</p>
-          <p className="text-sm text-muted-foreground">
-            {!code || !tournament
-              ? "此 QR Code 已失效，請向裁判索取最新的報名 QR Code。"
-              : "本場賽事已結束報名。"}
-          </p>
-        </div>
       ) : done ? (
         <div className="panel space-y-3 p-4 text-center">
           <Check className="mx-auto h-10 w-10 text-primary" />
@@ -146,6 +136,16 @@ function RegisterPage() {
           >
             再報名一位
           </button>
+        </div>
+      ) : blocked ? (
+        <div className="panel space-y-2 p-4 text-center">
+          <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
+          <p className="font-display text-lg">無法報名</p>
+          <p className="text-sm text-muted-foreground">
+            {!code || !tournament
+              ? "此 QR Code 已失效，請向裁判索取最新的報名 QR Code。"
+              : "本場賽事已結束報名。"}
+          </p>
         </div>
       ) : (
         <div className="panel space-y-3 p-4">

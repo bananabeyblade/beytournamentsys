@@ -38,7 +38,15 @@ export function AppShell({ title }: { title?: string }) {
     if (typeof window !== "undefined") window.localStorage.setItem(TAB_KEY, tab);
   }, [tab]);
 
+  // When the bracket appears (e.g. the superadmin just generated it), jump
+  // straight into the running event instead of leaving admins on settings.
+  const hasMatches = matches.length > 0;
+  useEffect(() => {
+    if (hasMatches) setTab("live");
+  }, [hasMatches]);
+
   const liveCount = matches.filter((m) => m.status === "live").length;
+
   const tabs = spectator ? TABS.filter((t) => t.id !== "settings") : TABS;
   const activeTab = tabs.some((t) => t.id === tab) ? tab : "live";
 

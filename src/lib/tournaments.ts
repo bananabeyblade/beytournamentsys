@@ -101,3 +101,17 @@ export async function listTournaments(): Promise<TournamentRow[]> {
   if (error) throw new Error("無法讀取賽事紀錄");
   return (data ?? []) as unknown as TournamentRow[];
 }
+
+/** Latest still-open tournament — lets any admin join the event in progress. */
+export async function fetchLatestOpenTournament(): Promise<TournamentRow | null> {
+  const { data, error } = await supabase
+    .from("tournaments")
+    .select(COLS)
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return (data as unknown as TournamentRow) ?? null;
+}
+

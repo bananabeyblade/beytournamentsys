@@ -123,9 +123,17 @@ function ManageAdmins() {
   useEffect(load, [load]);
 
   const create = async () => {
+    if (!USERNAME_RE.test(email.trim())) {
+      setMsg({ ok: false, text: "帳號僅能使用英數字、底線、點與連字號（3-30 字）" });
+      return;
+    }
+    if (password.length < 8) {
+      setMsg({ ok: false, text: "密碼至少需 8 碼" });
+      return;
+    }
     setBusy(true);
     try {
-      await createAdminFn({ data: { email: email.trim(), password } });
+      await createAdminFn({ data: { username: email.trim(), password } });
       setEmail("");
       setPassword("");
       setMsg({ ok: true, text: "已建立管理者帳號" });

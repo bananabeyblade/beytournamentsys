@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+
 import { Play, Swords, Radio, Trophy } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import type { Match } from "@/lib/tournament-types";
@@ -67,7 +69,7 @@ function MatchCard({
 }
 
 export function LiveTab() {
-  const { matches, tableCount, startMatch, role } = useTournament();
+  const { matches, tableCount, startMatch, role, results, currentTournament } = useTournament();
   const [openId, setOpenId] = useState<string | null>(null);
   const [startId, setStartId] = useState<string | null>(null);
 
@@ -120,12 +122,29 @@ export function LiveTab() {
         )}
       </section>
 
-      {matches.every((m) => m.status === "done") && matches.length > 0 && (
-        <div className="panel neon-edge p-4 text-center">
+      {results && (
+        <div className="panel neon-edge space-y-3 p-4 text-center">
           <Trophy className="mx-auto h-7 w-7 text-primary" />
-          <p className="mt-1 font-display neon-text">賽事完成 TOURNAMENT COMPLETE</p>
+          <p className="font-display neon-text">賽事完成 · 前四名已產生</p>
+          <ol className="space-y-1 text-sm">
+            {results.top4.map((e) => (
+              <li key={e.rank}>
+                <span className="font-display text-primary">{e.rank}</span> · {e.name}
+              </li>
+            ))}
+          </ol>
+          {currentTournament && (
+            <Link
+              to="/results/$code"
+              params={{ code: currentTournament.code }}
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 font-display text-primary"
+            >
+              查看成績頁面
+            </Link>
+          )}
         </div>
       )}
+
 
       {startId && role === "admin" && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/85 p-4 backdrop-blur-sm">

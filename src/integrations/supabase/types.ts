@@ -43,16 +43,60 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          tournament_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          tournament_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          tournament_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registrations_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournaments: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          finished_at: string | null
+          id: string
+          name: string
+          results: Json | null
+          status: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          name: string
+          results?: Json | null
+          status?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          finished_at?: string | null
+          id?: string
+          name?: string
+          results?: Json | null
+          status?: string
         }
         Relationships: []
       }

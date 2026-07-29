@@ -4,6 +4,8 @@ import { useTournament } from "@/lib/tournament-store";
 import { AccountSettings } from "./AccountSettings";
 import { FirstTimeSetup } from "./FirstTimeSetup";
 import { QrRegisterCard } from "./QrRegisterCard";
+import { TournamentHistory } from "./TournamentHistory";
+
 
 
 export function SettingsTab() {
@@ -126,6 +128,9 @@ export function SettingsTab() {
 
 
       {role === "admin" && <QrRegisterCard />}
+
+      {role === "admin" && <TournamentHistory />}
+
 
       {role === "admin" && (
         <div className="panel space-y-3 p-3">

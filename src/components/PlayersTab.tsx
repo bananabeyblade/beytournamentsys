@@ -5,19 +5,21 @@ import { fetchRegistrations, deleteRegistration, type Registration } from "@/lib
 import { supabase } from "@/integrations/supabase/client";
 
 export function PlayersTab() {
-  const { players, addPlayers, removePlayer, role, currentAdmin } = useTournament();
+  const { players, addPlayers, removePlayer, role, currentAdmin, currentTournament } =
+    useTournament();
   const [single, setSingle] = useState("");
   const [bulk, setBulk] = useState("");
   const [pending, setPending] = useState<Registration[]>([]);
+  const tournamentId = currentTournament?.id ?? null;
 
   useEffect(() => {
-    if (!currentAdmin) {
+    if (!currentAdmin || !tournamentId) {
       setPending([]);
       return;
     }
     let alive = true;
     const sync = () => {
-      fetchRegistrations()
+      fetchRegistrations(tournamentId)
         .then((list) => alive && setPending(list))
         .catch(() => undefined);
     };
@@ -32,7 +34,8 @@ export function PlayersTab() {
       window.clearInterval(timer);
       supabase.removeChannel(channel);
     };
-  }, [currentAdmin]);
+  }, [currentAdmin, tournamentId]);
+
 
 
   const resolve = async (id: string, accept: boolean) => {

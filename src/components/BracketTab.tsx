@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
+import { MatchHistoryModal } from "./MatchHistoryModal";
 
 export function BracketTab() {
   const { matches, playerName, roundName } = useTournament();
   const [zoom, setZoom] = useState(1);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const openMatch = matches.find((m) => m.id === openId) ?? null;
 
   if (!matches.length) {
     return <p className="panel p-4 text-sm text-muted-foreground">尚未產生賽程樹狀圖。</p>;
@@ -45,9 +48,12 @@ export function BracketTab() {
               {matches
                 .filter((m) => m.round === r)
                 .map((m) => (
-                  <div
+                  <button
                     key={m.id}
-                    className={`rounded-lg border p-2 ${
+                    type="button"
+                    disabled={m.status !== "done"}
+                    onClick={() => setOpenId(m.id)}
+                    className={`w-full rounded-lg border p-2 text-left ${
                       m.status === "live"
                         ? "danger-edge border-danger/60 bg-danger/10"
                         : m.status === "done"
@@ -92,13 +98,21 @@ export function BracketTab() {
                         </div>
                       );
                     })}
-                  </div>
+                    {m.status === "done" && (
+                      <p className="mt-1 text-center text-[10px] tracking-widest text-primary/70">
+                        點擊查看比賽歷程
+                      </p>
+                    )}
+                  </button>
                 ))}
             </div>
           ))}
         </div>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">可左右滑動與縮放檢視完整賽程。</p>
+      <p className="mt-2 text-xs text-muted-foreground">
+        可左右滑動與縮放檢視完整賽程，點擊已完成的比賽可查看歷程。
+      </p>
+      {openMatch && <MatchHistoryModal match={openMatch} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

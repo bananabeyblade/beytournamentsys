@@ -1,11 +1,31 @@
-import { useState } from "react";
-import { Plus, Trash2, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Trash2, Users, QrCode, Check } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
+import { readRegistrations, writeRegistrations, type Registration } from "@/lib/registration";
 
 export function PlayersTab() {
   const { players, addPlayers, removePlayer, role } = useTournament();
   const [single, setSingle] = useState("");
   const [bulk, setBulk] = useState("");
+  const [pending, setPending] = useState<Registration[]>([]);
+
+  useEffect(() => {
+    const sync = () => setPending(readRegistrations());
+    sync();
+    window.addEventListener("beyx-registrations", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("beyx-registrations", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  const resolve = (id: string, accept: boolean) => {
+    const list = readRegistrations();
+    const item = list.find((r) => r.id === id);
+    if (accept && item) addPlayers([item.name]);
+    writeRegistrations(list.filter((r) => r.id !== id));
+  };
 
   return (
     <div className="space-y-4">
@@ -45,6 +65,38 @@ export function PlayersTab() {
           >
             批次匯入 BULK ADD
           </button>
+        </div>
+      )}
+
+      {role === "admin" && pending.length > 0 && (
+        <div className="panel p-3">
+          <h2 className="mb-2 flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
+            <QrCode className="h-4 w-4" /> 掃碼報名待審核 ({pending.length})
+          </h2>
+          <ul className="space-y-2">
+            {pending.map((r) => (
+              <li
+                key={r.id}
+                className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-lg border border-primary/40 bg-accent/20 px-3 py-2"
+              >
+                <span className="truncate">{r.name}</span>
+                <button
+                  aria-label={`加入 ${r.name}`}
+                  onClick={() => resolve(r.id, true)}
+                  className="grid h-10 w-10 place-items-center rounded-lg border border-primary/60 text-primary"
+                >
+                  <Check className="h-5 w-5" />
+                </button>
+                <button
+                  aria-label={`拒絕 ${r.name}`}
+                  onClick={() => resolve(r.id, false)}
+                  className="grid h-10 w-10 place-items-center rounded-lg text-destructive"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

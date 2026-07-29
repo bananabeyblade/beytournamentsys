@@ -36,11 +36,12 @@ export function PlayersTab() {
     if (accept && item) addPlayers([item.name]);
     setPending((prev) => prev.filter((r) => r.id !== id));
     try {
-      await deleteRegistration(id, currentAdmin.password);
+      await deleteRegistration(id);
     } catch {
       /* 下次同步會還原 */
     }
   };
+
 
   return (
     <div className="space-y-4">

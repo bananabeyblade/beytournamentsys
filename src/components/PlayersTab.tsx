@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Users, QrCode, Check } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
-import { readRegistrations, writeRegistrations, type Registration } from "@/lib/registration";
+import { fetchRegistrations, deleteRegistration, type Registration } from "@/lib/registration";
+import { supabase } from "@/integrations/supabase/client";
 
 export function PlayersTab() {
   const { players, addPlayers, removePlayer, role } = useTournament();
@@ -10,21 +11,34 @@ export function PlayersTab() {
   const [pending, setPending] = useState<Registration[]>([]);
 
   useEffect(() => {
-    const sync = () => setPending(readRegistrations());
+    let alive = true;
+    const sync = () => {
+      fetchRegistrations()
+        .then((list) => alive && setPending(list))
+        .catch(() => undefined);
+    };
     sync();
-    window.addEventListener("beyx-registrations", sync);
-    window.addEventListener("storage", sync);
+    const channel = supabase
+      .channel("registrations-feed")
+      .on("postgres_changes", { event: "*", schema: "public", table: "registrations" }, sync)
+      .subscribe();
+    const timer = window.setInterval(sync, 10000);
     return () => {
-      window.removeEventListener("beyx-registrations", sync);
-      window.removeEventListener("storage", sync);
+      alive = false;
+      window.clearInterval(timer);
+      supabase.removeChannel(channel);
     };
   }, []);
 
-  const resolve = (id: string, accept: boolean) => {
-    const list = readRegistrations();
-    const item = list.find((r) => r.id === id);
+  const resolve = async (id: string, accept: boolean) => {
+    const item = pending.find((r) => r.id === id);
     if (accept && item) addPlayers([item.name]);
-    writeRegistrations(list.filter((r) => r.id !== id));
+    setPending((prev) => prev.filter((r) => r.id !== id));
+    try {
+      await deleteRegistration(id);
+    } catch {
+      /* 下次同步會還原 */
+    }
   };
 
   return (

@@ -12,8 +12,6 @@ export function SettingsTab() {
     setRole,
     currentAdmin,
     signIn,
-    signUp,
-    claimSuperadmin,
     logout,
     tableCount,
     setTableCount,
@@ -27,7 +25,7 @@ export function SettingsTab() {
   const [p, setP] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<"signin" | "setup">("signin");
+
 
 
   return (

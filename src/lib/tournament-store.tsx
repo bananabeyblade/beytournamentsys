@@ -482,13 +482,43 @@ export function TournamentProvider({
         top4: [],
         playerCount: players.length,
       };
+      // Close every unfinished match so live boards stop showing active bouts.
+      const closed: Match[] = matches.map((m) =>
+        m.status === "done"
+          ? m
+          : {
+              ...m,
+              status: "done" as const,
+              table: null,
+              winner:
+                m.winner ??
+                (m.p1 && m.p2
+                  ? m.score1 === m.score2
+                    ? null
+                    : m.score1 > m.score2
+                      ? m.p1
+                      : m.p2
+                  : (m.p1 ?? m.p2)),
+            },
+      );
+      setMatches(closed);
       const row = await finishTournament(currentTournament.id, snapshot);
       setCurrentTournament(row);
+      // Push the closed bracket immediately so spectators/other admins refresh.
+      const stamp = new Date().toISOString();
+      lastPublishedStamp.current = `finished|${stamp}`;
+      lastAppliedStamp.current = `finished|${stamp}`;
+      await publishLiveState(
+        currentTournament.id,
+        { players, matches: closed, tableCount },
+        stamp,
+      ).catch(() => undefined);
       return null;
     } catch (e) {
       return e instanceof Error ? e.message : "結束賽事失敗";
     }
-  }, [currentTournament, matches, players]);
+  }, [currentTournament, matches, players, tableCount]);
+
 
   // Restore the last created tournament so the QR card survives reloads.
   useEffect(() => {
@@ -515,14 +545,21 @@ export function TournamentProvider({
     if (spectator || !hydrated || role !== "admin" || !currentAdmin) return;
     let alive = true;
     const pull = async () => {
-      const row = await fetchLatestOpenTournament().catch(() => null);
+      let row = await fetchLatestOpenTournament().catch(() => null);
+      if (!row) {
+        // No open event: keep following the active one so a force-finish
+        // (which closes the event) still propagates to every admin device.
+        const code = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_KEY) : null;
+        if (code) row = await fetchTournamentByCode(code).catch(() => null);
+      }
       if (!alive || !row) return;
-      setCurrentTournament((prev) => (prev && prev.id === row.id && prev.status === row.status ? prev : row));
+      setCurrentTournament((prev) => (prev && prev.id === row!.id && prev.status === row!.status ? prev : row));
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
-      const stamp = row.live_updated_at ?? "";
-      if (!row.live_state || !stamp) return;
+      const stamp = `${row.status}|${row.live_updated_at ?? ""}`;
+      if (!row.live_state || !row.live_updated_at) return;
       if (stamp === lastPublishedStamp.current || stamp === lastAppliedStamp.current) return;
       lastAppliedStamp.current = stamp;
+
       setPlayers((row.live_state.players ?? []) as Player[]);
       setMatches((row.live_state.matches ?? []) as Match[]);
       if (typeof row.live_state.tableCount === "number") setTableCount(row.live_state.tableCount);
@@ -551,8 +588,8 @@ export function TournamentProvider({
     if (!matches.length) return;
     const timer = setTimeout(() => {
       const stamp = new Date().toISOString();
-      lastPublishedStamp.current = stamp;
-      lastAppliedStamp.current = stamp;
+      lastPublishedStamp.current = `${currentTournament.status}|${stamp}`;
+      lastAppliedStamp.current = `${currentTournament.status}|${stamp}`;
       void publishLiveState(currentTournament.id, { players, matches, tableCount }, stamp);
     }, 300);
     return () => clearTimeout(timer);

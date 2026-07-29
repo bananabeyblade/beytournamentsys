@@ -20,6 +20,7 @@ interface AdminRow {
 
 function MyAccount() {
   const { currentAdmin, refreshRole } = useTournament();
+  const isSuper = !!currentAdmin?.isSuper;
   const [email, setEmail] = useState(currentAdmin?.email ?? "");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -37,7 +38,9 @@ function MyAccount() {
     }
     setBusy(true);
     const payload: { email?: string; password?: string } = {};
-    if (email.trim() && email.trim() !== currentAdmin?.email) payload.email = email.trim();
+    if (isSuper && email.trim() && email.trim() !== currentAdmin?.email) {
+      payload.email = email.trim();
+    }
     if (password) payload.password = password;
     if (!payload.email && !payload.password) {
       setBusy(false);
@@ -62,14 +65,20 @@ function MyAccount() {
         <KeyRound className="h-4 w-4" /> 我的帳號 MY ACCOUNT
       </h2>
       <p className="text-xs text-muted-foreground">
-        {currentAdmin?.isSuper ? "總管理者帳號（雲端）" : "管理者帳號（雲端）"}
+        {isSuper ? "總管理者帳號（使用信箱登入）" : "管理者帳號（自訂帳號登入）"}
       </p>
-      <input
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="登入信箱"
-        className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-      />
+      {isSuper ? (
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="登入信箱"
+          className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+        />
+      ) : (
+        <div className="min-h-12 w-full rounded-xl border border-border bg-secondary/40 px-3 py-3 text-sm">
+          帳號：<span className="text-primary">{currentAdmin?.email}</span>
+        </div>
+      )}
       <input
         value={password}
         type="password"

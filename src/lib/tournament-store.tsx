@@ -21,15 +21,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { bootstrapSuperadminFn, getMyRoleFn } from "./admin.functions";
 import {
   createTournament,
+  fetchTournamentByCode,
   finishTournament,
   type TournamentResults,
   type TournamentRow,
 } from "./tournaments";
 import { computeTop4 } from "./standings";
 
-
+const ACTIVE_KEY = "beyx-active-tournament";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];

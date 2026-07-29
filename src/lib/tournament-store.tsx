@@ -555,14 +555,25 @@ export function TournamentProvider({
       if (!alive || !row) return;
       setCurrentTournament((prev) => (prev && prev.id === row!.id && prev.status === row!.status ? prev : row));
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      const switched = followedId.current !== row.id;
+      followedId.current = row.id;
       const stamp = `${row.status}|${row.live_updated_at ?? ""}`;
-      if (!row.live_state || !row.live_updated_at) return;
+      if (!row.live_state || !row.live_updated_at) {
+        // Fresh event with nothing published yet: drop leftovers from the
+        // previous tournament so this device doesn't republish stale data.
+        if (switched) {
+          setPlayers([]);
+          setMatches([]);
+        }
+        return;
+      }
       if (stamp === lastPublishedStamp.current || stamp === lastAppliedStamp.current) return;
       lastAppliedStamp.current = stamp;
 
       setPlayers((row.live_state.players ?? []) as Player[]);
       setMatches((row.live_state.matches ?? []) as Match[]);
       if (typeof row.live_state.tableCount === "number") setTableCount(row.live_state.tableCount);
+
     };
     void pull();
     const timer = setInterval(pull, 5000);

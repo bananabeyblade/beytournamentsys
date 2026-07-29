@@ -482,13 +482,43 @@ export function TournamentProvider({
         top4: [],
         playerCount: players.length,
       };
+      // Close every unfinished match so live boards stop showing active bouts.
+      const closed: Match[] = matches.map((m) =>
+        m.status === "done"
+          ? m
+          : {
+              ...m,
+              status: "done" as const,
+              table: null,
+              winner:
+                m.winner ??
+                (m.p1 && m.p2
+                  ? m.score1 === m.score2
+                    ? null
+                    : m.score1 > m.score2
+                      ? m.p1
+                      : m.p2
+                  : (m.p1 ?? m.p2)),
+            },
+      );
+      setMatches(closed);
       const row = await finishTournament(currentTournament.id, snapshot);
       setCurrentTournament(row);
+      // Push the closed bracket immediately so spectators/other admins refresh.
+      const stamp = new Date().toISOString();
+      lastPublishedStamp.current = stamp;
+      lastAppliedStamp.current = stamp;
+      await publishLiveState(
+        currentTournament.id,
+        { players, matches: closed, tableCount },
+        stamp,
+      ).catch(() => undefined);
       return null;
     } catch (e) {
       return e instanceof Error ? e.message : "結束賽事失敗";
     }
-  }, [currentTournament, matches, players]);
+  }, [currentTournament, matches, players, tableCount]);
+
 
   // Restore the last created tournament so the QR card survives reloads.
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { LogIn, LogOut, Shuffle, RotateCcw, UserPlus, Trash2, Shield, Eye } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
+import { AccountSettings } from "./AccountSettings";
 import { QrRegisterCard } from "./QrRegisterCard";
 
 export function SettingsTab() {
@@ -98,6 +99,9 @@ export function SettingsTab() {
           </p>
         </div>
       )}
+
+      <AccountSettings />
+
 
       {currentAdmin?.isSuper && (
         <div className="panel space-y-3 p-3">

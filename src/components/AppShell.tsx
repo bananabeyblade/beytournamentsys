@@ -6,6 +6,8 @@ import { BracketTab } from "@/components/BracketTab";
 import { PlayersTab } from "@/components/PlayersTab";
 import { SettingsTab } from "@/components/SettingsTab";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
+import { useJoinedName } from "@/lib/joined-name";
+
 
 const TABS = [
   { id: "live", label: "對戰", icon: Swords },

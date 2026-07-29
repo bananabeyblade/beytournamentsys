@@ -11,6 +11,10 @@ export function PlayersTab() {
   const [pending, setPending] = useState<Registration[]>([]);
 
   useEffect(() => {
+    if (!currentAdmin) {
+      setPending([]);
+      return;
+    }
     let alive = true;
     const sync = () => {
       fetchRegistrations()
@@ -28,7 +32,8 @@ export function PlayersTab() {
       window.clearInterval(timer);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [currentAdmin]);
+
 
   const resolve = async (id: string, accept: boolean) => {
     const item = pending.find((r) => r.id === id);
@@ -36,11 +41,12 @@ export function PlayersTab() {
     if (accept && item) addPlayers([item.name]);
     setPending((prev) => prev.filter((r) => r.id !== id));
     try {
-      await deleteRegistration(id, currentAdmin.password);
+      await deleteRegistration(id);
     } catch {
       /* 下次同步會還原 */
     }
   };
+
 
   return (
     <div className="space-y-4">

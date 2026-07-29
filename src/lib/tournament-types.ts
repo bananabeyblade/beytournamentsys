@@ -47,10 +47,9 @@ export interface Match {
   nextSlot: 1 | 2 | null;
 }
 
-export interface AdminAccount {
+export interface CloudAdmin {
   id: string;
-  username: string;
-  password: string;
+  email: string;
   isSuper: boolean;
 }
 
@@ -58,5 +57,4 @@ export interface TournamentState {
   players: Player[];
   matches: Match[];
   tableCount: number;
-  admins: AdminAccount[];
 }

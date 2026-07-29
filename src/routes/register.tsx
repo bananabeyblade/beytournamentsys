@@ -34,7 +34,9 @@ function RegisterPage() {
     setErr(null);
     try {
       await addRegistration(name);
+      setName("");
       setDone(true);
+
     } catch {
       setErr("送出失敗，請確認網路後再試一次。");
     } finally {
@@ -72,9 +74,17 @@ function RegisterPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={40}
+            name="beyx-player-name"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-form-type="other"
+            data-lpignore="true"
             placeholder="選手名稱 / 暱稱"
             className="min-h-14 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
           />
+
           {err && <p className="text-sm text-destructive">{err}</p>}
           <button
             disabled={!name.trim() || busy}

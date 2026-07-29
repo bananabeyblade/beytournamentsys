@@ -203,9 +203,9 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   );
 
   const signIn = useCallback(
-    async (email: string, password: string) => {
+    async (account: string, password: string) => {
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: toLoginEmail(account),
         password,
       });
       if (error) return "帳號或密碼錯誤";

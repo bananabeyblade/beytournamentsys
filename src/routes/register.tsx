@@ -6,6 +6,8 @@ import { fetchTournamentByCode, type TournamentRow } from "@/lib/tournaments";
 import { supabase } from "@/integrations/supabase/client";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
+import { writeJoinedName } from "@/lib/joined-name";
+
 
 export const Route = createFileRoute("/register")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -31,7 +33,8 @@ export const Route = createFileRoute("/register")({
 });
 
 const JOINED_KEY = "beyx-joined";
-export const JOINED_NAME_KEY = "beyx-joined-name";
+
+
 
 function RegisterPage() {
   const { t: code } = Route.useSearch();
@@ -107,8 +110,9 @@ function RegisterPage() {
       setName("");
       if (typeof window !== "undefined") {
         window.localStorage.setItem(JOINED_KEY, tournament.code);
-        window.localStorage.setItem(JOINED_NAME_KEY, joinedName);
       }
+      writeJoinedName(joinedName);
+
       setDone(true);
     } catch (e) {
       setErr(
@@ -153,8 +157,9 @@ function RegisterPage() {
               setName("");
               if (typeof window !== "undefined") {
                 window.localStorage.removeItem(JOINED_KEY);
-                window.localStorage.removeItem(JOINED_NAME_KEY);
               }
+              writeJoinedName("");
+
               setDone(false);
             }}
             className="min-h-12 w-full rounded-xl border border-primary/60 bg-accent/40 text-primary"

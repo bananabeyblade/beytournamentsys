@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { ZoomIn, ZoomOut } from "lucide-react";
+import { ZoomIn, ZoomOut, User } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
+import { useJoinedName, isSameName } from "@/lib/joined-name";
 import { MatchHistoryModal } from "./MatchHistoryModal";
 
 export function BracketTab() {
   const { matches, playerName, roundName } = useTournament();
+  const joinedName = useJoinedName();
   const [zoom, setZoom] = useState(1);
   const [openId, setOpenId] = useState<string | null>(null);
   const openMatch = matches.find((m) => m.id === openId) ?? null;
+
 
   if (!matches.length) {
     return <p className="panel p-4 text-sm text-muted-foreground">尚未產生賽程樹狀圖。</p>;
@@ -47,7 +50,11 @@ export function BracketTab() {
               <p className="font-display text-xs tracking-widest text-primary">{roundName(r)}</p>
               {matches
                 .filter((m) => m.round === r)
-                .map((m) => (
+                .map((m) => {
+                  const mine =
+                    isSameName(playerName(m.p1), joinedName) ||
+                    isSameName(playerName(m.p2), joinedName);
+                  return (
                   <button
                     key={m.id}
                     type="button"
@@ -59,10 +66,17 @@ export function BracketTab() {
                         : m.status === "done"
                           ? "border-primary/40 bg-accent/20"
                           : "border-border bg-secondary/40"
-                    }`}
+                    } ${mine ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
                   >
                     <div className="mb-1 flex items-center justify-between text-[10px] tracking-widest">
-                      <span className="text-muted-foreground">M{m.index + 1}</span>
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        M{m.index + 1}
+                        {mine && (
+                          <span className="flex items-center gap-0.5 rounded bg-primary px-1 py-0.5 font-bold text-primary-foreground">
+                            <User className="h-3 w-3" /> 我的比賽
+                          </span>
+                        )}
+                      </span>
                       <span
                         className={
                           m.status === "live"
@@ -84,27 +98,35 @@ export function BracketTab() {
                     {([1, 2] as const).map((s) => {
                       const pid = s === 1 ? m.p1 : m.p2;
                       const isWinner = m.winner && m.winner === pid;
+                      const isMe = isSameName(playerName(pid), joinedName);
                       return (
                         <div
                           key={s}
                           className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-sm ${
                             isWinner ? "bg-primary/20 font-bold text-primary" : ""
-                          }`}
+                          } ${isMe ? "border border-primary/70 bg-primary/10 font-bold text-primary" : ""}`}
                         >
-                          <span className="truncate">{playerName(pid)}</span>
+                          <span className="flex min-w-0 items-center gap-1 truncate">
+                            {isMe && <User className="h-3.5 w-3.5 shrink-0" />}
+                            <span className="truncate">{playerName(pid)}</span>
+                            {isMe && <span className="shrink-0 text-[10px]">(我)</span>}
+                          </span>
                           <span className="font-display shrink-0">
                             {s === 1 ? m.score1 : m.score2}
                           </span>
                         </div>
                       );
                     })}
+
                     {m.status === "done" && (
                       <p className="mt-1 text-center text-[10px] tracking-widest text-primary/70">
                         點擊查看比賽歷程
                       </p>
                     )}
                   </button>
-                ))}
+                  );
+                })}
+
             </div>
           ))}
         </div>

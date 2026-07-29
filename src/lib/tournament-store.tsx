@@ -540,6 +540,8 @@ export function TournamentProvider({
   // pick up the newest open tournament and mirror its published bracket.
   const lastPublishedStamp = useRef<string>("");
   const lastAppliedStamp = useRef<string>("");
+  const followedId = useRef<string>("");
+
 
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentAdmin) return;
@@ -555,14 +557,25 @@ export function TournamentProvider({
       if (!alive || !row) return;
       setCurrentTournament((prev) => (prev && prev.id === row!.id && prev.status === row!.status ? prev : row));
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      const switched = followedId.current !== row.id;
+      followedId.current = row.id;
       const stamp = `${row.status}|${row.live_updated_at ?? ""}`;
-      if (!row.live_state || !row.live_updated_at) return;
+      if (!row.live_state || !row.live_updated_at) {
+        // Fresh event with nothing published yet: drop leftovers from the
+        // previous tournament so this device doesn't republish stale data.
+        if (switched) {
+          setPlayers([]);
+          setMatches([]);
+        }
+        return;
+      }
       if (stamp === lastPublishedStamp.current || stamp === lastAppliedStamp.current) return;
       lastAppliedStamp.current = stamp;
 
       setPlayers((row.live_state.players ?? []) as Player[]);
       setMatches((row.live_state.matches ?? []) as Match[]);
       if (typeof row.live_state.tableCount === "number") setTableCount(row.live_state.tableCount);
+
     };
     void pull();
     const timer = setInterval(pull, 5000);
@@ -582,10 +595,12 @@ export function TournamentProvider({
     };
   }, [spectator, hydrated, role, currentAdmin]);
 
-  // Admins publish the bracket so QR spectators can follow the event live.
+  // Admins publish players + bracket so spectators and the other admins follow
+  // the same event state — the roster must sync before the bracket exists too.
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentTournament) return;
-    if (!matches.length) return;
+    if (!matches.length && !players.length) return;
+
     const timer = setTimeout(() => {
       const stamp = new Date().toISOString();
       lastPublishedStamp.current = `${currentTournament.status}|${stamp}`;

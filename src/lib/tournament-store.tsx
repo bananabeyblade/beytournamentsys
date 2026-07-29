@@ -540,6 +540,8 @@ export function TournamentProvider({
   // pick up the newest open tournament and mirror its published bracket.
   const lastPublishedStamp = useRef<string>("");
   const lastAppliedStamp = useRef<string>("");
+  const followedId = useRef<string>("");
+
 
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentAdmin) return;

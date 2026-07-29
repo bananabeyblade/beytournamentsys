@@ -158,6 +158,7 @@ interface Ctx extends TournamentState {
   loadSample: () => void;
   currentTournament: TournamentRow | null;
   startNewTournament: (name: string) => Promise<string | null>;
+  resumeTournament: (code: string) => Promise<string | null>;
   results: TournamentResults | null;
   spectator: boolean;
   playerName: (id: string | null) => string;
@@ -451,6 +452,25 @@ export function TournamentProvider({
     }
   }, []);
 
+  /** Switch the admin view back to an existing (in-progress) tournament. */
+  const resumeTournament = useCallback(async (code: string) => {
+    try {
+      const row = await fetchTournamentByCode(code);
+      if (!row) return "找不到該賽事";
+      setCurrentTournament(row);
+      if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      const live = row.live_state;
+      if (live) {
+        setPlayers((live.players ?? []) as Player[]);
+        setMatches((live.matches ?? []) as Match[]);
+        if (typeof live.tableCount === "number") setTableCount(live.tableCount);
+      }
+      return null;
+    } catch {
+      return "無法載入賽事";
+    }
+  }, []);
+
   // Restore the last created tournament so the QR card survives reloads.
   useEffect(() => {
     if (spectator) return;
@@ -474,7 +494,7 @@ export function TournamentProvider({
     if (!matches.length) return;
     const timer = setTimeout(() => {
       void publishLiveState(currentTournament.id, { players, matches, tableCount });
-    }, 800);
+    }, 300);
     return () => clearTimeout(timer);
   }, [spectator, hydrated, role, currentTournament, players, matches, tableCount]);
 
@@ -518,6 +538,7 @@ export function TournamentProvider({
     players,
     currentTournament,
     startNewTournament,
+    resumeTournament,
     results,
 
     matches,

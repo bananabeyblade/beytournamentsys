@@ -299,6 +299,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     logout,
     addAdmin,
     removeAdmin,
+    updateAdmin,
     addPlayers,
     removePlayer,
     setTableCount,

@@ -506,8 +506,10 @@ export function TournamentProvider({
       setCurrentTournament(row);
       // Push the closed bracket immediately so spectators/other admins refresh.
       const stamp = new Date().toISOString();
-      lastPublishedStamp.current = `finished|${stamp}`;
-      lastAppliedStamp.current = `finished|${stamp}`;
+      lastPublishedStamp.current = stampOf("finished", stamp);
+      lastAppliedStamp.current = lastPublishedStamp.current;
+      lastPayload.current = JSON.stringify({ players, matches: closed, tableCount });
+
       await publishLiveState(
         currentTournament.id,
         { players, matches: closed, tableCount },

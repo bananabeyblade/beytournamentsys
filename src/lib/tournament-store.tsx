@@ -545,14 +545,21 @@ export function TournamentProvider({
     if (spectator || !hydrated || role !== "admin" || !currentAdmin) return;
     let alive = true;
     const pull = async () => {
-      const row = await fetchLatestOpenTournament().catch(() => null);
+      let row = await fetchLatestOpenTournament().catch(() => null);
+      if (!row) {
+        // No open event: keep following the active one so a force-finish
+        // (which closes the event) still propagates to every admin device.
+        const code = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_KEY) : null;
+        if (code) row = await fetchTournamentByCode(code).catch(() => null);
+      }
       if (!alive || !row) return;
-      setCurrentTournament((prev) => (prev && prev.id === row.id && prev.status === row.status ? prev : row));
+      setCurrentTournament((prev) => (prev && prev.id === row!.id && prev.status === row!.status ? prev : row));
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
-      const stamp = row.live_updated_at ?? "";
-      if (!row.live_state || !stamp) return;
+      const stamp = `${row.status}|${row.live_updated_at ?? ""}`;
+      if (!row.live_state || !row.live_updated_at) return;
       if (stamp === lastPublishedStamp.current || stamp === lastAppliedStamp.current) return;
       lastAppliedStamp.current = stamp;
+
       setPlayers((row.live_state.players ?? []) as Player[]);
       setMatches((row.live_state.matches ?? []) as Match[]);
       if (typeof row.live_state.tableCount === "number") setTableCount(row.live_state.tableCount);

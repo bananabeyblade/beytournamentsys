@@ -1,0 +1,18 @@
+export const SAMPLE_NAMES = [
+  "阿翔 Shou",
+  "小凱 Kai",
+  "雷恩 Rein",
+  "阿哲 Zhe",
+  "陳威 Wei",
+  "林彥 Yan",
+  "黑羽 Kuro",
+  "白狼 Wolf",
+  "赤焰 Blaze",
+  "青龍 Ryu",
+  "阿丞 Cheng",
+  "小豪 Hao",
+  "凱文 Kevin",
+  "傑森 Jason",
+  "永恆 Eternal",
+  "破曉 Dawn",
+];

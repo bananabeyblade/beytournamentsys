@@ -29,6 +29,7 @@ import {
 } from "./tournaments";
 import { computeTop4 } from "./standings";
 import { displayAccount, toLoginEmail } from "./account-id";
+import { RECONNECT_EVENT } from "@/hooks/use-connection";
 
 const ACTIVE_KEY = "beyx-active-tournament";
 const STATE_KEY = "beyx-live-state";
@@ -202,7 +203,8 @@ export function TournamentProvider({
     localStorage.setItem(STATE_KEY, JSON.stringify({ players, matches, tableCount }));
   }, [hydrated, spectator, players, matches, tableCount]);
 
-  // Spectator mode: follow the published bracket of the scanned tournament.
+  // Spectator mode: follow the published bracket of the scanned tournament,
+  // live via realtime and with polling + reconnect refresh as a safety net.
   useEffect(() => {
     if (!spectatorCode) return;
     let alive = true;
@@ -219,11 +221,29 @@ export function TournamentProvider({
     };
     void pull();
     const timer = setInterval(pull, 5000);
+    const channel = supabase
+      .channel(`tournament-${spectatorCode}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tournaments",
+          filter: `code=eq.${spectatorCode}`,
+        },
+        () => void pull(),
+      )
+      .subscribe();
+    const onBack = () => void pull();
+    if (typeof window !== "undefined") window.addEventListener(RECONNECT_EVENT, onBack);
     return () => {
       alive = false;
       clearInterval(timer);
+      supabase.removeChannel(channel);
+      if (typeof window !== "undefined") window.removeEventListener(RECONNECT_EVENT, onBack);
     };
   }, [spectatorCode]);
+
 
   const [role, setRoleState] = useState<Role>("player");
   const [currentAdmin, setCurrentAdmin] = useState<CloudAdmin | null>(null);

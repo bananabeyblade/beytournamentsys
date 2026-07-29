@@ -29,6 +29,7 @@ import {
 } from "./tournaments";
 import { computeTop4 } from "./standings";
 import { displayAccount, toLoginEmail } from "./account-id";
+import { RECONNECT_EVENT } from "@/hooks/use-connection";
 
 const ACTIVE_KEY = "beyx-active-tournament";
 const STATE_KEY = "beyx-live-state";

@@ -19,6 +19,14 @@ import {
 import { SAMPLE_NAMES } from "./sample-names";
 import { supabase } from "@/integrations/supabase/client";
 import { bootstrapSuperadminFn, getMyRoleFn } from "./admin.functions";
+import {
+  createTournament,
+  finishTournament,
+  type TournamentResults,
+  type TournamentRow,
+} from "./tournaments";
+import { computeTop4 } from "./standings";
+
 
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -123,8 +131,12 @@ interface Ctx extends TournamentState {
   confirmWinner: (matchId: string) => void;
   resetTournament: () => void;
   loadSample: () => void;
+  currentTournament: TournamentRow | null;
+  startNewTournament: (name: string) => Promise<string | null>;
+  results: TournamentResults | null;
   playerName: (id: string | null) => string;
   roundName: (round: number) => string;
+
 }
 
 const TournamentContext = createContext<Ctx | null>(null);
@@ -133,6 +145,8 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [tableCount, setTableCount] = useState(2);
+  const [currentTournament, setCurrentTournament] = useState<TournamentRow | null>(null);
+
   const [role, setRoleState] = useState<Role>("player");
   const [currentAdmin, setCurrentAdmin] = useState<CloudAdmin | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -311,12 +325,42 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const resetTournament = useCallback(() => {
     setPlayers([]);
     setMatches([]);
+    setCurrentTournament(null);
   }, []);
 
   const loadSample = useCallback(() => {
     setMatches([]);
     setPlayers(SAMPLE_NAMES.map((name, i) => ({ id: uid(), name, seed: i + 1 })));
   }, []);
+
+  const startNewTournament = useCallback(async (name: string) => {
+    const clean = name.trim();
+    if (!clean) return "請輸入賽事名稱";
+    try {
+      const row = await createTournament(clean);
+      setCurrentTournament(row);
+      setPlayers([]);
+      setMatches([]);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "建立賽事失敗";
+    }
+  }, []);
+
+  const results = useMemo(() => computeTop4(matches, players), [matches, players]);
+
+  // Once the final is decided, archive the podium so the results page exists.
+  useEffect(() => {
+    if (!results || !currentTournament || currentTournament.status !== "open") return;
+    let alive = true;
+    finishTournament(currentTournament.id, results)
+      .then((row) => alive && setCurrentTournament(row))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [results, currentTournament]);
+
 
   const playerName = useCallback(
     (id: string | null) => (id ? (players.find((p) => p.id === id)?.name ?? "—") : "待定 TBD"),
@@ -341,6 +385,10 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
 
   const value: Ctx = {
     players,
+    currentTournament,
+    startNewTournament,
+    results,
+
     matches,
     tableCount,
     role,

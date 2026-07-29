@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.registration_name_taken(uuid, text);

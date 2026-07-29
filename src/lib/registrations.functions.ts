@@ -2,18 +2,22 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-/** Admins only: list pending QR sign-ups. */
-export const listRegistrationsFn = createServerFn({ method: "GET" })
+/** Admins only: list pending QR sign-ups for one tournament. */
+export const listRegistrationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((data: unknown) =>
+    z.object({ tournamentId: z.string().uuid() }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
     const { requireAdmin } = await import("./admin.server");
     await requireAdmin(context.supabase, context.userId);
-    const { data, error } = await context.supabase
+    const { data: rows, error } = await context.supabase
       .from("registrations")
       .select("id,name,created_at")
+      .eq("tournament_id", data.tournamentId)
       .order("created_at", { ascending: true });
     if (error) throw new Error("無法讀取報名資料");
-    return data ?? [];
+    return rows ?? [];
   });
 
 /** Admins only: approve (after adding the player) or reject a sign-up. */

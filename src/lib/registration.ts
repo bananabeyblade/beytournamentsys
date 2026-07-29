@@ -26,7 +26,6 @@ export async function addRegistration(name: string) {
   if (error) throw error;
 }
 
-export async function deleteRegistration(id: string) {
-  const { error } = await supabase.from("registrations").delete().eq("id", id);
-  if (error) throw error;
+export async function deleteRegistration(id: string, passcode: string) {
+  await deleteRegistrationFn({ data: { id, passcode } });
 }

@@ -1,4 +1,4 @@
-export const REG_KEY = "beyx-registrations";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Registration {
   id: string;
@@ -6,27 +6,27 @@ export interface Registration {
   at: number;
 }
 
-export function readRegistrations(): Registration[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(REG_KEY);
-    const list = raw ? (JSON.parse(raw) as Registration[]) : [];
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
+export async function fetchRegistrations(): Promise<Registration[]> {
+  const { data, error } = await supabase
+    .from("registrations")
+    .select("id,name,created_at")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    at: new Date(r.created_at).getTime(),
+  }));
 }
 
-export function writeRegistrations(list: Registration[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(REG_KEY, JSON.stringify(list));
-  window.dispatchEvent(new Event("beyx-registrations"));
-}
-
-export function addRegistration(name: string) {
+export async function addRegistration(name: string) {
   const clean = name.trim();
   if (!clean) return;
-  const list = readRegistrations();
-  list.push({ id: Math.random().toString(36).slice(2, 10), name: clean, at: Date.now() });
-  writeRegistrations(list);
+  const { error } = await supabase.from("registrations").insert({ name: clean });
+  if (error) throw error;
+}
+
+export async function deleteRegistration(id: string) {
+  const { error } = await supabase.from("registrations").delete().eq("id", id);
+  if (error) throw error;
 }

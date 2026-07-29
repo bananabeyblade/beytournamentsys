@@ -5,6 +5,7 @@ import { LiveTab } from "@/components/LiveTab";
 import { BracketTab } from "@/components/BracketTab";
 import { PlayersTab } from "@/components/PlayersTab";
 import { SettingsTab } from "@/components/SettingsTab";
+import { ConnectionBanner } from "@/components/ConnectionBanner";
 
 const TABS = [
   { id: "live", label: "對戰", icon: Swords },
@@ -45,6 +46,7 @@ export function AppShell({ title }: { title?: string }) {
 
   return (
     <div className="min-h-screen pb-24">
+      <ConnectionBanner />
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
         <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
           <div className="min-w-0">

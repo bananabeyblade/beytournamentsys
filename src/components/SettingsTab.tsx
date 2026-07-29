@@ -4,6 +4,7 @@ import { useTournament } from "@/lib/tournament-store";
 import { AccountSettings } from "./AccountSettings";
 import { FirstTimeSetup } from "./FirstTimeSetup";
 import { QrRegisterCard } from "./QrRegisterCard";
+import { AdminLoginQrCard } from "./AdminLoginQrCard";
 import { TournamentHistory } from "./TournamentHistory";
 
 
@@ -130,6 +131,8 @@ export function SettingsTab() {
 
 
       {role === "admin" && <QrRegisterCard />}
+
+      {currentAdmin?.isSuper && <AdminLoginQrCard />}
 
       {role === "admin" && <TournamentHistory />}
 

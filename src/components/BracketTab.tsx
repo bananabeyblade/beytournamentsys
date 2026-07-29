@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { ZoomIn, ZoomOut } from "lucide-react";
+import { ZoomIn, ZoomOut, User } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
+import { useJoinedName, isSameName } from "@/lib/joined-name";
 import { MatchHistoryModal } from "./MatchHistoryModal";
 
 export function BracketTab() {
   const { matches, playerName, roundName } = useTournament();
+  const joinedName = useJoinedName();
   const [zoom, setZoom] = useState(1);
   const [openId, setOpenId] = useState<string | null>(null);
   const openMatch = matches.find((m) => m.id === openId) ?? null;
+
 
   if (!matches.length) {
     return <p className="panel p-4 text-sm text-muted-foreground">尚未產生賽程樹狀圖。</p>;

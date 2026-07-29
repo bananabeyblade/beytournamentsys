@@ -5,7 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { useTournament } from "@/lib/tournament-store";
 
 export function QrRegisterCard() {
-  const { currentTournament, startNewTournament } = useTournament();
+  const { currentTournament, startNewTournament, currentAdmin } = useTournament();
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -88,6 +88,7 @@ export function QrRegisterCard() {
         </p>
       )}
 
+      {currentAdmin?.isSuper ? (
       <div className="space-y-2 border-t border-border pt-3">
         <input
           value={name}
@@ -105,6 +106,11 @@ export function QrRegisterCard() {
           <Plus className="h-4 w-4" /> 建立新賽事與 QR CODE
         </button>
       </div>
+      ) : (
+        <p className="border-t border-border pt-3 text-xs text-muted-foreground">
+          僅總管理者可以建立新賽事。
+        </p>
+      )}
     </div>
   );
 }

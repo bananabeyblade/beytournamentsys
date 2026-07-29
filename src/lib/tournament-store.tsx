@@ -30,6 +30,26 @@ import { computeTop4 } from "./standings";
 import { displayAccount, toLoginEmail } from "./account-id";
 
 const ACTIVE_KEY = "beyx-active-tournament";
+const STATE_KEY = "beyx-live-state";
+
+interface PersistedState {
+  players: Player[];
+  matches: Match[];
+  tableCount: number;
+}
+
+function readPersisted(): PersistedState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedState;
+    if (!Array.isArray(parsed.players) || !Array.isArray(parsed.matches)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 

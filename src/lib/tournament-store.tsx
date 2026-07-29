@@ -588,8 +588,8 @@ export function TournamentProvider({
     if (!matches.length) return;
     const timer = setTimeout(() => {
       const stamp = new Date().toISOString();
-      lastPublishedStamp.current = `open|${stamp}`;
-      lastAppliedStamp.current = `open|${stamp}`;
+      lastPublishedStamp.current = `${currentTournament.status}|${stamp}`;
+      lastAppliedStamp.current = `${currentTournament.status}|${stamp}`;
       void publishLiveState(currentTournament.id, { players, matches, tableCount }, stamp);
     }, 300);
     return () => clearTimeout(timer);

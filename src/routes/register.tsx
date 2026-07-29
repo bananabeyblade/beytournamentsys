@@ -155,8 +155,9 @@ function RegisterPage() {
               setName("");
               if (typeof window !== "undefined") {
                 window.localStorage.removeItem(JOINED_KEY);
-                window.localStorage.removeItem(JOINED_NAME_KEY);
               }
+              writeJoinedName("");
+
               setDone(false);
             }}
             className="min-h-12 w-full rounded-xl border border-primary/60 bg-accent/40 text-primary"

@@ -19,6 +19,7 @@ export interface TournamentRow {
   created_at: string;
   finished_at: string | null;
   live_state: LiveState | null;
+  live_updated_at: string | null;
 }
 
 /** Snapshot of the running bracket, published so spectators can follow along. */
@@ -39,7 +40,8 @@ export async function publishLiveState(id: string, state: LiveState) {
     .eq("id", id);
 }
 
-const COLS = "id,code,name,status,results,created_at,finished_at,live_state";
+const COLS =
+  "id,code,name,status,results,created_at,finished_at,live_state,live_updated_at";
 
 function makeCode() {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";

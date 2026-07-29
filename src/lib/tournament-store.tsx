@@ -100,6 +100,7 @@ interface Ctx extends TournamentState {
   logout: () => void;
   addAdmin: (u: string, p: string) => string | null;
   removeAdmin: (id: string) => void;
+  updateAdmin: (id: string, username: string, password: string) => string | null;
   addPlayers: (names: string[]) => void;
   removePlayer: (id: string) => void;
   setTableCount: (n: number) => void;

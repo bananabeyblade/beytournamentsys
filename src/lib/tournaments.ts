@@ -18,9 +18,28 @@ export interface TournamentRow {
   results: TournamentResults | null;
   created_at: string;
   finished_at: string | null;
+  live_state: LiveState | null;
 }
 
-const COLS = "id,code,name,status,results,created_at,finished_at";
+/** Snapshot of the running bracket, published so spectators can follow along. */
+export interface LiveState {
+  players: unknown[];
+  matches: unknown[];
+  tableCount: number;
+}
+
+/** Admin-only: pushes the current bracket so QR spectators can watch live. */
+export async function publishLiveState(id: string, state: LiveState) {
+  await supabase
+    .from("tournaments")
+    .update({
+      live_state: JSON.parse(JSON.stringify(state)),
+      live_updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+}
+
+const COLS = "id,code,name,status,results,created_at,finished_at,live_state";
 
 function makeCode() {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";

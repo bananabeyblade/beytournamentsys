@@ -167,16 +167,20 @@ function ManageAdmins() {
     }
     setBusy(true);
     try {
-      await createAdminFn({ data: { username: account, password } });
-
-      setEmail("");
-      setPassword("");
-      setMsg({ ok: true, text: "已建立管理者帳號" });
-      load();
+      const res = await createAdminFn({ data: { username: account, password } });
+      if (!res.ok) {
+        setMsg({ ok: false, text: res.message ?? "建立失敗" });
+      } else {
+        setEmail("");
+        setPassword("");
+        setMsg({ ok: true, text: "已建立管理者帳號" });
+        load();
+      }
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : "建立失敗" });
     }
     setBusy(false);
+
   };
 
   const resetPassword = async (userId: string) => {

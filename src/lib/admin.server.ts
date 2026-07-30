@@ -30,11 +30,19 @@ export async function requireAdmin(
 /** Turns Supabase Auth's English errors into a message we can show the user. */
 export function friendlyAuthError(message?: string | null): string {
   const m = (message ?? "").toLowerCase();
+  console.error("[admin] supabase auth error:", message);
   if (m.includes("already been registered") || m.includes("already exists")) {
     return "此帳號已被使用，請改用其他帳號名稱";
   }
-  if (m.includes("password")) return "密碼不符合安全要求，請改用更長或更複雜的密碼";
+  if (m.includes("weak") || m.includes("pwned") || m.includes("leaked") || m.includes("compromised")) {
+    return "此密碼過於常見或已在外洩名單中，請改用不常見的密碼（建議混合大小寫、數字與符號）";
+  }
+  if (m.includes("at least") && m.includes("character")) {
+    return `密碼長度不足（${message}），請改用更長的密碼`;
+  }
+  if (m.includes("password")) return `密碼不符合要求：${message}`;
   if (m.includes("invalid") && m.includes("email")) return "帳號格式不正確";
   return "建立帳號失敗，請稍後再試";
 }
+
 

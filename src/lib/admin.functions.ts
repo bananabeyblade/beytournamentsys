@@ -73,6 +73,8 @@ export const createAdminFn = createServerFn({ method: "POST" })
     const list = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const existing = list.data?.users.find((u) => u.email?.toLowerCase() === email) ?? null;
 
+    // Expected validation problems are RETURNED (not thrown) so the UI shows a
+    // hint instead of the runtime error overlay.
     let userId: string;
     if (existing) {
       const roles = await supabaseAdmin
@@ -81,17 +83,22 @@ export const createAdminFn = createServerFn({ method: "POST" })
         .eq("user_id", existing.id);
       const held = (roles.data ?? []).map((r) => String(r.role));
       if (held.includes("superadmin")) {
-        throw new Error("此帳號已存在（目前為總管理者），請改用其他帳號名稱");
+        return { ok: false as const, message: "此帳號已存在（目前為總管理者），請改用其他帳號名稱" };
       }
       if (held.includes("admin")) {
-        throw new Error("此帳號已存在（目前為管理者），請改用其他帳號或使用清單中的「重設密碼」");
+        return {
+          ok: false as const,
+          message: "此帳號已存在（目前為管理者），請改用其他帳號或使用清單中的「重設密碼」",
+        };
       }
       // Auth user without any role: reuse it and set the given password.
       userId = existing.id;
       const updated = await supabaseAdmin.auth.admin.updateUserById(userId, {
         password: data.password,
       });
-      if (updated.error) throw new Error(friendlyAuthError(updated.error.message));
+      if (updated.error) {
+        return { ok: false as const, message: friendlyAuthError(updated.error.message) };
+      }
     } else {
       const created = await supabaseAdmin.auth.admin.createUser({
         email,
@@ -99,7 +106,7 @@ export const createAdminFn = createServerFn({ method: "POST" })
         email_confirm: true,
       });
       if (created.error || !created.data.user) {
-        throw new Error(friendlyAuthError(created.error?.message));
+        return { ok: false as const, message: friendlyAuthError(created.error?.message) };
       }
       userId = created.data.user.id;
     }
@@ -109,8 +116,9 @@ export const createAdminFn = createServerFn({ method: "POST" })
       email,
       role: "admin",
     });
-    if (error) throw new Error("授予管理者權限失敗");
-    return { ok: true };
+    if (error) return { ok: false as const, message: "授予管理者權限失敗" };
+    return { ok: true as const };
+
   });
 
 

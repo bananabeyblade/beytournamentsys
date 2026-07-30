@@ -82,10 +82,34 @@ export function usePanZoom() {
 
   const reset = useCallback(() => commit({ x: 0, y: 0, k: 1 }), [commit]);
 
-  const setBusy = (busy: boolean) => {
+  // Toggling will-change on every pointerdown/up forces the compositor to
+  // tear down and rebuild the layer, which is what leaves stale paint tiles
+  // (ghosting) on mobile. Keep the hint up for the whole gesture and only
+  // release it a moment after the interaction settles.
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setBusy = useCallback((busy: boolean) => {
     const el = contentRef.current;
-    if (el) el.style.willChange = busy ? "transform" : "auto";
-  };
+    if (!el) return;
+    if (idleTimer.current) {
+      clearTimeout(idleTimer.current);
+      idleTimer.current = null;
+    }
+    if (busy) {
+      el.style.willChange = "transform";
+      return;
+    }
+    idleTimer.current = setTimeout(() => {
+      idleTimer.current = null;
+      const node = contentRef.current;
+      if (!node) return;
+      node.style.willChange = "auto";
+      // Nudge a repaint so any leftover tiles from the gesture are discarded.
+      node.style.opacity = "0.999";
+      requestAnimationFrame(() => {
+        if (contentRef.current) contentRef.current.style.opacity = "";
+      });
+    }, 260);
+  }, []);
 
   const local = (e: React.PointerEvent) => {
     const rect = viewportRef.current?.getBoundingClientRect();
@@ -106,7 +130,7 @@ export function usePanZoom() {
         cy: (a.y + b.y) / 2 - (rect?.top ?? 0),
       };
     }
-  }, []);
+  }, [setBusy]);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -155,7 +179,7 @@ export function usePanZoom() {
         }
       }
     },
-    [zoomAt],
+    [setBusy, zoomAt],
   );
 
   // Wheel needs a non-passive native listener to preventDefault.
@@ -179,6 +203,7 @@ export function usePanZoom() {
 
   useEffect(() => () => {
     if (frame.current != null) cancelAnimationFrame(frame.current);
+    if (idleTimer.current) clearTimeout(idleTimer.current);
   }, []);
 
   return {

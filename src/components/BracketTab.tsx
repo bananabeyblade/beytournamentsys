@@ -29,7 +29,7 @@ const BracketMatchCard = memo(function BracketMatchCard({
       type="button"
       disabled={m.status !== "done"}
       onClick={() => onOpen(m.id)}
-      style={{ contentVisibility: "auto", containIntrinsicSize: "120px 224px" }}
+      style={{ contain: "layout paint" }}
       className={`w-full rounded-lg border p-2 text-left ${
         m.status === "live"
           ? "danger-edge border-danger/60 bg-danger/10"
@@ -213,12 +213,23 @@ export function BracketTab() {
         ref={viewportRef}
         {...handlers}
         className="panel relative h-[70vh] min-h-80 overflow-hidden"
-        style={{ touchAction: "none", cursor: "grab" }}
+        style={{
+          touchAction: "none",
+          cursor: "grab",
+          isolation: "isolate",
+          transform: "translateZ(0)",
+        }}
       >
         <div
           ref={contentRef}
           className="flex items-stretch gap-3 p-3 sm:gap-6"
-          style={{ transformOrigin: "0 0", width: "max-content" }}
+          style={{
+            transformOrigin: "0 0",
+            width: "max-content",
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "translate3d(0,0,0)",
+          }}
         >
           {halves ? (
             <>

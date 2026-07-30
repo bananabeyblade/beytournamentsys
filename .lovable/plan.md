@@ -1,61 +1,22 @@
-## 建議：值得做，且只需前端改動
+## 問題
 
-理由：
-- 賽後資料已完整存在雲端（名次 `results`、選手與每場比分事件 `live_state`），不需新增資料表或後端。
-- 賽事一旦刪除資料就沒了，匯出等於本地備份。
-- .txt 純文字最通用，手機可直接分享到 LINE／訊息。
+手機拖曳／縮放賽程樹狀圖時出現文字重疊的殘影，放開手指後仍會留著。
 
-除了下載 .txt，另建議同時提供「複製到剪貼簿」（手機分享最快）。未來要 CSV/JSON 再擴充。
+## 成因（待實作時驗證）
 
-## 功能範圍
+賽程內容整塊套用 `transform` 移動，但每張比賽卡又設了 `content-visibility: auto`。在行動裝置瀏覽器上，這種「被跳過渲染的元素」在父層 transform 改變時容易保留舊的繪製圖磚，就出現同一段文字疊兩份的殘影。加上拖曳中只在 `will-change` 開關，內容層沒有穩定的合成層，重繪範圍不可預期。
 
-在「過往比賽 HISTORY」每一列加下載按鈕（所有管理者可用）：
-- 點擊 → 由該賽事資料產生純文字 → 下載 `賽事名稱_代碼_日期.txt`
-- 進行中的賽事也可匯出，標示為「進行中快照」
-- 同列附「複製內容」次要按鈕
+## 修正方向（純前端顯示層）
 
-## 輸出格式草稿
+1. `src/components/BracketTab.tsx`
+   - 移除比賽卡上的 `content-visibility: auto` / `contain-intrinsic-size` 內嵌樣式，改用不影響繪製正確性的 `contain: layout paint` 之類的隔離，或直接拿掉，避免跳過繪製造成的舊圖磚。
+   - 內容容器加上穩定的合成層提示（`translate3d` 已有，補 `backface-visibility: hidden`、`isolation`），並確保 viewport 有 `overflow: hidden` 的裁切層在自己的合成層上。
+2. `src/components/bracket/use-pan-zoom.ts`
+   - 將 `will-change: transform` 改為在整個手勢期間常駐、而非每次 pointerdown/up 反覆切換（頻繁切換會強制圖層重建，正是殘影常見來源）；手勢結束後延遲一小段時間再還原。
+   - 手勢結束時做一次強制重繪（讀取一次 layout 或短暫切換 `opacity: 0.999`），把殘留圖磚清掉。
 
-```text
-==============================
-竹塹陀螺集會所 BEYBLADE X 賽事紀錄
-==============================
-賽事名稱：夏季賽 #3
-賽事代碼：K7M2QP
-狀態：已結束
-建立時間：2026/07/28 19:02
-結束時間：2026/07/28 21:35
-參賽人數：16
+## 驗證
 
------- 最終名次 ------
-1st  王小明
-2nd  李大華
-3rd  陳阿明
-4th  張三
+用 Playwright 在 390x844 viewport 模擬觸控拖曳，拖曳中與放開後各截一張圖，確認文字不重疊。若大型賽事效能因移除 `content-visibility` 下降，改以「只渲染可視範圍附近的輪次欄」的方式補回，而不是回頭用會造成殘影的屬性。
 
------- 參賽者名單 ------
- 1. 王小明
- 2. 李大華
- ...
-
------- 賽程紀錄 ------
-[第 1 輪]
-  M1 (桌 1)  王小明 4 : 2 李大華   勝：王小明
-      └ 王小明 Xtreme Finish +3 (3:0)
-      └ 李大華 Over Finish   +2 (3:2)
-      └ 王小明 Spin Finish   +1 (4:2)
-
-[準決賽] / [決賽] 同上
-==============================
-匯出時間：2026/07/30 18:20
-```
-輪次名稱依總輪數自動命名（決賽／準決賽／半準決賽／第 N 輪）。
-
-## 技術細節
-
-- 新增 `src/lib/tournament-export.ts`
-  - `buildTournamentText(row)`：純函式，讀 `row.results` 與 `row.live_state`（`players`／`matches`／`tableCount`），把 `events` 逐筆展開成累計比分，用 `FINISHES` 對照中英文名稱與點數。
-  - `downloadText(filename, text)`：`Blob` + `URL.createObjectURL` + 暫時 `<a download>`。
-- 修改 `src/components/TournamentHistory.tsx`：每列加下載與複製按鈕，成功／失敗以 `sonner` toast 提示。
-- `live_state` 為空的舊賽事：仍輸出標頭與名次，並註記「無詳細賽程紀錄」。
-- 不需新增資料表、RLS 或伺服器函式；現有 `listTournaments` 已回傳所需欄位。
+不改任何賽事邏輯、資料或後端。

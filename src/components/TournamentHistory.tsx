@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { History, Trophy, Play, Trash2 } from "lucide-react";
+import { History, Trophy, Play, Trash2, Download, Copy } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { listTournaments, deleteTournament, type TournamentRow } from "@/lib/tournaments";
+import {
+  buildTournamentText,
+  downloadText,
+  exportFileName,
+} from "@/lib/tournament-export";
 import { useTournament } from "@/lib/tournament-store";
 
 export function TournamentHistory() {

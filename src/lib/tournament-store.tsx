@@ -80,7 +80,6 @@ function buildBracket(players: Player[]): Match[] {
   const order = shuffle(players);
   let size = 2;
   while (size < order.length) size *= 2;
-  const slots: (string | null)[] = Array.from({ length: size }, (_, i) => order[i]?.id ?? null);
 
   const rounds: Match[][] = [];
   const roundCount = Math.log2(size);
@@ -115,29 +114,30 @@ function buildBracket(players: Player[]): Match[] {
     });
   }
 
-  rounds[0].forEach((m, i) => {
-    m.p1 = slots[i * 2];
-    m.p2 = slots[i * 2 + 1];
+  // Spread the byes so no first-round bout is completely empty. With n players
+  // and `size - n` byes, the first `size / 2 - byes` bouts are full pairs and
+  // every remaining bout holds exactly one player (a bye).
+  const first = rounds[0];
+  const byes = size - order.length;
+  const paired = first.length - byes;
+  let next = 0;
+  first.forEach((m, i) => {
+    m.p1 = order[next++]?.id ?? null;
+    if (i < paired) m.p2 = order[next++]?.id ?? null;
   });
 
   const all = rounds.flat();
-  // resolve byes
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const m of all) {
-      if (m.status === "done") continue;
-      const solo = m.p1 && !m.p2 ? m.p1 : !m.p1 && m.p2 ? m.p2 : null;
-      if (solo) {
-        m.status = "done";
-        m.winner = solo;
-        if (m.nextMatchId) {
-          const nm = all.find((x) => x.id === m.nextMatchId)!;
-          if (m.nextSlot === 1) nm.p1 = solo;
-          else nm.p2 = solo;
-        }
-        changed = true;
-      }
+  // Resolve first-round byes only: walking further up would advance a player
+  // just because the opposing bout is still undecided.
+  for (const m of first) {
+    const solo = m.p1 && !m.p2 ? m.p1 : !m.p1 && m.p2 ? m.p2 : null;
+    if (!solo) continue;
+    m.status = "done";
+    m.winner = solo;
+    if (m.nextMatchId) {
+      const nm = all.find((x) => x.id === m.nextMatchId)!;
+      if (m.nextSlot === 1) nm.p1 = solo;
+      else nm.p2 = solo;
     }
   }
   for (const m of all) {
@@ -145,6 +145,7 @@ function buildBracket(players: Player[]): Match[] {
   }
   return all;
 }
+
 
 interface Ctx extends TournamentState {
   role: Role;

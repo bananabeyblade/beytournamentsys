@@ -600,6 +600,9 @@ export function TournamentProvider({
   const followedId = useRef<string>("");
   /** Serialized snapshot of the last state pushed/applied — blocks echo loops. */
   const lastPayload = useRef<string>("");
+  /** When the last publish went out — powers the leading-edge write. */
+  const lastPublishAt = useRef<number>(0);
+
 
 
   // Timestamps come back from Postgres as `+00:00` while we send `Z`; compare

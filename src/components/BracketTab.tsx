@@ -37,12 +37,13 @@ const BracketMatchCard = memo(function BracketMatchCard({
 }: CardProps) {
   const mine = mine1 || mine2;
   const done = m.status === "done";
+  const openable = done || m.status === "live" || (m.events?.length ?? 0) > 0;
   return (
     <button
       type="button"
-      disabled={!done}
+      disabled={!openable}
       onClick={() => onOpen(m.id)}
-      title={done ? `M${m.index + 1} · 點擊查看比賽歷程` : `M${m.index + 1}`}
+      title={openable ? `M${m.index + 1} · 點擊查看比賽紀錄` : `M${m.index + 1}`}
       aria-label={`第 ${m.index + 1} 場 ${name1} 對 ${name2}`}
       style={{ contain: "layout paint", height: CARD_H }}
       className={`relative w-full overflow-hidden rounded-md border text-left ${

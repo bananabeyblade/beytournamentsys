@@ -26,3 +26,15 @@ export async function requireAdmin(
   }
   return roles;
 }
+
+/** Turns Supabase Auth's English errors into a message we can show the user. */
+export function friendlyAuthError(message?: string | null): string {
+  const m = (message ?? "").toLowerCase();
+  if (m.includes("already been registered") || m.includes("already exists")) {
+    return "此帳號已被使用，請改用其他帳號名稱";
+  }
+  if (m.includes("password")) return "密碼不符合安全要求，請改用更長或更複雜的密碼";
+  if (m.includes("invalid") && m.includes("email")) return "帳號格式不正確";
+  return "建立帳號失敗，請稍後再試";
+}
+

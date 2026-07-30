@@ -62,27 +62,57 @@ export const createAdminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => usernamePassword.parse(data))
   .handler(async ({ data, context }) => {
-    const { requireAdmin } = await import("./admin.server");
+    const { requireAdmin, friendlyAuthError } = await import("./admin.server");
     await requireAdmin(context.supabase, context.userId, true);
     const { toLoginEmail } = await import("./account-id");
-    const username = data.username.toLowerCase();
+    const email = toLoginEmail(data.username.toLowerCase()).toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const created = await supabaseAdmin.auth.admin.createUser({
-      email: toLoginEmail(username),
-      password: data.password,
-      email_confirm: true,
-    });
-    if (created.error || !created.data.user) {
-      throw new Error(created.error?.message ?? "建立帳號失敗（帳號可能已存在）");
+
+    // The login account may already exist (e.g. it is a superadmin, or an
+    // orphan auth user left behind). Resolve that before creating anything.
+    const list = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const existing = list.data?.users.find((u) => u.email?.toLowerCase() === email) ?? null;
+
+    let userId: string;
+    if (existing) {
+      const roles = await supabaseAdmin
+        .from("admin_roles")
+        .select("role")
+        .eq("user_id", existing.id);
+      const held = (roles.data ?? []).map((r) => String(r.role));
+      if (held.includes("superadmin")) {
+        throw new Error("此帳號已存在（目前為總管理者），請改用其他帳號名稱");
+      }
+      if (held.includes("admin")) {
+        throw new Error("此帳號已存在（目前為管理者），請改用其他帳號或使用清單中的「重設密碼」");
+      }
+      // Auth user without any role: reuse it and set the given password.
+      userId = existing.id;
+      const updated = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: data.password,
+      });
+      if (updated.error) throw new Error(friendlyAuthError(updated.error.message));
+    } else {
+      const created = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: data.password,
+        email_confirm: true,
+      });
+      if (created.error || !created.data.user) {
+        throw new Error(friendlyAuthError(created.error?.message));
+      }
+      userId = created.data.user.id;
     }
+
     const { error } = await supabaseAdmin.from("admin_roles").insert({
-      user_id: created.data.user.id,
-      email: username,
+      user_id: userId,
+      email,
       role: "admin",
     });
     if (error) throw new Error("授予管理者權限失敗");
     return { ok: true };
   });
+
 
 /** Superadmin only: reset another admin's password. */
 export const setAdminPasswordFn = createServerFn({ method: "POST" })

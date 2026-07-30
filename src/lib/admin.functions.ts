@@ -7,7 +7,7 @@ const usernamePassword = z.object({
     .string()
     .trim()
     .regex(/^[a-zA-Z0-9_.-]{3,30}$/, "帳號僅能使用英數字、底線、點與連字號（3-30 字）"),
-  password: z.string().min(8).max(200),
+  password: z.string().min(4, "密碼至少需 4 碼").max(200),
 });
 
 /** Current caller's admin role, or null when they are just a viewer. */
@@ -65,7 +65,9 @@ export const createAdminFn = createServerFn({ method: "POST" })
     const { requireAdmin, friendlyAuthError } = await import("./admin.server");
     await requireAdmin(context.supabase, context.userId, true);
     const { toLoginEmail } = await import("./account-id");
+    const { padAdminPassword } = await import("./admin-password");
     const email = toLoginEmail(data.username.toLowerCase()).toLowerCase();
+    const password = padAdminPassword(data.password);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // The login account may already exist (e.g. it is a superadmin, or an
@@ -94,7 +96,7 @@ export const createAdminFn = createServerFn({ method: "POST" })
       // Auth user without any role: reuse it and set the given password.
       userId = existing.id;
       const updated = await supabaseAdmin.auth.admin.updateUserById(userId, {
-        password: data.password,
+        password,
       });
       if (updated.error) {
         return { ok: false as const, message: friendlyAuthError(updated.error.message) };
@@ -102,7 +104,7 @@ export const createAdminFn = createServerFn({ method: "POST" })
     } else {
       const created = await supabaseAdmin.auth.admin.createUser({
         email,
-        password: data.password,
+        password,
         email_confirm: true,
       });
       if (created.error || !created.data.user) {
@@ -126,17 +128,23 @@ export const createAdminFn = createServerFn({ method: "POST" })
 export const setAdminPasswordFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
-    z.object({ userId: z.string().uuid(), password: z.string().min(8).max(200) }).parse(data),
+    z
+      .object({
+        userId: z.string().uuid(),
+        password: z.string().min(4, "密碼至少需 4 碼").max(200),
+      })
+      .parse(data),
   )
   .handler(async ({ data, context }) => {
-    const { requireAdmin } = await import("./admin.server");
+    const { requireAdmin, friendlyAuthError } = await import("./admin.server");
     await requireAdmin(context.supabase, context.userId, true);
+    const { padAdminPassword } = await import("./admin-password");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
-      password: data.password,
+      password: padAdminPassword(data.password),
     });
-    if (error) throw new Error("更新密碼失敗");
-    return { ok: true };
+    if (error) return { ok: false as const, message: friendlyAuthError(error.message) };
+    return { ok: true as const };
   });
 
 /** Superadmin only: revoke an admin (superadmins cannot be revoked here). */

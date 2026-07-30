@@ -33,6 +33,7 @@ import {
 import { computeTop4 } from "./standings";
 import { mergeMatches, touchMatch } from "./live-merge";
 import { displayAccount, toLoginEmail } from "./account-id";
+import { isUsernameAccount, padAdminPassword } from "./admin-password";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
 
 const ACTIVE_KEY = "beyx-active-tournament";
@@ -386,11 +387,19 @@ export function TournamentProvider({
 
   const signIn = useCallback(
     async (account: string, password: string) => {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: toLoginEmail(account),
-        password,
-      });
-      if (error) return "帳號或密碼錯誤";
+      const email = toLoginEmail(account);
+      const attempts = isUsernameAccount(account)
+        ? [padAdminPassword(password), password]
+        : [password];
+      let failed = true;
+      for (const pw of attempts) {
+        const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+        if (!error) {
+          failed = false;
+          break;
+        }
+      }
+      if (failed) return "帳號或密碼錯誤";
       await syncRole();
       return null;
     },

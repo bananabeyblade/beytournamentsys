@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { LogIn, LogOut } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
-import { AccountSettings } from "./AccountSettings";
-import { FirstTimeSetup } from "./FirstTimeSetup";
 
 export function AdminAuthPanel() {
   const { currentAdmin, signIn, logout } = useTournament();
@@ -27,16 +25,12 @@ export function AdminAuthPanel() {
             <LogOut className="h-4 w-4" /> 登出
           </button>
         </div>
-
-        <AccountSettings />
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <FirstTimeSetup />
-
       <div className="panel space-y-3 p-3">
         <h2 className="text-sm tracking-widest text-muted-foreground">
           管理者登入 ADMIN LOGIN

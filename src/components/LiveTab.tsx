@@ -94,14 +94,21 @@ function MatchCard({
 }
 
 export function LiveTab() {
-  const { matches, tableCount, startMatch, role, results, currentTournament, locked } =
+  const { matches, tableCount, startMatch, role, results, currentTournament, locked, playerName } =
     useTournament();
+  const joinedName = useJoinedName();
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [startId, setStartId] = useState<string | null>(null);
 
-  const live = matches.filter((m) => m.status === "live");
-  const ready = matches.filter((m) => m.status === "ready");
+  // Put the spectator's own match first so they see it without scrolling.
+  const isMine = (m: Match) =>
+    isSameName(playerName(m.p1), joinedName) || isSameName(playerName(m.p2), joinedName);
+  const mineFirst = (list: Match[]) =>
+    [...list].sort((a, b) => Number(isMine(b)) - Number(isMine(a)));
+
+  const live = mineFirst(matches.filter((m) => m.status === "live"));
+  const ready = mineFirst(matches.filter((m) => m.status === "ready"));
   const openMatch = matches.find((m) => m.id === openId) ?? null;
   const usedTables = new Set(live.map((m) => m.table));
 
@@ -123,6 +130,7 @@ export function LiveTab() {
               <MatchCard
                 key={m.id}
                 match={m}
+                joinedName={joinedName}
                 onOpen={() => setOpenId(m.id)}
                 onStart={() => setStartId(m.id)}
               />
@@ -143,6 +151,7 @@ export function LiveTab() {
               <MatchCard
                 key={m.id}
                 match={m}
+                joinedName={joinedName}
                 onOpen={() => setOpenId(m.id)}
                 onStart={() => setStartId(m.id)}
               />

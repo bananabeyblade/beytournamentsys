@@ -394,19 +394,24 @@ export function BracketTab() {
                   <Column
                     label={r.label}
                     cards={r.cards}
-                    depth={i}
+                    ys={layout.leftYs[i] ?? []}
                     height={height}
                     align="left"
                   />
                   {i < layout.left.length - 1 ? (
                     <Connectors
-                      count={layout.left[i + 1].cards.length}
-                      depth={i}
+                      fromYs={layout.leftYs[i] ?? []}
+                      toYs={layout.leftYs[i + 1] ?? []}
                       height={height}
                       mirror={false}
                     />
                   ) : (
-                    <FinalLink y={height / 2} height={height} mirror={false} />
+                    <FinalLink
+                      from={layout.leftYs[i]?.[0] ?? layout.finalY}
+                      to={layout.finalY}
+                      height={height}
+                      mirror={false}
+                    />
                   )}
                 </div>
               ))}
@@ -414,21 +419,26 @@ export function BracketTab() {
               <Column
                 label={layout.final.label}
                 cards={layout.final.cards}
-                depth={0}
+                ys={[layout.finalY]}
                 height={height}
                 align="center"
               />
 
               {layout.right.map((r, i) => {
-                const depth = layout.right.length - 1 - i;
+                const ri = layout.right.length - 1 - i;
                 return (
                   <div key={`r${r.round}`} className="flex">
                     {i === 0 ? (
-                      <FinalLink y={height / 2} height={height} mirror />
+                      <FinalLink
+                        from={layout.rightYs[ri]?.[0] ?? layout.finalY}
+                        to={layout.finalY}
+                        height={height}
+                        mirror
+                      />
                     ) : (
                       <Connectors
-                        count={layout.right[i - 1].cards.length}
-                        depth={depth}
+                        fromYs={layout.rightYs[ri] ?? []}
+                        toYs={layout.rightYs[ri + 1] ?? []}
                         height={height}
                         mirror
                       />
@@ -436,7 +446,7 @@ export function BracketTab() {
                     <Column
                       label={r.label}
                       cards={r.cards}
-                      depth={depth}
+                      ys={layout.rightYs[ri] ?? []}
                       height={height}
                       align="right"
                     />
@@ -450,12 +460,13 @@ export function BracketTab() {
                 key={r.round}
                 label={r.label}
                 cards={r.cards}
-                depth={i}
+                ys={flatYs[i] ?? []}
                 height={height}
                 align="left"
               />
             ))
           )}
+
         </div>
         <span className="pointer-events-none absolute right-2 bottom-2 rounded bg-secondary/80 px-2 py-0.5 text-[10px] tracking-widest text-muted-foreground">
           {Math.round(zoom * 100)}%

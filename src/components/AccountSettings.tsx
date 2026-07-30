@@ -266,8 +266,12 @@ function ManageSuperadmins() {
   useEffect(load, [load]);
 
   const create = async () => {
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
-      setMsg({ ok: false, text: "請輸入有效的登入信箱" });
+    const account = email.trim();
+    const valid = account.includes("@")
+      ? /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(account)
+      : USERNAME_RE.test(account);
+    if (!valid) {
+      setMsg({ ok: false, text: "請輸入有效的信箱或帳號（英數字 3-30 字）" });
       return;
     }
     if (password.length < 8) {
@@ -276,7 +280,7 @@ function ManageSuperadmins() {
     }
     setBusy(true);
     try {
-      await createSuperadminFn({ data: { email: email.trim(), password } });
+      await createSuperadminFn({ data: { account, password } });
       setEmail("");
       setPassword("");
       setMsg({ ok: true, text: "已新增總管理者" });
@@ -304,7 +308,7 @@ function ManageSuperadmins() {
       <h2 className="flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
         <ShieldPlus className="h-4 w-4" /> 總管理者帳號 SUPERADMINS
       </h2>
-      <p className="text-xs text-muted-foreground">僅擁有者（{currentAdmin?.email}）可新增或刪除。</p>
+      <p className="text-xs text-muted-foreground">僅擁有者（{currentAdmin?.email}）可新增或刪除，帳號可用自訂名稱或信箱。</p>
       <ul className="space-y-2">
         {supers.map((a) => {
           const owner = isOwnerEmail(a.email);
@@ -314,12 +318,12 @@ function ManageSuperadmins() {
               className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-border bg-secondary/40 p-3"
             >
               <span className="truncate text-sm">
-                {a.email ?? a.user_id}
+                {displayAccount(a.email) || a.user_id}
                 {owner && <span className="ml-1 text-[10px] text-primary">擁有者</span>}
               </span>
               {!owner && (
                 <button
-                  aria-label={`移除總管理者 ${a.email ?? a.user_id}`}
+                  aria-label={`移除總管理者 ${displayAccount(a.email) || a.user_id}`}
                   onClick={() => remove(a.user_id)}
                   className="grid h-10 w-10 place-items-center rounded-lg text-destructive"
                 >
@@ -334,7 +338,7 @@ function ManageSuperadmins() {
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="新總管理者登入信箱"
+          placeholder="新總管理者帳號或信箱"
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}

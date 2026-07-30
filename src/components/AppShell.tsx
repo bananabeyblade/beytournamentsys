@@ -7,6 +7,7 @@ import { PlayersTab } from "@/components/PlayersTab";
 import { SettingsTab } from "@/components/SettingsTab";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { useJoinedName } from "@/lib/joined-name";
+import logoAsset from "@/assets/beyx-logo.png";
 
 const TABS = [
   { id: "live", label: "對戰", icon: Swords },
@@ -60,17 +61,26 @@ export function AppShell({ title }: { title?: string }) {
       <ConnectionBanner />
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
         <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
-          <div className="min-w-0">
-            <h1 className="truncate font-display text-lg neon-text">{title ?? "竹塹陀螺集會所"}</h1>
-            {joinedName ? (
-              <p className="truncate text-xs text-primary">
-                參賽者 · <span className="font-semibold">{joinedName}</span>
-              </p>
-            ) : (
-              <p className="truncate text-[11px] tracking-widest text-muted-foreground">
-                TOURNAMENT SYSTEM · 賽事管理
-              </p>
-            )}
+          <div className="flex min-w-0 items-center gap-2">
+            <img
+              src={logoAsset}
+              alt="竹塹陀螺集會所標誌"
+              className="h-9 w-9 shrink-0 object-contain"
+            />
+            <div className="min-w-0">
+              <h1 className="truncate font-display text-lg neon-text">
+                {title ?? "竹塹陀螺集會所"}
+              </h1>
+              {joinedName ? (
+                <p className="truncate text-xs text-primary">
+                  參賽者 · <span className="font-semibold">{joinedName}</span>
+                </p>
+              ) : (
+                <p className="truncate text-[11px] tracking-widest text-muted-foreground">
+                  TOURNAMENT SYSTEM · 賽事管理
+                </p>
+              )}
+            </div>
           </div>
           <button
             onClick={() => setRole(role === "admin" ? "player" : "admin")}

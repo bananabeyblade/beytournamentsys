@@ -1,26 +1,34 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import { Play, Swords, Radio, Trophy } from "lucide-react";
+import { Play, Swords, Radio, Trophy, Star } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import type { Match } from "@/lib/tournament-types";
 import { ScoringModal } from "./ScoringModal";
+import { useJoinedName, isSameName } from "@/lib/joined-name";
 
 function MatchCard({
   match,
   onOpen,
   onStart,
+  joinedName,
 }: {
   match: Match;
   onOpen: () => void;
   onStart: () => void;
+  joinedName: string;
 }) {
   const { playerName, roundName, role, locked, scoringElsewhere } = useTournament();
   const isLive = match.status === "live";
   const busy = isLive && scoringElsewhere(match);
+  const name1 = playerName(match.p1);
+  const name2 = playerName(match.p2);
+  const mine1 = isSameName(name1, joinedName);
+  const mine2 = isSameName(name2, joinedName);
+  const mine = mine1 || mine2;
 
   return (
-    <div className={`panel p-3 ${isLive ? "neon-edge" : ""}`}>
+    <div className={`panel p-3 ${mine ? "neon-edge bg-primary/5" : isLive ? "neon-edge" : ""}`}>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
         <p className="truncate text-xs tracking-widest text-muted-foreground">
           {roundName(match.round)}
@@ -37,16 +45,28 @@ function MatchCard({
         )}
       </div>
 
+      {mine && (
+        <p className="mt-1 flex items-center gap-1 text-[11px] font-bold tracking-widest text-primary">
+          <Star className="h-3 w-3" /> 你的比賽 YOUR MATCH
+        </p>
+      )}
+
       {busy && (
         <p className="mt-1 text-[11px] text-over">其他裁判正在計分中 · 請避免同時操作</p>
       )}
 
       <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-        <p className="truncate text-sm font-semibold">{playerName(match.p1)}</p>
+        <p className={`truncate text-sm font-semibold ${mine1 ? "text-primary" : ""}`}>
+          {name1}
+          {mine1 ? "（你）" : ""}
+        </p>
         <p className="font-display text-2xl neon-text">
           {match.score1} - {match.score2}
         </p>
-        <p className="truncate text-right text-sm font-semibold">{playerName(match.p2)}</p>
+        <p className={`truncate text-right text-sm font-semibold ${mine2 ? "text-primary" : ""}`}>
+          {name2}
+          {mine2 ? "（你）" : ""}
+        </p>
       </div>
 
       {role === "admin" && !locked && (
@@ -74,14 +94,21 @@ function MatchCard({
 }
 
 export function LiveTab() {
-  const { matches, tableCount, startMatch, role, results, currentTournament, locked } =
+  const { matches, tableCount, startMatch, role, results, currentTournament, locked, playerName } =
     useTournament();
+  const joinedName = useJoinedName();
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [startId, setStartId] = useState<string | null>(null);
 
-  const live = matches.filter((m) => m.status === "live");
-  const ready = matches.filter((m) => m.status === "ready");
+  // Put the spectator's own match first so they see it without scrolling.
+  const isMine = (m: Match) =>
+    isSameName(playerName(m.p1), joinedName) || isSameName(playerName(m.p2), joinedName);
+  const mineFirst = (list: Match[]) =>
+    [...list].sort((a, b) => Number(isMine(b)) - Number(isMine(a)));
+
+  const live = mineFirst(matches.filter((m) => m.status === "live"));
+  const ready = mineFirst(matches.filter((m) => m.status === "ready"));
   const openMatch = matches.find((m) => m.id === openId) ?? null;
   const usedTables = new Set(live.map((m) => m.table));
 
@@ -103,6 +130,7 @@ export function LiveTab() {
               <MatchCard
                 key={m.id}
                 match={m}
+                joinedName={joinedName}
                 onOpen={() => setOpenId(m.id)}
                 onStart={() => setStartId(m.id)}
               />
@@ -123,6 +151,7 @@ export function LiveTab() {
               <MatchCard
                 key={m.id}
                 match={m}
+                joinedName={joinedName}
                 onOpen={() => setOpenId(m.id)}
                 onStart={() => setStartId(m.id)}
               />

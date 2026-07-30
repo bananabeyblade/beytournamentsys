@@ -19,7 +19,11 @@ export function computeTop4(matches: Match[], players: Player[]): TournamentResu
     { rank: 2, name: nameOf(loserOf(final)) },
   ];
 
-  const semis = matches.filter((m) => m.round === totalRounds - 2 && m.status === "done");
+  // Only semi-finals that were actually decided count — a force-finished
+  // (never played) bout must not invent a 3rd/4th place.
+  const semis = matches.filter(
+    (m) => m.round === totalRounds - 2 && m.status === "done" && !!m.winner,
+  );
   const third = semis
     .map((m) => ({
       id: loserOf(m),
@@ -27,6 +31,7 @@ export function computeTop4(matches: Match[], players: Player[]): TournamentResu
     }))
     .filter((x) => x.id)
     .sort((a, b) => b.pts - a.pts);
+
 
   third.slice(0, 2).forEach((x, i) => top4.push({ rank: 3 + i, name: nameOf(x.id) }));
 

@@ -734,7 +734,8 @@ export function TournamentProvider({
   // First change goes out immediately; rapid follow-ups are tail-debounced.
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentTournament) return;
-    if (!matches.length && !players.length) return;
+    // A closed event is read-only — never overwrite the archived snapshot.
+    if (currentTournament.status !== "open") return;
     // Nothing actually changed locally → don't write (avoids write/echo storms).
     const payload = JSON.stringify({ players, matches, tableCount });
     if (payload === lastPayload.current) return;
@@ -763,22 +764,28 @@ export function TournamentProvider({
     return () => clearTimeout(timer);
   }, [spectator, hydrated, role, currentTournament, players, matches, tableCount]);
 
-
-
-
   const results = useMemo(() => computeTop4(matches, players), [matches, players]);
+
+  /** Guards against every online admin archiving the same event at once. */
+  const archivedId = useRef<string>("");
 
   // Once the final is decided, archive the podium so the results page exists.
   useEffect(() => {
     if (spectator || !results || !currentTournament || currentTournament.status !== "open") return;
+    if (archivedId.current === currentTournament.id) return;
+    archivedId.current = currentTournament.id;
     let alive = true;
     finishTournament(currentTournament.id, results)
       .then((row) => alive && setCurrentTournament(row))
-      .catch(() => undefined);
+      .catch(() => {
+        archivedId.current = "";
+        toast.error("成績封存失敗", { description: "請確認網路後再試一次。" });
+      });
     return () => {
       alive = false;
     };
   }, [spectator, results, currentTournament]);
+
 
 
   const playerName = useCallback(

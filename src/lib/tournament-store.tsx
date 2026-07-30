@@ -711,6 +711,7 @@ export function TournamentProvider({
 
   // Admins publish players + bracket so spectators and the other admins follow
   // the same event state — the roster must sync before the bracket exists too.
+  // First change goes out immediately; rapid follow-ups are tail-debounced.
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentTournament) return;
     if (!matches.length && !players.length) return;
@@ -718,15 +719,30 @@ export function TournamentProvider({
     const payload = JSON.stringify({ players, matches, tableCount });
     if (payload === lastPayload.current) return;
 
-    const timer = setTimeout(() => {
+    const push = () => {
       lastPayload.current = payload;
+      lastPublishAt.current = Date.now();
       const stamp = new Date().toISOString();
       lastPublishedStamp.current = stampOf(currentTournament.status, stamp);
       lastAppliedStamp.current = lastPublishedStamp.current;
-      void publishLiveState(currentTournament.id, { players, matches, tableCount }, stamp);
-    }, 300);
+      void publishLiveState(currentTournament.id, { players, matches, tableCount }, stamp).catch(
+        () => {
+          // Let the next change retry, and tell the referee the push failed.
+          lastPayload.current = "";
+          toast.error("同步失敗", { description: "分數尚未上傳，請確認網路後再試一次。" });
+        },
+      );
+    };
+
+    const sinceLast = Date.now() - lastPublishAt.current;
+    if (sinceLast >= PUBLISH_TAIL_MS) {
+      push();
+      return;
+    }
+    const timer = setTimeout(push, PUBLISH_TAIL_MS - sinceLast);
     return () => clearTimeout(timer);
   }, [spectator, hydrated, role, currentTournament, players, matches, tableCount]);
+
 
 
 

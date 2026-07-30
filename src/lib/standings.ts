@@ -32,7 +32,6 @@ export function computeTop4(matches: Match[], players: Player[]): TournamentResu
     .filter((x) => x.id)
     .sort((a, b) => b.pts - a.pts);
 
-
   third.slice(0, 2).forEach((x, i) => top4.push({ rank: 3 + i, name: nameOf(x.id) }));
 
   return { top4, playerCount: players.length };

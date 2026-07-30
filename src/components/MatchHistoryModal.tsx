@@ -89,7 +89,9 @@ export function MatchHistoryModal({ match, onClose }: { match: Match; onClose: (
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">此場比賽沒有計分紀錄（輪空或直接晉級）。</p>
+            <p className="text-sm text-muted-foreground">
+              此場比賽沒有計分紀錄（輪空或直接晉級）。
+            </p>
           )}
         </div>
       </div>

@@ -5,9 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 /** Admins only: list pending QR sign-ups for one tournament. */
 export const listRegistrationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) =>
-    z.object({ tournamentId: z.string().uuid() }).parse(data),
-  )
+  .inputValidator((data: unknown) => z.object({ tournamentId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
     const { requireAdmin } = await import("./admin.server");
     await requireAdmin(context.supabase, context.userId);

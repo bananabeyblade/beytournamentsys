@@ -8,7 +8,6 @@ import { RECONNECT_EVENT } from "@/hooks/use-connection";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { writeJoinedName } from "@/lib/joined-name";
 
-
 export const Route = createFileRoute("/register")({
   validateSearch: (search: Record<string, unknown>) => ({
     t: typeof search.t === "string" ? search.t : "",
@@ -18,7 +17,8 @@ export const Route = createFileRoute("/register")({
       { title: "掃碼報名 | Beyblade X 賽事系統" },
       {
         name: "description",
-        content: "掃描賽事 QR Code 後填寫名稱即可完成 Beyblade X 賽事報名，由裁判審核加入選手名單。",
+        content:
+          "掃描賽事 QR Code 後填寫名稱即可完成 Beyblade X 賽事報名，由裁判審核加入選手名單。",
       },
       { property: "og:title", content: "掃碼報名 | Beyblade X 賽事系統" },
       {
@@ -33,8 +33,6 @@ export const Route = createFileRoute("/register")({
 });
 
 const JOINED_KEY = "beyx-joined";
-
-
 
 function RegisterPage() {
   const { t: code } = Route.useSearch();

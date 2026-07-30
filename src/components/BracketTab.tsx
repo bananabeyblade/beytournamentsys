@@ -96,9 +96,7 @@ function halfPositions(counts: number[], height: number): number[][] {
   if (!counts.length) return [];
   const leafCount = counts[0];
   const offset = (height - PITCH * leafCount) / 2;
-  const out: number[][] = [
-    Array.from({ length: leafCount }, (_, i) => offset + PITCH * (i + 0.5)),
-  ];
+  const out: number[][] = [Array.from({ length: leafCount }, (_, i) => offset + PITCH * (i + 0.5))];
   for (let k = 1; k < counts.length; k++) {
     const prev = out[k - 1];
     out.push(
@@ -234,7 +232,10 @@ function FinalLink({
     <div className="shrink-0" style={{ width: CONN_W }}>
       <div style={{ height: HEAD_H }} />
       <div className="relative" style={{ height }}>
-        <span className="absolute border-t border-border" style={{ ...near, top: from, width: mid }} />
+        <span
+          className="absolute border-t border-border"
+          style={{ ...near, top: from, width: mid }}
+        />
         {bottom > top && (
           <span
             className="absolute border-l border-border"
@@ -247,17 +248,13 @@ function FinalLink({
   );
 }
 
-
 export function BracketTab() {
   const { matches, players, playerName, roundName } = useTournament();
   const joinedName = useJoinedName();
   const [openId, setOpenId] = useState<string | null>(null);
   const { viewportRef, contentRef, zoom, zoomBy, reset, fit, didMove, handlers } = usePanZoom();
 
-  const openMatch = useMemo(
-    () => matches.find((m) => m.id === openId) ?? null,
-    [matches, openId],
-  );
+  const openMatch = useMemo(() => matches.find((m) => m.id === openId) ?? null, [matches, openId]);
 
   const onOpen = useCallback(
     (id: string) => {
@@ -271,7 +268,6 @@ export function BracketTab() {
     const map = new Map<string, number>();
     for (const p of players) map.set(p.id, p.seed);
     return (id: string | null) => (id ? (map.get(id) ?? null) : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players]);
 
   // One pass over matches: group by round and pre-resolve names / seeds / flags.
@@ -310,8 +306,7 @@ export function BracketTab() {
     const left = body.map((r) => ({ ...r, cards: r.cards.slice(0, half(r.cards)) }));
     const rightOuter = body.map((r) => ({ ...r, cards: r.cards.slice(half(r.cards)) }));
     const right = [...rightOuter].reverse();
-    const height =
-      PITCH * Math.max(1, left[0].cards.length, rightOuter[0].cards.length);
+    const height = PITCH * Math.max(1, left[0].cards.length, rightOuter[0].cards.length);
     // ys indexed the same way as `left` / `rightOuter` (outermost round first).
     const leftYs = halfPositions(
       left.map((r) => r.cards.length),
@@ -324,13 +319,15 @@ export function BracketTab() {
     return { left, right, final, height, leftYs, rightYs, finalY: height / 2 };
   }, [rounds]);
 
-
   const flatHeight = PITCH * Math.max(1, rounds[0]?.cards.length ?? 1);
   const flatYs = useMemo(
-    () => halfPositions(rounds.map((r) => r.cards.length), flatHeight),
+    () =>
+      halfPositions(
+        rounds.map((r) => r.cards.length),
+        flatHeight,
+      ),
     [rounds, flatHeight],
   );
-
 
   // Fit the whole tree into the viewport whenever its shape changes.
   useEffect(() => {
@@ -475,9 +472,7 @@ export function BracketTab() {
                 align={rounds.length === 1 ? "center" : "left"}
               />
             ))
-
           )}
-
         </div>
         <span className="pointer-events-none absolute right-2 bottom-2 rounded bg-secondary/80 px-2 py-0.5 text-[10px] tracking-widest text-muted-foreground">
           {Math.round(zoom * 100)}%

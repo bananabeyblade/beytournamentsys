@@ -42,11 +42,7 @@ const SLOW_POLL_MS = 25000;
 /** Coalescing window for rapid scoring taps (first write goes out at once). */
 const PUBLISH_TAIL_MS = 500;
 
-const isVisible = () =>
-  typeof document === "undefined" || document.visibilityState === "visible";
-
-
-
+const isVisible = () => typeof document === "undefined" || document.visibilityState === "visible";
 
 interface PersistedState {
   players: Player[];
@@ -68,7 +64,6 @@ function readPersisted(): PersistedState | null {
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
-
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -181,7 +176,6 @@ interface Ctx extends TournamentState {
 
   playerName: (id: string | null) => string;
   roundName: (round: number) => string;
-
 }
 
 const TournamentContext = createContext<Ctx | null>(null);
@@ -309,8 +303,6 @@ export function TournamentProvider({
     };
   }, [spectatorCode]);
 
-
-
   const [role, setRoleState] = useState<Role>("player");
   const [currentAdmin, setCurrentAdmin] = useState<CloudAdmin | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -365,7 +357,6 @@ export function TournamentProvider({
     [currentAdmin, spectator],
   );
 
-
   const signIn = useCallback(
     async (account: string, password: string) => {
       const { error } = await supabase.auth.signInWithPassword({
@@ -410,8 +401,6 @@ export function TournamentProvider({
     setRoleState("player");
   }, []);
 
-
-
   const addPlayers = useCallback((names: string[]) => {
     const clean = names.map((n) => n.trim()).filter(Boolean);
     if (!clean.length) return;
@@ -430,27 +419,22 @@ export function TournamentProvider({
   }, [players]);
 
   const startMatch = useCallback((matchId: string, table: number) => {
-    setMatches((prev) =>
-      prev.map((m) => (m.id === matchId ? { ...m, status: "live", table } : m)),
-    );
+    setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, status: "live", table } : m)));
   }, []);
 
-  const addScore = useCallback(
-    (matchId: string, slot: 1 | 2, type: FinishType, points: number) => {
-      setMatches((prev) =>
-        prev.map((m) => {
-          if (m.id !== matchId) return m;
-          return {
-            ...m,
-            score1: slot === 1 ? m.score1 + points : m.score1,
-            score2: slot === 2 ? m.score2 + points : m.score2,
-            events: [...m.events, { slot, type, points }],
-          };
-        }),
-      );
-    },
-    [],
-  );
+  const addScore = useCallback((matchId: string, slot: 1 | 2, type: FinishType, points: number) => {
+    setMatches((prev) =>
+      prev.map((m) => {
+        if (m.id !== matchId) return m;
+        return {
+          ...m,
+          score1: slot === 1 ? m.score1 + points : m.score1,
+          score2: slot === 2 ? m.score2 + points : m.score2,
+          events: [...m.events, { slot, type, points }],
+        };
+      }),
+    );
+  }, []);
 
   const undoScore = useCallback((matchId: string) => {
     setMatches((prev) =>
@@ -497,16 +481,14 @@ export function TournamentProvider({
       lastPayload.current = JSON.stringify({ players: [], matches: [], tableCount });
       lastPublishedStamp.current = stampOf(active.status, stamp);
       lastAppliedStamp.current = lastPublishedStamp.current;
-      void publishLiveState(active.id, { players: [], matches: [], tableCount }, stamp).catch(
-        () => toast.error("同步失敗", { description: "清除結果尚未上傳，請確認網路。" }),
+      void publishLiveState(active.id, { players: [], matches: [], tableCount }, stamp).catch(() =>
+        toast.error("同步失敗", { description: "清除結果尚未上傳，請確認網路。" }),
       );
     }
     setPlayers([]);
     setMatches([]);
     setCurrentTournament(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTournament, tableCount]);
-
 
   const loadSample = useCallback(() => {
     setMatches([]);
@@ -562,8 +544,7 @@ export function TournamentProvider({
         if (m.status === "done") return m;
         const played = m.events.length > 0;
         const solo = m.p1 && m.p2 ? null : (m.p1 ?? m.p2);
-        const leader =
-          m.score1 === m.score2 ? null : m.score1 > m.score2 ? m.p1 : m.p2;
+        const leader = m.score1 === m.score2 ? null : m.score1 > m.score2 ? m.p1 : m.p2;
         return {
           ...m,
           status: "done" as const,
@@ -592,7 +573,6 @@ export function TournamentProvider({
     }
   }, [currentTournament, matches, players, tableCount]);
 
-
   // Restore the last created tournament so the QR card survives reloads.
   useEffect(() => {
     if (spectator) return;
@@ -619,15 +599,11 @@ export function TournamentProvider({
   /** When the last publish went out — powers the leading-edge write. */
   const lastPublishAt = useRef<number>(0);
 
-
-
   // Timestamps come back from Postgres as `+00:00` while we send `Z`; compare
   // them as epoch millis so a device never re-applies its own publish (which
   // used to bounce state forever between pull → publish → realtime → pull).
   const stampOf = (status: string, iso: string | null | undefined) =>
     `${status}|${iso ? Date.parse(iso) : ""}`;
-
-
 
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentAdmin) return;
@@ -731,7 +707,6 @@ export function TournamentProvider({
     };
   }, [spectator, hydrated, role, currentAdmin]);
 
-
   // Admins publish players + bracket so spectators and the other admins follow
   // the same event state — the roster must sync before the bracket exists too.
   // First change goes out immediately; rapid follow-ups are tail-debounced.
@@ -789,8 +764,6 @@ export function TournamentProvider({
     };
   }, [spectator, results, currentTournament]);
 
-
-
   const playerName = useCallback(
     (id: string | null) => (id ? (players.find((p) => p.id === id)?.name ?? "—") : "待定 TBD"),
     [players],
@@ -820,7 +793,6 @@ export function TournamentProvider({
     forceFinishTournament,
     results,
     locked: !!currentTournament && currentTournament.status !== "open",
-
 
     matches,
     tableCount,

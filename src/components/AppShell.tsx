@@ -8,7 +8,6 @@ import { SettingsTab } from "@/components/SettingsTab";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { useJoinedName } from "@/lib/joined-name";
 
-
 const TABS = [
   { id: "live", label: "對戰", icon: Swords },
   { id: "bracket", label: "賽程", icon: GitBranch },
@@ -32,8 +31,6 @@ export function AppShell({ title }: { title?: string }) {
   const [showLogin, setShowLogin] = useState(false);
   // Spectators arrive via the QR flow; surface the name they registered with.
   const joinedName = useJoinedName();
-
-
 
   // Remember the last tab so a refresh returns to where the user was.
   useEffect(() => {
@@ -69,7 +66,6 @@ export function AppShell({ title }: { title?: string }) {
               <p className="truncate text-xs text-primary">
                 參賽者 · <span className="font-semibold">{joinedName}</span>
               </p>
-
             ) : (
               <p className="truncate text-[11px] tracking-widest text-muted-foreground">
                 TOURNAMENT SYSTEM · 賽事管理

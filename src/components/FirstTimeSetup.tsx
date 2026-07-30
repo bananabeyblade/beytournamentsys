@@ -67,7 +67,9 @@ export function FirstTimeSetup() {
     <div className="panel space-y-3 border-primary/50 p-3">
       <div className="flex items-center gap-2">
         <ShieldCheck className="h-5 w-5 text-primary" />
-        <h2 className="font-display text-sm tracking-widest neon-text">首次設定 FIRST-TIME SETUP</h2>
+        <h2 className="font-display text-sm tracking-widest neon-text">
+          首次設定 FIRST-TIME SETUP
+        </h2>
       </div>
 
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -151,10 +153,17 @@ export function FirstTimeSetup() {
             onClick={() => void submit()}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-50"
           >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
             建立並成為總管理者
           </button>
-          <button onClick={() => setStep(0)} className="min-h-11 w-full text-xs text-muted-foreground">
+          <button
+            onClick={() => setStep(0)}
+            className="min-h-11 w-full text-xs text-muted-foreground"
+          >
             返回說明
           </button>
         </>

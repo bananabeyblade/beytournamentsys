@@ -7,8 +7,6 @@ import { QrRegisterCard } from "./QrRegisterCard";
 import { AdminLoginQrCard } from "./AdminLoginQrCard";
 import { TournamentHistory } from "./TournamentHistory";
 
-
-
 export function SettingsTab() {
   const {
     role,
@@ -29,19 +27,17 @@ export function SettingsTab() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
-
-
   return (
     <div className="space-y-4">
       <div className="panel p-3">
-        <h2 className="mb-2 text-sm tracking-widest text-muted-foreground">
-          角色切換 ROLE
-        </h2>
+        <h2 className="mb-2 text-sm tracking-widest text-muted-foreground">角色切換 ROLE</h2>
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => setRole("player")}
             className={`flex min-h-14 items-center justify-center gap-2 rounded-xl border font-display ${
-              role === "player" ? "neon-edge bg-accent/40 text-primary" : "border-border bg-secondary"
+              role === "player"
+                ? "neon-edge bg-accent/40 text-primary"
+                : "border-border bg-secondary"
             }`}
           >
             <Eye className="h-4 w-4" /> 參賽者
@@ -50,7 +46,9 @@ export function SettingsTab() {
             disabled={!currentAdmin}
             onClick={() => setRole("admin")}
             className={`flex min-h-14 items-center justify-center gap-2 rounded-xl border font-display disabled:opacity-40 ${
-              role === "admin" ? "neon-edge bg-accent/40 text-primary" : "border-border bg-secondary"
+              role === "admin"
+                ? "neon-edge bg-accent/40 text-primary"
+                : "border-border bg-secondary"
             }`}
           >
             <Shield className="h-4 w-4" /> 管理者
@@ -78,7 +76,9 @@ export function SettingsTab() {
         <>
           <FirstTimeSetup />
           <div className="panel space-y-3 p-3">
-            <h2 className="text-sm tracking-widest text-muted-foreground">管理者登入 ADMIN LOGIN</h2>
+            <h2 className="text-sm tracking-widest text-muted-foreground">
+              管理者登入 ADMIN LOGIN
+            </h2>
             <input
               value={u}
               onChange={(e) => setU(e.target.value)}
@@ -128,14 +128,11 @@ export function SettingsTab() {
 
       <AccountSettings />
 
-
-
       {role === "admin" && <QrRegisterCard />}
 
       {currentAdmin?.isSuper && <AdminLoginQrCard />}
 
       {role === "admin" && <TournamentHistory />}
-
 
       {currentAdmin?.isSuper && (
         <div className="panel space-y-3 p-3">

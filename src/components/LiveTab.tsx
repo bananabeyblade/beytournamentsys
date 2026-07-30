@@ -18,7 +18,6 @@ function MatchCard({
   const { playerName, roundName, role, locked } = useTournament();
   const isLive = match.status === "live";
 
-
   return (
     <div className={`panel p-3 ${isLive ? "neon-edge" : ""}`}>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
@@ -47,7 +46,6 @@ function MatchCard({
 
       {role === "admin" && !locked && (
         <button
-
           onClick={isLive ? onOpen : onStart}
           className={`mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl font-display text-sm ${
             isLive
@@ -154,7 +152,6 @@ export function LiveTab() {
           )}
         </div>
       )}
-
 
       {startId && role === "admin" && !locked && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/85 p-4 backdrop-blur-sm">

@@ -142,7 +142,8 @@ function ManageAdmins() {
   useEffect(load, [load]);
 
   const create = async () => {
-    if (!USERNAME_RE.test(email.trim())) {
+    const account = email.trim();
+    if (!USERNAME_RE.test(account)) {
       setMsg({ ok: false, text: "帳號僅能使用英數字、底線、點與連字號（3-30 字）" });
       return;
     }
@@ -150,9 +151,24 @@ function ManageAdmins() {
       setMsg({ ok: false, text: "密碼至少需 8 碼" });
       return;
     }
+    // Catch duplicates before hitting the server so the user gets a clear hint.
+    const clash = rows.find(
+      (r) => displayAccount(r.email).toLowerCase() === account.toLowerCase(),
+    );
+    if (clash) {
+      setMsg({
+        ok: false,
+        text:
+          clash.role === "superadmin"
+            ? "此帳號已存在（目前為總管理者），請改用其他帳號名稱"
+            : "此帳號已存在（目前為管理者），請改用其他帳號或使用清單中的「重設密碼」",
+      });
+      return;
+    }
     setBusy(true);
     try {
-      await createAdminFn({ data: { username: email.trim(), password } });
+      await createAdminFn({ data: { username: account, password } });
+
       setEmail("");
       setPassword("");
       setMsg({ ok: true, text: "已建立管理者帳號" });

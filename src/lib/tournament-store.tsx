@@ -75,32 +75,12 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-/**
- * Standard bracket seed order (1-vs-last, mirrored recursively) so byes land on
- * separate first-round matches instead of piling up in one half.
- */
-function seedOrder(size: number): number[] {
-  let order = [1, 2];
-  while (order.length < size) {
-    const n = order.length * 2;
-    const next: number[] = [];
-    for (const s of order) {
-      next.push(s, n + 1 - s);
-    }
-    order = next;
-  }
-  return order;
-}
-
 function buildBracket(players: Player[]): Match[] {
   if (players.length < 2) return [];
   const order = shuffle(players);
   let size = 2;
   while (size < order.length) size *= 2;
-  // seedOrder gives the seed number sitting in each slot; players are handed
-  // seeds 1..N in shuffled order, so the empty seeds (byes) spread evenly.
-  const slots: (string | null)[] = seedOrder(size).map((seed) => order[seed - 1]?.id ?? null);
-
+  const slots: (string | null)[] = Array.from({ length: size }, (_, i) => order[i]?.id ?? null);
 
   const rounds: Match[][] = [];
   const roundCount = Math.log2(size);

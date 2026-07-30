@@ -180,7 +180,7 @@ export function LiveTab() {
         </div>
       )}
 
-      {openMatch && role === "admin" && (
+      {openMatch && role === "admin" && !locked && (
         <ScoringModal match={openMatch} onClose={() => setOpenId(null)} />
       )}
     </div>

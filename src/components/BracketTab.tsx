@@ -323,6 +323,11 @@ export function BracketTab() {
 
 
   const flatHeight = PITCH * Math.max(1, rounds[0]?.cards.length ?? 1);
+  const flatYs = useMemo(
+    () => halfPositions(rounds.map((r) => r.cards.length), flatHeight),
+    [rounds, flatHeight],
+  );
+
 
   // Fit the whole tree into the viewport whenever its shape changes.
   useEffect(() => {

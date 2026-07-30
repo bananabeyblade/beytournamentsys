@@ -35,11 +35,13 @@ function SlotCard({
 }
 
 export function ScoringModal({ match, onClose }: { match: Match; onClose: () => void }) {
-  const { playerName, addScore, undoScore, confirmWinner, roundName } = useTournament();
+  const { playerName, addScore, undoScore, confirmWinner, roundName, locked } = useTournament();
   const [slot, setSlot] = useState<1 | 2>(1);
 
   const reached = match.score1 >= WIN_TARGET || match.score2 >= WIN_TARGET;
+  const frozen = reached || locked;
   const winnerName = match.score1 >= WIN_TARGET ? playerName(match.p1) : playerName(match.p2);
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/85 p-0 backdrop-blur-sm sm:items-center sm:p-4">

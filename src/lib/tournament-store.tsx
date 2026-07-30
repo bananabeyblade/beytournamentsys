@@ -819,6 +819,8 @@ export function TournamentProvider({
     resumeTournament,
     forceFinishTournament,
     results,
+    locked: !!currentTournament && currentTournament.status !== "open",
+
 
     matches,
     tableCount,

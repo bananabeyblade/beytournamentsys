@@ -91,19 +91,38 @@ const BracketMatchCard = memo(function BracketMatchCard({
   );
 });
 
-/** Vertical centre of card `i` of round-depth `depth` (0 = first round). */
-const yAt = (depth: number, i: number) => PITCH * 2 ** depth * (i + 0.5);
+/** Positions of every column of one half, derived bottom-up from the leaves. */
+function halfPositions(counts: number[], height: number): number[][] {
+  if (!counts.length) return [];
+  const leafCount = counts[0];
+  const offset = (height - PITCH * leafCount) / 2;
+  const out: number[][] = [
+    Array.from({ length: leafCount }, (_, i) => offset + PITCH * (i + 0.5)),
+  ];
+  for (let k = 1; k < counts.length; k++) {
+    const prev = out[k - 1];
+    out.push(
+      Array.from({ length: counts[k] }, (_, j) => {
+        const a = prev[j * 2];
+        const b = prev[j * 2 + 1];
+        if (a == null) return prev[j] ?? height / 2;
+        return b == null ? a : (a + b) / 2;
+      }),
+    );
+  }
+  return out;
+}
 
 function Column({
   label,
   cards,
-  depth,
+  ys,
   height,
   align,
 }: {
   label: string;
   cards: CardProps[];
-  depth: number;
+  ys: number[];
   height: number;
   align: "left" | "right" | "center";
 }) {
@@ -122,7 +141,7 @@ function Column({
           <div
             key={c.match.id}
             className="absolute inset-x-0"
-            style={{ top: yAt(depth, i) - CARD_H / 2 }}
+            style={{ top: (ys[i] ?? height / 2) - CARD_H / 2 }}
           >
             <BracketMatchCard {...c} />
           </div>
@@ -133,48 +152,52 @@ function Column({
 }
 
 /**
- * Bracket-shaped connectors between a round and the next one.
- * `count` = number of target cards; `depth` = depth of the *source* round.
+ * Bracket-shaped connectors drawn straight from the real card centres.
+ * `fromYs` = source column centres, `toYs` = target column centres.
  */
 function Connectors({
-  count,
-  depth,
+  fromYs,
+  toYs,
   height,
   mirror,
 }: {
-  count: number;
-  depth: number;
+  fromYs: number[];
+  toYs: number[];
   height: number;
   mirror: boolean;
 }) {
   const mid = CONN_W / 2;
+  const near = mirror ? { right: 0 } : { left: 0 };
+  const far = mirror ? { left: 0 } : { right: 0 };
   return (
     <div className="shrink-0" style={{ width: CONN_W }}>
       <div style={{ height: HEAD_H }} />
       <div className="relative" style={{ height }}>
-        {Array.from({ length: count }, (_, j) => {
-          const yTop = yAt(depth, j * 2);
-          const yBottom = yAt(depth, j * 2 + 1);
-          const yMid = (yTop + yBottom) / 2;
-          const near = mirror ? { right: 0 } : { left: 0 };
-          const far = mirror ? { left: 0 } : { right: 0 };
+        {toYs.map((yMid, j) => {
+          const a = fromYs[j * 2];
+          const b = fromYs[j * 2 + 1];
+          const ends = [a, b].filter((v): v is number => v != null);
+          const top = Math.min(...ends, yMid);
+          const bottom = Math.max(...ends, yMid);
           return (
             <div key={j}>
-              {[yTop, yBottom].map((y) => (
+              {ends.map((y) => (
                 <span
                   key={y}
                   className="absolute border-t border-border"
                   style={{ ...near, top: y, width: mid }}
                 />
               ))}
-              <span
-                className="absolute border-l border-border"
-                style={{
-                  [mirror ? "right" : "left"]: mid,
-                  top: yTop,
-                  height: yBottom - yTop,
-                }}
-              />
+              {bottom > top && (
+                <span
+                  className="absolute border-l border-border"
+                  style={{
+                    [mirror ? "right" : "left"]: mid,
+                    top,
+                    height: bottom - top,
+                  }}
+                />
+              )}
               <span
                 className="absolute border-t border-border"
                 style={{ ...far, top: yMid, width: mid }}
@@ -187,21 +210,40 @@ function Connectors({
   );
 }
 
-/** Single straight line feeding the centred final. */
-function FinalLink({ y, height, mirror }: { y: number; height: number; mirror: boolean }) {
+/** Link feeding the centred final from the last card of one half. */
+function FinalLink({
+  from,
+  to,
+  height,
+  mirror,
+}: {
+  from: number;
+  to: number;
+  height: number;
+  mirror: boolean;
+}) {
+  const mid = CONN_W / 2;
+  const near = mirror ? { right: 0 } : { left: 0 };
+  const far = mirror ? { left: 0 } : { right: 0 };
+  const top = Math.min(from, to);
+  const bottom = Math.max(from, to);
   return (
     <div className="shrink-0" style={{ width: CONN_W }}>
       <div style={{ height: HEAD_H }} />
       <div className="relative" style={{ height }}>
-        <span
-          className="absolute inset-x-0 border-t border-border"
-          style={{ top: y }}
-          data-mirror={mirror}
-        />
+        <span className="absolute border-t border-border" style={{ ...near, top: from, width: mid }} />
+        {bottom > top && (
+          <span
+            className="absolute border-l border-border"
+            style={{ [mirror ? "right" : "left"]: mid, top, height: bottom - top }}
+          />
+        )}
+        <span className="absolute border-t border-border" style={{ ...far, top: to, width: mid }} />
       </div>
     </div>
   );
 }
+
 
 export function BracketTab() {
   const { matches, players, playerName, roundName } = useTournament();

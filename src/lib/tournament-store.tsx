@@ -41,6 +41,10 @@ const SLOW_POLL_MS = 25000;
 /** Coalescing window for rapid scoring taps (first write goes out at once). */
 const PUBLISH_TAIL_MS = 500;
 
+const isVisible = () =>
+  typeof document === "undefined" || document.visibilityState === "visible";
+
+
 
 
 interface PersistedState {

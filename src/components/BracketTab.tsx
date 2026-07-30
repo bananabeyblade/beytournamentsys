@@ -569,7 +569,24 @@ export function BracketTab() {
                   </div>
                 );
               })}
+              {layout.prelimRight.length > 0 && (
+                <div className="flex">
+                  <PrelimLinks
+                    pairs={layout.prelimRight.map((p) => ({ from: p.y, to: p.targetY }))}
+                    height={height}
+                    mirror
+                  />
+                  <Column
+                    label={layout.prelimLabel}
+                    cards={layout.prelimRight.map((p) => p.card)}
+                    ys={layout.prelimRight.map((p) => p.y)}
+                    height={height}
+                    align="right"
+                  />
+                </div>
+              )}
             </>
+
           ) : (
             rounds.map((r, i) => (
               <Column

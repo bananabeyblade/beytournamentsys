@@ -95,6 +95,15 @@ export function TournamentHistory() {
                     <Trophy className="h-4 w-4" /> 成績
                   </Link>
                 )}
+                <button
+                  aria-label="匯出賽事紀錄"
+                  title="匯出 .txt"
+                  onClick={() => exportTxt(r)}
+                  className="grid h-10 w-10 place-items-center rounded-lg border border-border text-muted-foreground"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+
                 {currentAdmin.isSuper && (
                   <button
                     aria-label="刪除賽事"

@@ -42,8 +42,7 @@ export async function publishLiveState(id: string, state: LiveState, stamp?: str
   if (error) throw new Error("同步賽況失敗");
 }
 
-const COLS =
-  "id,code,name,status,results,created_at,finished_at,live_state,live_updated_at";
+const COLS = "id,code,name,status,results,created_at,finished_at,live_state,live_updated_at";
 
 function makeCode() {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -116,7 +115,6 @@ export async function fetchLatestOpenTournament(): Promise<TournamentRow | null>
   if (error) return null;
   return (data as unknown as TournamentRow) ?? null;
 }
-
 
 /** Superadmin-only (enforced by row-level policies). Removes a tournament and its registrations. */
 export async function deleteTournament(id: string) {

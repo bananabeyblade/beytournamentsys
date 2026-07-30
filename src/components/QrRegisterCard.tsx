@@ -68,7 +68,8 @@ export function QrRegisterCard() {
             />
           )}
           <p className="text-xs text-muted-foreground">
-            每建立一場新賽事都會產生新的 QR Code，舊的 QR Code 會自動失效；同一場賽事不可重複報名相同名稱。
+            每建立一場新賽事都會產生新的 QR Code，舊的 QR Code
+            會自動失效；同一場賽事不可重複報名相同名稱。
           </p>
           <button
             onClick={() => {
@@ -85,7 +86,8 @@ export function QrRegisterCard() {
             (confirmEnd ? (
               <div className="space-y-2 rounded-xl border border-destructive/60 bg-destructive/10 p-3">
                 <p className="text-xs text-muted-foreground">
-                  確定要強制結束「{currentTournament.name}」嗎？結束後將停止報名並以目前戰績產生成績頁。
+                  確定要強制結束「{currentTournament.name}
+                  」嗎？結束後將停止報名並以目前戰績產生成績頁。
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -117,29 +119,27 @@ export function QrRegisterCard() {
           本場賽事（{currentTournament.name}）已結束，報名 QR Code 已停止顯示。
         </p>
       ) : (
-        <p className="text-xs text-muted-foreground">
-          建立一場新賽事後即可產生專屬報名 QR Code。
-        </p>
+        <p className="text-xs text-muted-foreground">建立一場新賽事後即可產生專屬報名 QR Code。</p>
       )}
 
       {currentAdmin?.isSuper ? (
-      <div className="space-y-2 border-t border-border pt-3">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={60}
-          placeholder="新賽事名稱，例如：0729 週三戰"
-          className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-        />
-        {err && <p className="text-xs text-destructive">{err}</p>}
-        <button
-          disabled={busy || !name.trim()}
-          onClick={() => void create()}
-          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
-        >
-          <Plus className="h-4 w-4" /> 建立新賽事與 QR CODE
-        </button>
-      </div>
+        <div className="space-y-2 border-t border-border pt-3">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={60}
+            placeholder="新賽事名稱，例如：0729 週三戰"
+            className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+          />
+          {err && <p className="text-xs text-destructive">{err}</p>}
+          <button
+            disabled={busy || !name.trim()}
+            onClick={() => void create()}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
+          >
+            <Plus className="h-4 w-4" /> 建立新賽事與 QR CODE
+          </button>
+        </div>
       ) : (
         <p className="border-t border-border pt-3 text-xs text-muted-foreground">
           僅總管理者可以建立新賽事。

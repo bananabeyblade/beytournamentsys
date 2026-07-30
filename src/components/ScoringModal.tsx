@@ -35,10 +35,11 @@ function SlotCard({
 }
 
 export function ScoringModal({ match, onClose }: { match: Match; onClose: () => void }) {
-  const { playerName, addScore, undoScore, confirmWinner, roundName } = useTournament();
+  const { playerName, addScore, undoScore, confirmWinner, roundName, locked } = useTournament();
   const [slot, setSlot] = useState<1 | 2>(1);
 
   const reached = match.score1 >= WIN_TARGET || match.score2 >= WIN_TARGET;
+  const frozen = reached || locked;
   const winnerName = match.score1 >= WIN_TARGET ? playerName(match.p1) : playerName(match.p2);
 
   return (
@@ -85,7 +86,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
           {FINISHES.map((f) => (
             <button
               key={f.type}
-              disabled={reached}
+              disabled={frozen}
               onClick={() => addScore(match.id, slot, f.type, f.points)}
               className={`min-h-20 rounded-xl border-2 px-3 py-3 text-left font-semibold disabled:opacity-40 ${toneClass[f.tone]}`}
             >
@@ -98,13 +99,17 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
 
         <button
           onClick={() => undoScore(match.id)}
-          disabled={!match.events.length}
+          disabled={!match.events.length || locked}
           className="mt-3 flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary font-semibold disabled:opacity-40"
         >
           <RotateCcw className="h-5 w-5" /> 復原上一步 Undo
         </button>
 
-        {reached && (
+        {locked && (
+          <p className="mt-3 text-center text-xs text-primary">賽事已結束，計分已封存。</p>
+        )}
+
+        {reached && !locked && (
           <div className="mt-4 rounded-xl border-2 border-primary bg-accent/40 p-4 text-center neon-edge">
             <Trophy className="mx-auto h-8 w-8 text-primary" />
             <p className="mt-2 font-display text-lg neon-text">{winnerName} Wins!</p>

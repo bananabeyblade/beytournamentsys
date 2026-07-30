@@ -96,7 +96,9 @@ function MyAccount() {
         placeholder="確認新密碼"
         className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
       />
-      {msg && <p className={`text-xs ${msg.ok ? "text-primary" : "text-destructive"}`}>{msg.text}</p>}
+      {msg && (
+        <p className={`text-xs ${msg.ok ? "text-primary" : "text-destructive"}`}>{msg.text}</p>
+      )}
       <button
         onClick={submit}
         disabled={busy}
@@ -308,7 +310,9 @@ function ManageSuperadmins() {
       <h2 className="flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
         <ShieldPlus className="h-4 w-4" /> 總管理者帳號 SUPERADMINS
       </h2>
-      <p className="text-xs text-muted-foreground">僅擁有者（{currentAdmin?.email}）可新增或刪除，帳號可用自訂名稱或信箱。</p>
+      <p className="text-xs text-muted-foreground">
+        僅擁有者（{currentAdmin?.email}）可新增或刪除，帳號可用自訂名稱或信箱。
+      </p>
       <ul className="space-y-2">
         {supers.map((a) => {
           const owner = isOwnerEmail(a.email);

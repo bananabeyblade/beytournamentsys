@@ -83,8 +83,8 @@ function ResultsPage() {
 
       {row?.results && (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Trophy className="h-4 w-4 text-primary" /> 共 {row.results.playerCount} 位選手參賽 ·
-          代碼 {row.code}
+          <Trophy className="h-4 w-4 text-primary" /> 共 {row.results.playerCount} 位選手參賽 · 代碼{" "}
+          {row.code}
         </p>
       )}
     </main>

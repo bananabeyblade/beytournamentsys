@@ -8,10 +8,7 @@ export async function getRolesForUser(
   supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<AdminRole[]> {
-  const { data, error } = await supabase
-    .from("admin_roles")
-    .select("role")
-    .eq("user_id", userId);
+  const { data, error } = await supabase.from("admin_roles").select("role").eq("user_id", userId);
   if (error) throw new Error("無法讀取權限");
   return (data ?? []).map((r) => r.role as AdminRole);
 }

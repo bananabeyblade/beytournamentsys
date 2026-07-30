@@ -129,21 +129,24 @@ export function usePanZoom() {
     return { x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) };
   };
 
-  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    moved.current = false;
-    setBusy(true);
-    if (pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()];
-      const rect = viewportRef.current?.getBoundingClientRect();
-      pinch.current = {
-        dist: Math.hypot(a.x - b.x, a.y - b.y),
-        cx: (a.x + b.x) / 2 - (rect?.left ?? 0),
-        cy: (a.y + b.y) / 2 - (rect?.top ?? 0),
-      };
-    }
-  }, [setBusy]);
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      moved.current = false;
+      setBusy(true);
+      if (pointers.current.size === 2) {
+        const [a, b] = [...pointers.current.values()];
+        const rect = viewportRef.current?.getBoundingClientRect();
+        pinch.current = {
+          dist: Math.hypot(a.x - b.x, a.y - b.y),
+          cx: (a.x + b.x) / 2 - (rect?.left ?? 0),
+          cy: (a.y + b.y) / 2 - (rect?.top ?? 0),
+        };
+      }
+    },
+    [setBusy],
+  );
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -156,11 +159,7 @@ export function usePanZoom() {
         const dist = Math.hypot(a.x - b.x, a.y - b.y);
         if (pinch.current.dist > 0) {
           moved.current = true;
-          zoomAt(
-            view.current.k * (dist / pinch.current.dist),
-            pinch.current.cx,
-            pinch.current.cy,
-          );
+          zoomAt(view.current.k * (dist / pinch.current.dist), pinch.current.cx, pinch.current.cy);
         }
         pinch.current.dist = dist;
         return;
@@ -214,10 +213,13 @@ export function usePanZoom() {
     return () => vp.removeEventListener("wheel", onWheel);
   }, [commit, zoomAt]);
 
-  useEffect(() => () => {
-    if (frame.current != null) cancelAnimationFrame(frame.current);
-    if (idleTimer.current) clearTimeout(idleTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (frame.current != null) cancelAnimationFrame(frame.current);
+      if (idleTimer.current) clearTimeout(idleTimer.current);
+    },
+    [],
+  );
 
   return {
     viewportRef,

@@ -36,8 +36,6 @@ export function PlayersTab() {
     };
   }, [currentAdmin, tournamentId]);
 
-
-
   const resolve = async (id: string, accept: boolean) => {
     const item = pending.find((r) => r.id === id);
     if (!currentAdmin) return;
@@ -49,7 +47,6 @@ export function PlayersTab() {
       /* 下次同步會還原 */
     }
   };
-
 
   return (
     <div className="space-y-4">

@@ -20,9 +20,11 @@ const ORDINAL = ["1st", "2nd", "3rd", "4th"];
 
 /** Builds a shareable plain-text record of a tournament (podium, roster, per-point log). */
 export function buildTournamentText(row: TournamentRow): string {
-  const live = row.live_state as unknown as
-    | { players?: Player[]; matches?: Match[]; tableCount?: number }
-    | null;
+  const live = row.live_state as unknown as {
+    players?: Player[];
+    matches?: Match[];
+    tableCount?: number;
+  } | null;
   const players = live?.players ?? [];
   const matches = live?.matches ?? [];
   const nameOf = (id: string | null) => players.find((p) => p.id === id)?.name ?? "—";
@@ -57,9 +59,7 @@ export function buildTournamentText(row: TournamentRow): string {
     const total = Math.max(...matches.map((m) => m.round)) + 1;
     L.push("------ 賽程紀錄 ------");
     for (let r = 0; r < total; r++) {
-      const list = matches
-        .filter((m) => m.round === r)
-        .sort((a, b) => a.index - b.index);
+      const list = matches.filter((m) => m.round === r).sort((a, b) => a.index - b.index);
       if (!list.length) continue;
       L.push(`[${roundLabel(r, total)}]`);
       list.forEach((m, i) => {

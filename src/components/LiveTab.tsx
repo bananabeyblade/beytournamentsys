@@ -15,7 +15,7 @@ function MatchCard({
   onOpen: () => void;
   onStart: () => void;
 }) {
-  const { playerName, roundName, role } = useTournament();
+  const { playerName, roundName, role, locked } = useTournament();
   const isLive = match.status === "live";
 
   return (
@@ -44,7 +44,7 @@ function MatchCard({
         <p className="truncate text-right text-sm font-semibold">{playerName(match.p2)}</p>
       </div>
 
-      {role === "admin" && (
+      {role === "admin" && !locked && (
         <button
           onClick={isLive ? onOpen : onStart}
           className={`mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl font-display text-sm ${
@@ -69,7 +69,9 @@ function MatchCard({
 }
 
 export function LiveTab() {
-  const { matches, tableCount, startMatch, role, results, currentTournament } = useTournament();
+  const { matches, tableCount, startMatch, role, results, currentTournament, locked } =
+    useTournament();
+
   const [openId, setOpenId] = useState<string | null>(null);
   const [startId, setStartId] = useState<string | null>(null);
 
@@ -80,6 +82,12 @@ export function LiveTab() {
 
   return (
     <div className="space-y-5">
+      {locked && (
+        <p className="panel border-primary/50 p-3 text-center text-sm text-primary">
+          本場賽事已結束，比分與賽程已封存，無法再修改。
+        </p>
+      )}
+
       <section>
         <h2 className="mb-2 text-sm tracking-widest text-muted-foreground">
           進行中 LIVE ({live.length})
@@ -145,8 +153,7 @@ export function LiveTab() {
         </div>
       )}
 
-
-      {startId && role === "admin" && (
+      {startId && role === "admin" && !locked && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/85 p-4 backdrop-blur-sm">
           <div className="panel neon-edge w-full max-w-sm p-4">
             <h3 className="text-base neon-text">選擇桌號 SELECT TABLE</h3>
@@ -176,7 +183,7 @@ export function LiveTab() {
         </div>
       )}
 
-      {openMatch && role === "admin" && (
+      {openMatch && role === "admin" && !locked && (
         <ScoringModal match={openMatch} onClose={() => setOpenId(null)} />
       )}
     </div>

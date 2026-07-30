@@ -31,6 +31,7 @@ import {
   type TournamentRow,
 } from "./tournaments";
 import { computeTop4 } from "./standings";
+import { mergeMatches, touchMatch } from "./live-merge";
 import { displayAccount, toLoginEmail } from "./account-id";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
 
@@ -40,7 +41,7 @@ const STATE_KEY = "beyx-live-state";
 /** Realtime carries the updates; polling is only a slow safety net. */
 const SLOW_POLL_MS = 25000;
 /** Coalescing window for rapid scoring taps (first write goes out at once). */
-const PUBLISH_TAIL_MS = 500;
+const PUBLISH_TAIL_MS = 250;
 
 const isVisible = () => typeof document === "undefined" || document.visibilityState === "visible";
 
@@ -163,6 +164,8 @@ interface Ctx extends TournamentState {
   addScore: (matchId: string, slot: 1 | 2, type: FinishType, points: number) => void;
   undoScore: (matchId: string) => void;
   confirmWinner: (matchId: string) => void;
+  /** True when another device edited this bout moments ago (shared scoring). */
+  scoringElsewhere: (match: Match) => boolean;
   resetTournament: () => void;
   loadSample: () => void;
   currentTournament: TournamentRow | null;
@@ -418,41 +421,53 @@ export function TournamentProvider({
     setMatches(buildBracket(players));
   }, [players]);
 
+  /** Remembers which bouts this device edited, to spot another referee's edits. */
+  const localTouch = useRef<Record<string, number>>({});
+  const markLocal = (matchId: string) => {
+    localTouch.current[matchId] = Date.now();
+  };
+
   const startMatch = useCallback((matchId: string, table: number) => {
-    setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, status: "live", table } : m)));
+    markLocal(matchId);
+    setMatches((prev) =>
+      prev.map((m) => (m.id === matchId ? touchMatch({ ...m, status: "live", table }) : m)),
+    );
   }, []);
 
   const addScore = useCallback((matchId: string, slot: 1 | 2, type: FinishType, points: number) => {
+    markLocal(matchId);
     setMatches((prev) =>
       prev.map((m) => {
         if (m.id !== matchId) return m;
-        return {
+        return touchMatch({
           ...m,
           score1: slot === 1 ? m.score1 + points : m.score1,
           score2: slot === 2 ? m.score2 + points : m.score2,
           events: [...m.events, { slot, type, points }],
-        };
+        });
       }),
     );
   }, []);
 
   const undoScore = useCallback((matchId: string) => {
+    markLocal(matchId);
     setMatches((prev) =>
       prev.map((m) => {
         if (m.id !== matchId || !m.events.length) return m;
         const events = [...m.events];
         const last = events.pop()!;
-        return {
+        return touchMatch({
           ...m,
           events,
           score1: last.slot === 1 ? m.score1 - last.points : m.score1,
           score2: last.slot === 2 ? m.score2 - last.points : m.score2,
-        };
+        });
       }),
     );
   }, []);
 
   const confirmWinner = useCallback((matchId: string) => {
+    markLocal(matchId);
     setMatches((prev) => {
       const next = prev.map((m) => ({ ...m }));
       const m = next.find((x) => x.id === matchId);
@@ -462,11 +477,14 @@ export function TournamentProvider({
       m.winner = winner;
       m.status = "done";
       m.table = null;
+      Object.assign(m, touchMatch(m));
       if (m.nextMatchId) {
         const nm = next.find((x) => x.id === m.nextMatchId)!;
         if (m.nextSlot === 1) nm.p1 = winner;
         else nm.p2 = winner;
         if (nm.p1 && nm.p2 && nm.status === "waiting") nm.status = "ready";
+        markLocal(nm.id);
+        Object.assign(nm, touchMatch(nm));
       }
       return next;
     });
@@ -545,12 +563,12 @@ export function TournamentProvider({
         const played = m.events.length > 0;
         const solo = m.p1 && m.p2 ? null : (m.p1 ?? m.p2);
         const leader = m.score1 === m.score2 ? null : m.score1 > m.score2 ? m.p1 : m.p2;
-        return {
+        return touchMatch({
           ...m,
           status: "done" as const,
           table: null,
           winner: m.winner ?? solo ?? (played ? leader : null),
-        };
+        });
       });
 
       setMatches(closed);
@@ -643,7 +661,9 @@ export function TournamentProvider({
       if (serialized === lastPayload.current) return;
       lastPayload.current = serialized;
       setPlayers(incoming.players);
-      setMatches(incoming.matches);
+      // Merge per match: another referee's tables come in, while a bout this
+      // device just scored (higher rev) survives until its own push lands.
+      setMatches((prev) => mergeMatches(prev, incoming.matches));
       setTableCount(incoming.tableCount);
     };
 
@@ -764,6 +784,13 @@ export function TournamentProvider({
     };
   }, [spectator, results, currentTournament]);
 
+  const scoringElsewhere = useCallback((match: Match) => {
+    const edited = typeof match.updatedAt === "number" ? match.updatedAt : 0;
+    if (!edited || Date.now() - edited > 20000) return false;
+    const mine = localTouch.current[match.id] ?? 0;
+    return edited - mine > 1500;
+  }, []);
+
   const playerName = useCallback(
     (id: string | null) => (id ? (players.find((p) => p.id === id)?.name ?? "—") : "待定 TBD"),
     [players],
@@ -815,6 +842,7 @@ export function TournamentProvider({
     addScore,
     undoScore,
     confirmWinner,
+    scoringElsewhere,
     resetTournament,
     loadSample,
     spectator,

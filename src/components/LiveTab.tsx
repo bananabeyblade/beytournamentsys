@@ -15,8 +15,9 @@ function MatchCard({
   onOpen: () => void;
   onStart: () => void;
 }) {
-  const { playerName, roundName, role, locked } = useTournament();
+  const { playerName, roundName, role, locked, scoringElsewhere } = useTournament();
   const isLive = match.status === "live";
+  const busy = isLive && scoringElsewhere(match);
 
   return (
     <div className={`panel p-3 ${isLive ? "neon-edge" : ""}`}>
@@ -35,6 +36,10 @@ function MatchCard({
           </span>
         )}
       </div>
+
+      {busy && (
+        <p className="mt-1 text-[11px] text-over">其他裁判正在計分中 · 請避免同時操作</p>
+      )}
 
       <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
         <p className="truncate text-sm font-semibold">{playerName(match.p1)}</p>

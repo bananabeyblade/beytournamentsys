@@ -119,6 +119,10 @@ export type Database = {
         Returns: boolean
       }
       is_any_admin: { Args: { _user_id: string }; Returns: boolean }
+      publish_live_state: {
+        Args: { _stamp: string; _state: Json; _tournament_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "superadmin"

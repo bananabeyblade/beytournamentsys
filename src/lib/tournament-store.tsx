@@ -36,6 +36,13 @@ import { RECONNECT_EVENT } from "@/hooks/use-connection";
 const ACTIVE_KEY = "beyx-active-tournament";
 const STATE_KEY = "beyx-live-state";
 
+/** Realtime carries the updates; polling is only a slow safety net. */
+const SLOW_POLL_MS = 25000;
+
+const isVisible = () =>
+  typeof document === "undefined" || document.visibilityState === "visible";
+
+
 interface PersistedState {
   players: Player[];
   matches: Match[];

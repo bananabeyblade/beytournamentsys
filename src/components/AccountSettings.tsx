@@ -147,8 +147,8 @@ function ManageAdmins() {
       setMsg({ ok: false, text: "帳號僅能使用英數字、底線、點與連字號（3-30 字）" });
       return;
     }
-    if (password.length < 8) {
-      setMsg({ ok: false, text: "密碼至少需 8 碼" });
+    if (password.length < 4) {
+      setMsg({ ok: false, text: "密碼至少需 4 碼" });
       return;
     }
     // Catch duplicates before hitting the server so the user gets a clear hint.
@@ -184,8 +184,16 @@ function ManageAdmins() {
   };
 
   const resetPassword = async (userId: string) => {
+    if (newPass.length < 4) {
+      setMsg({ ok: false, text: "密碼至少需 4 碼" });
+      return;
+    }
     try {
-      await setAdminPasswordFn({ data: { userId, password: newPass } });
+      const res = await setAdminPasswordFn({ data: { userId, password: newPass } });
+      if (!res.ok) {
+        setMsg({ ok: false, text: res.message ?? "更新失敗" });
+        return;
+      }
       setNewPass("");
       setEditId(null);
       setMsg({ ok: true, text: "已更新該管理者密碼" });
@@ -238,7 +246,7 @@ function ManageAdmins() {
                   value={newPass}
                   type="password"
                   onChange={(e) => setNewPass(e.target.value)}
-                  placeholder="新密碼（至少 8 碼）"
+                  placeholder="新密碼（至少 4 碼）"
                   className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
                 />
                 <button
@@ -267,7 +275,7 @@ function ManageAdmins() {
           value={password}
           type="password"
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="新管理者密碼（至少 8 碼）"
+          placeholder="新管理者密碼（至少 4 碼）"
           className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
         />
         {msg && (

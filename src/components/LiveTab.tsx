@@ -84,6 +84,12 @@ export function LiveTab() {
 
   return (
     <div className="space-y-5">
+      {locked && (
+        <p className="panel border-primary/50 p-3 text-center text-sm text-primary">
+          本場賽事已結束，比分與賽程已封存，無法再修改。
+        </p>
+      )}
+
       <section>
         <h2 className="mb-2 text-sm tracking-widest text-muted-foreground">
           進行中 LIVE ({live.length})

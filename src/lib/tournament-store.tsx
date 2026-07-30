@@ -207,14 +207,15 @@ export function TournamentProvider({
     localStorage.setItem(STATE_KEY, JSON.stringify({ players, matches, tableCount }));
   }, [hydrated, spectator, players, matches, tableCount]);
 
-  // Spectator mode: follow the published bracket of the scanned tournament,
-  // live via realtime and with polling + reconnect refresh as a safety net.
+  // Spectator mode: follow the published bracket of the scanned tournament.
+  // Realtime pushes the new row directly (no extra fetch); polling is only a
+  // slow safety net and pauses while the tab is hidden.
   useEffect(() => {
     if (!spectatorCode) return;
     let alive = true;
     let lastStamp = "";
-    const pull = async () => {
-      const row = await fetchTournamentByCode(spectatorCode).catch(() => null);
+
+    const apply = (row: TournamentRow) => {
       if (!alive || !row) return;
       // Skip re-rendering the whole bracket when nothing actually changed.
       const stamp = `${row.status}|${row.live_updated_at ?? ""}`;
@@ -228,8 +229,28 @@ export function TournamentProvider({
         if (typeof live.tableCount === "number") setTableCount(live.tableCount);
       }
     };
+
+    const pull = async () => {
+      const row = await fetchTournamentByCode(spectatorCode).catch(() => null);
+      if (row) apply(row);
+    };
+
     void pull();
-    const timer = setInterval(pull, 4000);
+
+    // Slow compensation poll — only while the tab is actually visible.
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const startTimer = () => {
+      if (timer) return;
+      timer = setInterval(() => {
+        if (isVisible()) void pull();
+      }, SLOW_POLL_MS);
+    };
+    const stopTimer = () => {
+      if (timer) clearInterval(timer);
+      timer = undefined;
+    };
+    startTimer();
+
     const channel = supabase
       .channel(`tournament-${spectatorCode}`)
       .on(
@@ -240,18 +261,39 @@ export function TournamentProvider({
           table: "tournaments",
           filter: `code=eq.${spectatorCode}`,
         },
-        () => void pull(),
+        (payload) => {
+          const row = payload.new as TournamentRow | undefined;
+          // Use the pushed row when it is complete; otherwise fall back.
+          if (row && row.id && "live_updated_at" in row) apply(row);
+          else void pull();
+        },
       )
       .subscribe();
+
     const onBack = () => void pull();
-    if (typeof window !== "undefined") window.addEventListener(RECONNECT_EVENT, onBack);
+    const onVisible = () => {
+      if (isVisible()) {
+        startTimer();
+        void pull();
+      } else {
+        stopTimer();
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener(RECONNECT_EVENT, onBack);
+      document.addEventListener("visibilitychange", onVisible);
+    }
     return () => {
       alive = false;
-      clearInterval(timer);
+      stopTimer();
       supabase.removeChannel(channel);
-      if (typeof window !== "undefined") window.removeEventListener(RECONNECT_EVENT, onBack);
+      if (typeof window !== "undefined") {
+        window.removeEventListener(RECONNECT_EVENT, onBack);
+        document.removeEventListener("visibilitychange", onVisible);
+      }
     };
   }, [spectatorCode]);
+
 
 
   const [role, setRoleState] = useState<Role>("player");

@@ -59,11 +59,14 @@ export function buildTournamentText(row: TournamentRow): string {
 
   if (matches.length) {
     const total = Math.max(...matches.map((m) => m.round)) + 1;
+    const c0 = matches.filter((m) => m.round === 0).length;
+    const c1 = matches.filter((m) => m.round === 1).length;
+    const hasPrelim = total >= 2 && c0 !== c1 * 2;
     L.push("------ 賽程紀錄 ------");
     for (let r = 0; r < total; r++) {
       const list = matches.filter((m) => m.round === r).sort((a, b) => a.index - b.index);
       if (!list.length) continue;
-      L.push(`[${roundLabel(r, total)}]`);
+      L.push(`[${roundLabel(r, total, hasPrelim)}]`);
       list.forEach((m, i) => {
         const table = m.table != null ? ` (桌 ${m.table})` : "";
         const win = m.winner ? `   勝：${nameOf(m.winner)}` : "";

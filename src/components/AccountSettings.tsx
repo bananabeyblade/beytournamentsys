@@ -24,6 +24,8 @@ interface AdminRow {
 function MyAccount() {
   const { currentAdmin, refreshRole } = useTournament();
   const isSuper = !!currentAdmin?.isSuper;
+  // Owner-created superadmins may log in with a custom username instead of a real email.
+  const usesEmailLogin = isSuper && (currentAdmin?.email ?? "").includes("@");
   const [email, setEmail] = useState(currentAdmin?.email ?? "");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -39,10 +41,17 @@ function MyAccount() {
       setMsg({ ok: false, text: "密碼至少需 8 碼" });
       return;
     }
+    const nextEmail = email.trim();
+    if (usesEmailLogin && nextEmail && nextEmail !== currentAdmin?.email) {
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(nextEmail)) {
+        setMsg({ ok: false, text: "請輸入有效的登入信箱" });
+        return;
+      }
+    }
     setBusy(true);
     const payload: { email?: string; password?: string } = {};
-    if (isSuper && email.trim() && email.trim() !== currentAdmin?.email) {
-      payload.email = email.trim();
+    if (usesEmailLogin && nextEmail && nextEmail !== currentAdmin?.email) {
+      payload.email = nextEmail;
     }
     if (password) payload.password = password;
     if (!payload.email && !payload.password) {
@@ -59,7 +68,7 @@ function MyAccount() {
     setPassword("");
     setConfirm("");
     await refreshRole();
-    setMsg({ ok: true, text: "已更新帳號資料" });
+    setMsg({ ok: true, text: payload.password ? "已更新密碼" : "已更新帳號資料" });
   };
 
   return (
@@ -68,9 +77,13 @@ function MyAccount() {
         <KeyRound className="h-4 w-4" /> 我的帳號 MY ACCOUNT
       </h2>
       <p className="text-xs text-muted-foreground">
-        {isSuper ? "總管理者帳號（使用信箱登入）" : "管理者帳號（自訂帳號登入）"}
+        {isSuper
+          ? usesEmailLogin
+            ? "總管理者帳號（信箱登入）"
+            : "總管理者帳號（自訂帳號登入）"
+          : "管理者帳號（自訂帳號登入）"}
       </p>
-      {isSuper ? (
+      {usesEmailLogin ? (
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -82,6 +95,7 @@ function MyAccount() {
           帳號：<span className="text-primary">{currentAdmin?.email}</span>
         </div>
       )}
+
       <input
         value={password}
         type="password"

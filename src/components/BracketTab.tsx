@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { ZoomIn, ZoomOut, RotateCcw, User } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { useJoinedName, isSameName } from "@/lib/joined-name";
@@ -6,10 +6,20 @@ import { MatchHistoryModal } from "./MatchHistoryModal";
 import { usePanZoom } from "./bracket/use-pan-zoom";
 import type { Match } from "@/lib/tournament-types";
 
+/* Geometry of the classic bracket tree (px, unscaled — pan/zoom handles fit). */
+const CARD_H = 46;
+const ROW_GAP = 14;
+const PITCH = CARD_H + ROW_GAP;
+const COL_W = 130;
+const CONN_W = 26;
+const HEAD_H = 22;
+
 interface CardProps {
   match: Match;
   name1: string;
   name2: string;
+  seed1: number | null;
+  seed2: number | null;
   mine1: boolean;
   mine2: boolean;
   onOpen: (id: string) => void;
@@ -19,104 +29,176 @@ const BracketMatchCard = memo(function BracketMatchCard({
   match: m,
   name1,
   name2,
+  seed1,
+  seed2,
   mine1,
   mine2,
   onOpen,
 }: CardProps) {
   const mine = mine1 || mine2;
+  const done = m.status === "done";
   return (
     <button
       type="button"
-      disabled={m.status !== "done"}
+      disabled={!done}
       onClick={() => onOpen(m.id)}
-      style={{ contain: "layout paint" }}
-      className={`w-full rounded-lg border p-2 text-left ${
+      title={done ? `M${m.index + 1} · 點擊查看比賽歷程` : `M${m.index + 1}`}
+      aria-label={`第 ${m.index + 1} 場 ${name1} 對 ${name2}`}
+      style={{ contain: "layout paint", height: CARD_H }}
+      className={`relative w-full overflow-hidden rounded-md border text-left ${
         m.status === "live"
-          ? "danger-edge border-danger/60 bg-danger/10"
-          : m.status === "done"
-            ? "border-primary/40 bg-accent/20"
+          ? "danger-edge border-danger/70 bg-danger/10"
+          : done
+            ? "border-primary/50 bg-accent/20"
             : "border-border bg-secondary/40"
-      } ${mine ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
+      } ${mine ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""}`}
     >
-      <div className="mb-1 flex items-center justify-between text-[10px] tracking-widest">
-        <span className="flex items-center gap-1 text-muted-foreground">
-          M{m.index + 1}
-          {mine && (
-            <span className="flex items-center gap-0.5 rounded bg-primary px-1 py-0.5 font-bold text-primary-foreground">
-              <User className="h-3 w-3" /> 我的比賽
-            </span>
-          )}
+      {m.status === "live" && (
+        <span className="live-pulse absolute top-0.5 right-1 text-[8px] tracking-widest text-danger">
+          LIVE·桌{m.table}
         </span>
-        <span
-          className={
-            m.status === "live"
-              ? "text-danger live-pulse"
-              : m.status === "done"
-                ? "text-primary"
-                : "text-muted-foreground"
-          }
-        >
-          {m.status === "live"
-            ? `比賽中 · 桌${m.table}`
-            : m.status === "done"
-              ? "已完成"
-              : m.status === "ready"
-                ? "待開始"
-                : "等待中"}
+      )}
+      {mine && (
+        <span className="absolute top-0.5 right-1 grid h-3 w-3 place-items-center rounded-full bg-primary text-primary-foreground">
+          <User className="h-2 w-2" />
         </span>
-      </div>
-
+      )}
       {([1, 2] as const).map((s) => {
         const pid = s === 1 ? m.p1 : m.p2;
-        const isWinner = m.winner && m.winner === pid;
+        const isWinner = m.winner != null && m.winner === pid;
         const isMe = s === 1 ? mine1 : mine2;
+        const seed = s === 1 ? seed1 : seed2;
         return (
           <div
             key={s}
-            className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-sm ${
-              isWinner ? "bg-primary/20 font-bold text-primary" : ""
-            } ${isMe ? "border border-primary/70 bg-primary/10 font-bold text-primary" : ""}`}
+            className={`flex h-[22px] items-center gap-1 px-1 text-[11px] ${
+              s === 1 ? "border-b border-border/60" : ""
+            } ${isWinner ? "font-bold text-primary" : ""} ${
+              isMe ? "bg-primary/10 font-bold text-primary" : ""
+            }`}
           >
-            <span className="flex min-w-0 items-center gap-1 truncate">
-              {isMe && <User className="h-3.5 w-3.5 shrink-0" />}
-              <span className="truncate">{s === 1 ? name1 : name2}</span>
-              {isMe && <span className="shrink-0 text-[10px]">(我)</span>}
+            <span className="w-4 shrink-0 text-right text-[9px] text-muted-foreground">
+              {seed ?? ""}
             </span>
-            <span className="font-display shrink-0">{s === 1 ? m.score1 : m.score2}</span>
+            <span className="min-w-0 flex-1 truncate">{s === 1 ? name1 : name2}</span>
+            <span className="font-display shrink-0 text-[11px]">
+              {s === 1 ? m.score1 : m.score2}
+            </span>
           </div>
         );
       })}
-
-      {m.status === "done" && (
-        <p className="mt-1 text-center text-[10px] tracking-widest text-primary/70">
-          點擊查看比賽歷程
-        </p>
-      )}
     </button>
   );
 });
 
-function RoundColumn({
+/** Vertical centre of card `i` of round-depth `depth` (0 = first round). */
+const yAt = (depth: number, i: number) => PITCH * 2 ** depth * (i + 0.5);
+
+function Column({
   label,
   cards,
+  depth,
+  height,
   align,
 }: {
   label: string;
   cards: CardProps[];
-  align: "left" | "right";
+  depth: number;
+  height: number;
+  align: "left" | "right" | "center";
 }) {
   return (
-    <div className="flex w-40 min-w-40 flex-col justify-around gap-3 sm:w-56 sm:min-w-56">
+    <div className="shrink-0" style={{ width: COL_W }}>
       <p
-        className={`font-display text-[11px] tracking-widest text-primary ${
-          align === "right" ? "text-right" : ""
+        className={`font-display truncate text-[10px] tracking-widest text-primary ${
+          align === "right" ? "text-right" : align === "center" ? "text-center" : ""
         }`}
+        style={{ height: HEAD_H }}
       >
         {label}
       </p>
-      {cards.map((c) => (
-        <BracketMatchCard key={c.match.id} {...c} />
-      ))}
+      <div className="relative" style={{ height }}>
+        {cards.map((c, i) => (
+          <div
+            key={c.match.id}
+            className="absolute inset-x-0"
+            style={{ top: yAt(depth, i) - CARD_H / 2 }}
+          >
+            <BracketMatchCard {...c} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Bracket-shaped connectors between a round and the next one.
+ * `count` = number of target cards; `depth` = depth of the *source* round.
+ */
+function Connectors({
+  count,
+  depth,
+  height,
+  mirror,
+}: {
+  count: number;
+  depth: number;
+  height: number;
+  mirror: boolean;
+}) {
+  const mid = CONN_W / 2;
+  return (
+    <div className="shrink-0" style={{ width: CONN_W }}>
+      <div style={{ height: HEAD_H }} />
+      <div className="relative" style={{ height }}>
+        {Array.from({ length: count }, (_, j) => {
+          const yTop = yAt(depth, j * 2);
+          const yBottom = yAt(depth, j * 2 + 1);
+          const yMid = (yTop + yBottom) / 2;
+          const near = mirror ? { right: 0 } : { left: 0 };
+          const far = mirror ? { left: 0 } : { right: 0 };
+          return (
+            <div key={j}>
+              {[yTop, yBottom].map((y) => (
+                <span
+                  key={y}
+                  className="absolute border-t border-border"
+                  style={{ ...near, top: y, width: mid }}
+                />
+              ))}
+              <span
+                className="absolute border-l border-border"
+                style={{
+                  [mirror ? "right" : "left"]: mid,
+                  top: yTop,
+                  height: yBottom - yTop,
+                }}
+              />
+              <span
+                className="absolute border-t border-border"
+                style={{ ...far, top: yMid, width: mid }}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Single straight line feeding the centred final. */
+function FinalLink({ y, height, mirror }: { y: number; height: number; mirror: boolean }) {
+  return (
+    <div className="shrink-0" style={{ width: CONN_W }}>
+      <div style={{ height: HEAD_H }} />
+      <div className="relative" style={{ height }}>
+        <span
+          className="absolute inset-x-0 border-t border-border"
+          style={{ top: y }}
+          data-mirror={mirror}
+        />
+      </div>
     </div>
   );
 }
@@ -125,19 +207,29 @@ export function BracketTab() {
   const { matches, players, playerName, roundName } = useTournament();
   const joinedName = useJoinedName();
   const [openId, setOpenId] = useState<string | null>(null);
-  const { viewportRef, contentRef, zoom, zoomBy, reset, didMove, handlers } = usePanZoom();
+  const { viewportRef, contentRef, zoom, zoomBy, reset, fit, didMove, handlers } = usePanZoom();
 
   const openMatch = useMemo(
     () => matches.find((m) => m.id === openId) ?? null,
     [matches, openId],
   );
 
-  const onOpen = useCallback((id: string) => {
-    if (didMove.current) return;
-    setOpenId(id);
-  }, [didMove]);
+  const onOpen = useCallback(
+    (id: string) => {
+      if (didMove.current) return;
+      setOpenId(id);
+    },
+    [didMove],
+  );
 
-  // One pass over matches: group by round and pre-resolve names / "is me" flags.
+  const seedOf = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of players) map.set(p.id, p.seed);
+    return (id: string | null) => (id ? (map.get(id) ?? null) : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players]);
+
+  // One pass over matches: group by round and pre-resolve names / seeds / flags.
   const rounds = useMemo(() => {
     const map = new Map<number, CardProps[]>();
     for (const m of matches) {
@@ -147,6 +239,8 @@ export function BracketTab() {
         match: m,
         name1,
         name2,
+        seed1: seedOf(m.p1),
+        seed2: seedOf(m.p2),
         mine1: isSameName(name1, joinedName),
         mine2: isSameName(name2, joinedName),
         onOpen,
@@ -159,26 +253,34 @@ export function BracketTab() {
       .sort((a, b) => a[0] - b[0])
       .map(([round, cards]) => ({ round, label: roundName(round), cards }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matches, joinedName, onOpen]);
+  }, [matches, joinedName, onOpen, seedOf]);
 
-  // Large events (>32 players) render as a mirrored bracket: the draw is split
-  // evenly to the left and right of the final, which keeps the tree far
-  // narrower on a phone screen.
-  const split = players.length > 32 && rounds.length > 1;
-  const halves = useMemo(() => {
-    if (!split) return null;
+  // Mirrored layout: the draw is split evenly to the left and right of the
+  // final, which keeps the tree far narrower on a phone screen.
+  const layout = useMemo(() => {
+    if (rounds.length < 2) return null;
     const body = rounds.slice(0, -1);
     const final = rounds[rounds.length - 1];
-    const left = body.map((r) => ({ ...r, cards: r.cards.slice(0, Math.ceil(r.cards.length / 2)) }));
-    const right = body
-      .map((r) => ({ ...r, cards: r.cards.slice(Math.ceil(r.cards.length / 2)) }))
-      .reverse();
-    return { left, right, final };
-  }, [split, rounds]);
+    const half = (cards: CardProps[]) => Math.ceil(cards.length / 2);
+    const left = body.map((r) => ({ ...r, cards: r.cards.slice(0, half(r.cards)) }));
+    const right = body.map((r) => ({ ...r, cards: r.cards.slice(half(r.cards)) })).reverse();
+    const height = PITCH * Math.max(1, left[0].cards.length);
+    return { left, right, final, height };
+  }, [rounds]);
+
+  const flatHeight = PITCH * Math.max(1, rounds[0]?.cards.length ?? 1);
+
+  // Fit the whole tree into the viewport whenever its shape changes.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => fit());
+    return () => cancelAnimationFrame(id);
+  }, [fit, rounds.length, layout?.height, flatHeight]);
 
   if (!matches.length) {
     return <p className="panel p-4 text-sm text-muted-foreground">尚未產生賽程樹狀圖。</p>;
   }
+
+  const height = layout?.height ?? flatHeight;
 
   return (
     <div>
@@ -222,7 +324,7 @@ export function BracketTab() {
       >
         <div
           ref={contentRef}
-          className="flex items-stretch gap-3 p-3 sm:gap-6"
+          className="flex items-start p-3"
           style={{
             transformOrigin: "0 0",
             width: "max-content",
@@ -231,26 +333,73 @@ export function BracketTab() {
             transform: "translate3d(0,0,0)",
           }}
         >
-          {halves ? (
+          {layout ? (
             <>
-              {halves.left.map((r) => (
-                <RoundColumn key={`l${r.round}`} label={r.label} cards={r.cards} align="left" />
+              {layout.left.map((r, i) => (
+                <div key={`l${r.round}`} className="flex">
+                  <Column
+                    label={r.label}
+                    cards={r.cards}
+                    depth={i}
+                    height={height}
+                    align="left"
+                  />
+                  {i < layout.left.length - 1 ? (
+                    <Connectors
+                      count={layout.left[i + 1].cards.length}
+                      depth={i}
+                      height={height}
+                      mirror={false}
+                    />
+                  ) : (
+                    <FinalLink y={height / 2} height={height} mirror={false} />
+                  )}
+                </div>
               ))}
-              <div className="flex w-40 min-w-40 flex-col justify-center gap-3 sm:w-56 sm:min-w-56">
-                <p className="text-center font-display text-[11px] tracking-widest text-primary">
-                  {halves.final.label}
-                </p>
-                {halves.final.cards.map((c) => (
-                  <BracketMatchCard key={c.match.id} {...c} />
-                ))}
-              </div>
-              {halves.right.map((r) => (
-                <RoundColumn key={`r${r.round}`} label={r.label} cards={r.cards} align="right" />
-              ))}
+
+              <Column
+                label={layout.final.label}
+                cards={layout.final.cards}
+                depth={0}
+                height={height}
+                align="center"
+              />
+
+              {layout.right.map((r, i) => {
+                const depth = layout.right.length - 1 - i;
+                return (
+                  <div key={`r${r.round}`} className="flex">
+                    {i === 0 ? (
+                      <FinalLink y={height / 2} height={height} mirror />
+                    ) : (
+                      <Connectors
+                        count={layout.right[i - 1].cards.length}
+                        depth={depth}
+                        height={height}
+                        mirror
+                      />
+                    )}
+                    <Column
+                      label={r.label}
+                      cards={r.cards}
+                      depth={depth}
+                      height={height}
+                      align="right"
+                    />
+                  </div>
+                );
+              })}
             </>
           ) : (
-            rounds.map((r) => (
-              <RoundColumn key={r.round} label={r.label} cards={r.cards} align="left" />
+            rounds.map((r, i) => (
+              <Column
+                key={r.round}
+                label={r.label}
+                cards={r.cards}
+                depth={i}
+                height={height}
+                align="left"
+              />
             ))
           )}
         </div>
@@ -260,11 +409,9 @@ export function BracketTab() {
       </div>
 
       <p className="mt-2 text-xs text-muted-foreground">
-        可雙指縮放、拖曳移動，雙擊快速放大；點擊已完成的比賽可查看歷程。
-        {split && " 超過 32 人時賽程會平均分佈於決賽左右兩側。"}
+        可雙指縮放、拖曳移動，雙擊快速放大；點擊已完成的比賽可查看歷程。賽程以決賽為中心左右對稱分佈。
       </p>
       {openMatch && <MatchHistoryModal match={openMatch} onClose={() => setOpenId(null)} />}
     </div>
   );
 }
-

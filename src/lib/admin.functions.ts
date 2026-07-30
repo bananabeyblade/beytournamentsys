@@ -124,15 +124,28 @@ const ownerOnly = (email: unknown) => {
   if (v !== "john410403123@gmail.com") throw new Error("Forbidden: 僅限擁有者操作");
 };
 
-/** Owner only: create another superadmin (email login). */
+/** Owner only: create another superadmin (email or custom username login). */
 export const createSuperadminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
-    z.object({ email: z.string().trim().email(), password: z.string().min(8).max(200) }).parse(data),
+    z
+      .object({
+        account: z
+          .string()
+          .trim()
+          .min(3)
+          .refine(
+            (v) => v.includes("@") ? /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) : /^[a-zA-Z0-9_.-]{3,30}$/.test(v),
+            "請輸入有效的信箱或帳號（英數字、底線、點、連字號 3-30 字）",
+          ),
+        password: z.string().min(8).max(200),
+      })
+      .parse(data),
   )
   .handler(async ({ data, context }) => {
     ownerOnly(context.claims.email);
-    const email = data.email.toLowerCase();
+    const { toLoginEmail } = await import("./account-id");
+    const email = toLoginEmail(data.account).toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let userId: string | null = null;
     const created = await supabaseAdmin.auth.admin.createUser({

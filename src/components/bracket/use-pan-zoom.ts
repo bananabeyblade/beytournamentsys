@@ -80,7 +80,20 @@ export function usePanZoom() {
     [zoomAt],
   );
 
-  const reset = useCallback(() => commit({ x: 0, y: 0, k: 1 }), [commit]);
+  /** Scale the whole tree down until it fits the viewport (never zooms in). */
+  const fit = useCallback(() => {
+    const vp = viewportRef.current;
+    const el = contentRef.current;
+    if (!vp || !el) return commit({ x: 0, y: 0, k: 1 });
+    const k = clamp(
+      Math.min(vp.clientWidth / (el.offsetWidth || 1), vp.clientHeight / (el.offsetHeight || 1), 1),
+      MIN_SCALE,
+      MAX_SCALE,
+    );
+    commit({ x: 0, y: 0, k });
+  }, [commit]);
+
+  const reset = useCallback(() => fit(), [fit]);
 
   // Toggling will-change on every pointerdown/up forces the compositor to
   // tear down and rebuild the layer, which is what leaves stale paint tiles

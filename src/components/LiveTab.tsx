@@ -45,8 +45,9 @@ function MatchCard({
         <p className="truncate text-right text-sm font-semibold">{playerName(match.p2)}</p>
       </div>
 
-      {role === "admin" && (
+      {role === "admin" && !locked && (
         <button
+
           onClick={isLive ? onOpen : onStart}
           className={`mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl font-display text-sm ${
             isLive

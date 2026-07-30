@@ -305,10 +305,22 @@ export function BracketTab() {
     const final = rounds[rounds.length - 1];
     const half = (cards: CardProps[]) => Math.ceil(cards.length / 2);
     const left = body.map((r) => ({ ...r, cards: r.cards.slice(0, half(r.cards)) }));
-    const right = body.map((r) => ({ ...r, cards: r.cards.slice(half(r.cards)) })).reverse();
-    const height = PITCH * Math.max(1, left[0].cards.length);
-    return { left, right, final, height };
+    const rightOuter = body.map((r) => ({ ...r, cards: r.cards.slice(half(r.cards)) }));
+    const right = [...rightOuter].reverse();
+    const height =
+      PITCH * Math.max(1, left[0].cards.length, rightOuter[0].cards.length);
+    // ys indexed the same way as `left` / `rightOuter` (outermost round first).
+    const leftYs = halfPositions(
+      left.map((r) => r.cards.length),
+      height,
+    );
+    const rightYs = halfPositions(
+      rightOuter.map((r) => r.cards.length),
+      height,
+    );
+    return { left, right, final, height, leftYs, rightYs, finalY: height / 2 };
   }, [rounds]);
+
 
   const flatHeight = PITCH * Math.max(1, rounds[0]?.cards.length ?? 1);
 

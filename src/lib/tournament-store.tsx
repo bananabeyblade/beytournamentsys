@@ -553,24 +553,22 @@ export function TournamentProvider({
         playerCount: players.length,
       };
       // Close every unfinished match so live boards stop showing active bouts.
-      const closed: Match[] = matches.map((m) =>
-        m.status === "done"
-          ? m
-          : {
-              ...m,
-              status: "done" as const,
-              table: null,
-              winner:
-                m.winner ??
-                (m.p1 && m.p2
-                  ? m.score1 === m.score2
-                    ? null
-                    : m.score1 > m.score2
-                      ? m.p1
-                      : m.p2
-                  : (m.p1 ?? m.p2)),
-            },
-      );
+      // A bout that was never played (no score events) is closed WITHOUT a
+      // winner, so the podium never invents a result nobody competed for.
+      const closed: Match[] = matches.map((m) => {
+        if (m.status === "done") return m;
+        const played = m.events.length > 0;
+        const solo = m.p1 && m.p2 ? null : (m.p1 ?? m.p2);
+        const leader =
+          m.score1 === m.score2 ? null : m.score1 > m.score2 ? m.p1 : m.p2;
+        return {
+          ...m,
+          status: "done" as const,
+          table: null,
+          winner: m.winner ?? solo ?? (played ? leader : null),
+        };
+      });
+
       setMatches(closed);
       const row = await finishTournament(currentTournament.id, snapshot);
       setCurrentTournament(row);

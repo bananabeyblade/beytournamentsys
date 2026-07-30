@@ -70,15 +70,16 @@ export function AppShell({ title }: { title?: string }) {
               <h1 className="truncate font-display text-lg neon-text">
                 {title ?? "竹塹陀螺集會所"}
               </h1>
-            {joinedName ? (
-              <p className="truncate text-xs text-primary">
-                參賽者 · <span className="font-semibold">{joinedName}</span>
-              </p>
-            ) : (
-              <p className="truncate text-[11px] tracking-widest text-muted-foreground">
-                TOURNAMENT SYSTEM · 賽事管理
-              </p>
-            )}
+              {joinedName ? (
+                <p className="truncate text-xs text-primary">
+                  參賽者 · <span className="font-semibold">{joinedName}</span>
+                </p>
+              ) : (
+                <p className="truncate text-[11px] tracking-widest text-muted-foreground">
+                  TOURNAMENT SYSTEM · 賽事管理
+                </p>
+              )}
+            </div>
           </div>
           <button
             onClick={() => setRole(role === "admin" ? "player" : "admin")}

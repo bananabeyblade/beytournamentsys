@@ -119,6 +119,7 @@ function buildBracket(players: Player[]): Match[] {
   // bout indices walks the bracket half by half, exactly like seed placement.
   const first = rounds[0];
   const byes = size - order.length;
+  const paired = first.length - byes;
   const bits = Math.max(0, Math.log2(first.length));
   const seedOrder = first
     .map((_, i) => {
@@ -128,7 +129,10 @@ function buildBracket(players: Player[]): Match[] {
     })
     .sort((a, b) => a.rev - b.rev)
     .map((x) => x.i);
-  const byeAt = new Set(seedOrder.slice(0, byes));
+  // The bouts that hold a real pair take the leading (widest-spread) seed slots;
+  // everything after them is a bye.
+  const byeAt = new Set(seedOrder.slice(paired));
+
   let next = 0;
   first.forEach((m, i) => {
     m.p1 = order[next++]?.id ?? null;

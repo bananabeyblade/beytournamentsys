@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { History, Trophy, Play, Trash2 } from "lucide-react";
+import { History, Trophy, Play, Trash2, Download } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { listTournaments, deleteTournament, type TournamentRow } from "@/lib/tournaments";
+import {
+  buildTournamentReport,
+  downloadText,
+  reportFileName,
+} from "@/lib/tournament-export";
 import { useTournament } from "@/lib/tournament-store";
+
 
 export function TournamentHistory() {
   const { currentAdmin, currentTournament, resumeTournament } = useTournament();
@@ -37,7 +44,17 @@ export function TournamentHistory() {
     setBusy(null);
   }, []);
 
+  const exportTxt = useCallback((row: TournamentRow) => {
+    try {
+      downloadText(reportFileName(row), buildTournamentReport(row));
+      toast.success("已匯出賽事紀錄");
+    } catch {
+      toast.error("匯出失敗");
+    }
+  }, []);
+
   if (!currentAdmin) return null;
+
 
   return (
     <div className="panel space-y-3 p-3">
@@ -78,6 +95,15 @@ export function TournamentHistory() {
                     <Trophy className="h-4 w-4" /> 成績
                   </Link>
                 )}
+                <button
+                  aria-label="匯出賽事紀錄"
+                  title="匯出 .txt"
+                  onClick={() => exportTxt(r)}
+                  className="grid h-10 w-10 place-items-center rounded-lg border border-border text-muted-foreground"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+
                 {currentAdmin.isSuper && (
                   <button
                     aria-label="刪除賽事"

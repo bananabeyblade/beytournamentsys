@@ -118,3 +118,59 @@ export const removeAdminFn = createServerFn({ method: "POST" })
     if (error) throw new Error("移除管理者失敗");
     return { ok: true };
   });
+
+const ownerOnly = (email: unknown) => {
+  const v = String(email ?? "").trim().toLowerCase();
+  if (v !== "john410403123@gmail.com") throw new Error("Forbidden: 僅限擁有者操作");
+};
+
+/** Owner only: create another superadmin (email login). */
+export const createSuperadminFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z.object({ email: z.string().trim().email(), password: z.string().min(8).max(200) }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    ownerOnly(context.claims.email);
+    const email = data.email.toLowerCase();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let userId: string | null = null;
+    const created = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: data.password,
+      email_confirm: true,
+    });
+    if (created.data.user) {
+      userId = created.data.user.id;
+    } else {
+      const list = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const found = list.data?.users.find((u) => u.email?.toLowerCase() === email);
+      if (!found) throw new Error(created.error?.message ?? "建立帳號失敗");
+      userId = found.id;
+      if (data.password) {
+        await supabaseAdmin.auth.admin.updateUserById(userId, { password: data.password });
+      }
+    }
+    const { error } = await supabaseAdmin
+      .from("admin_roles")
+      .upsert({ user_id: userId, email, role: "superadmin" }, { onConflict: "user_id,role" });
+    if (error) throw new Error("授予總管理者權限失敗");
+    return { ok: true };
+  });
+
+/** Owner only: revoke a superadmin (the owner cannot be revoked). */
+export const removeSuperadminFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ userId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    ownerOnly(context.claims.email);
+    if (data.userId === context.userId) throw new Error("不可移除自己");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("admin_roles")
+      .delete()
+      .eq("user_id", data.userId)
+      .eq("role", "superadmin");
+    if (error) throw new Error("移除總管理者失敗");
+    return { ok: true };
+  });

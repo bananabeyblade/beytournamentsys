@@ -114,17 +114,31 @@ function buildBracket(players: Player[]): Match[] {
     });
   }
 
-  // Spread the byes so no first-round bout is completely empty. With n players
-  // and `size - n` byes, the first `size / 2 - byes` bouts are full pairs and
-  // every remaining bout holds exactly one player (a bye).
+  // Spread the byes across the whole draw (standard seeding order) so the real
+  // first-round bouts never bunch up on one side of the tree. Bit-reversing the
+  // bout indices walks the bracket half by half, exactly like seed placement.
   const first = rounds[0];
   const byes = size - order.length;
   const paired = first.length - byes;
+  const bits = Math.max(0, Math.log2(first.length));
+  const seedOrder = first
+    .map((_, i) => {
+      let rev = 0;
+      for (let b = 0; b < bits; b++) if (i & (1 << b)) rev |= 1 << (bits - 1 - b);
+      return { i, rev };
+    })
+    .sort((a, b) => a.rev - b.rev)
+    .map((x) => x.i);
+  // The bouts that hold a real pair take the leading (widest-spread) seed slots;
+  // everything after them is a bye.
+  const byeAt = new Set(seedOrder.slice(paired));
+
   let next = 0;
   first.forEach((m, i) => {
     m.p1 = order[next++]?.id ?? null;
-    if (i < paired) m.p2 = order[next++]?.id ?? null;
+    if (!byeAt.has(i)) m.p2 = order[next++]?.id ?? null;
   });
+
 
   const all = rounds.flat();
   // Resolve first-round byes only: walking further up would advance a player

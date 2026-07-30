@@ -609,16 +609,12 @@ export function TournamentProvider({
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentAdmin) return;
     let alive = true;
-    const pull = async () => {
-      let row = await fetchLatestOpenTournament().catch(() => null);
-      if (!row) {
-        // No open event: keep following the active one so a force-finish
-        // (which closes the event) still propagates to every admin device.
-        const code = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_KEY) : null;
-        if (code) row = await fetchTournamentByCode(code).catch(() => null);
-      }
+
+    const apply = (row: TournamentRow) => {
       if (!alive || !row) return;
-      setCurrentTournament((prev) => (prev && prev.id === row!.id && prev.status === row!.status ? prev : row));
+      setCurrentTournament((prev) =>
+        prev && prev.id === row.id && prev.status === row.status ? prev : row,
+      );
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
       // Only treat it as a switch once we've already followed another event —
       // never wipe local edits on the first pull after login.
@@ -650,27 +646,68 @@ export function TournamentProvider({
       setPlayers(incoming.players);
       setMatches(incoming.matches);
       setTableCount(incoming.tableCount);
-
-
-
     };
+
+    const pull = async () => {
+      let row = await fetchLatestOpenTournament().catch(() => null);
+      if (!row) {
+        // No open event: keep following the active one so a force-finish
+        // (which closes the event) still propagates to every admin device.
+        const code = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_KEY) : null;
+        if (code) row = await fetchTournamentByCode(code).catch(() => null);
+      }
+      if (row) apply(row);
+    };
+
     void pull();
-    const timer = setInterval(pull, 5000);
+
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const startTimer = () => {
+      if (timer) return;
+      timer = setInterval(() => {
+        if (isVisible()) void pull();
+      }, SLOW_POLL_MS);
+    };
+    const stopTimer = () => {
+      if (timer) clearInterval(timer);
+      timer = undefined;
+    };
+    startTimer();
+
     const channel = supabase
       .channel("admin-tournament-follow")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, () =>
-        void pull(),
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, (payload) => {
+        const row = payload.new as TournamentRow | undefined;
+        // The pushed row is enough when it is the event we already follow.
+        if (row && row.id && row.id === followedId.current && "live_updated_at" in row) apply(row);
+        else void pull();
+      })
       .subscribe();
+
     const onBack = () => void pull();
-    if (typeof window !== "undefined") window.addEventListener(RECONNECT_EVENT, onBack);
+    const onVisible = () => {
+      if (isVisible()) {
+        startTimer();
+        void pull();
+      } else {
+        stopTimer();
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener(RECONNECT_EVENT, onBack);
+      document.addEventListener("visibilitychange", onVisible);
+    }
     return () => {
       alive = false;
-      clearInterval(timer);
+      stopTimer();
       supabase.removeChannel(channel);
-      if (typeof window !== "undefined") window.removeEventListener(RECONNECT_EVENT, onBack);
+      if (typeof window !== "undefined") {
+        window.removeEventListener(RECONNECT_EVENT, onBack);
+        document.removeEventListener("visibilitychange", onVisible);
+      }
     };
   }, [spectator, hydrated, role, currentAdmin]);
+
 
   // Admins publish players + bracket so spectators and the other admins follow
   // the same event state — the roster must sync before the bracket exists too.

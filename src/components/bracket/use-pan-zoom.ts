@@ -225,6 +225,7 @@ export function usePanZoom() {
     zoom,
     zoomBy,
     reset,
+    fit,
     /** true while the last pointer sequence was a drag (suppresses click) */
     didMove: moved,
     handlers: {

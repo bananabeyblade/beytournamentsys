@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Shield } from "lucide-react";
 import { TournamentProvider, useTournament } from "@/lib/tournament-store";
-import { SettingsTab } from "@/components/SettingsTab";
+import { AdminAuthPanel } from "@/components/AdminAuthPanel";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 
 export const Route = createFileRoute("/admin")({
@@ -47,7 +47,7 @@ function AdminLoginPage() {
           進入賽事系統
         </Link>
       )}
-      <SettingsTab />
+      <AdminAuthPanel />
     </main>
   );
 }

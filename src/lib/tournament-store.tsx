@@ -825,16 +825,27 @@ export function TournamentProvider({
     [matches],
   );
 
+  /** True when round 0 is a preliminary round (fewer bouts than a full round). */
+  const hasPrelim = useMemo(() => {
+    if (totalRounds < 2) return false;
+    const c0 = matches.filter((m) => m.round === 0).length;
+    const c1 = matches.filter((m) => m.round === 1).length;
+    return c0 !== c1 * 2;
+  }, [matches, totalRounds]);
+
   const roundName = useCallback(
     (round: number) => {
+      if (hasPrelim && round === 0) return "預賽 PRELIM";
       const left = totalRounds - round;
       if (left === 1) return "決賽 FINAL";
       if (left === 2) return "四強 SEMI";
       if (left === 3) return "八強 QUARTER";
-      return `第 ${round + 1} 輪 R${round + 1}`;
+      const n = hasPrelim ? round : round + 1;
+      return `第 ${n} 輪 R${n}`;
     },
-    [totalRounds],
+    [totalRounds, hasPrelim],
   );
+
 
   const value: Ctx = {
     players,

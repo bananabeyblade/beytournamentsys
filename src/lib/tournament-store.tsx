@@ -18,6 +18,7 @@ import {
   type TournamentState,
 } from "./tournament-types";
 import { SAMPLE_NAMES } from "./sample-names";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { bootstrapSuperadminFn, getMyRoleFn } from "./admin.functions";
 import {
@@ -35,6 +36,17 @@ import { RECONNECT_EVENT } from "@/hooks/use-connection";
 
 const ACTIVE_KEY = "beyx-active-tournament";
 const STATE_KEY = "beyx-live-state";
+
+/** Realtime carries the updates; polling is only a slow safety net. */
+const SLOW_POLL_MS = 25000;
+/** Coalescing window for rapid scoring taps (first write goes out at once). */
+const PUBLISH_TAIL_MS = 500;
+
+const isVisible = () =>
+  typeof document === "undefined" || document.visibilityState === "visible";
+
+
+
 
 interface PersistedState {
   players: Player[];
@@ -207,14 +219,15 @@ export function TournamentProvider({
     localStorage.setItem(STATE_KEY, JSON.stringify({ players, matches, tableCount }));
   }, [hydrated, spectator, players, matches, tableCount]);
 
-  // Spectator mode: follow the published bracket of the scanned tournament,
-  // live via realtime and with polling + reconnect refresh as a safety net.
+  // Spectator mode: follow the published bracket of the scanned tournament.
+  // Realtime pushes the new row directly (no extra fetch); polling is only a
+  // slow safety net and pauses while the tab is hidden.
   useEffect(() => {
     if (!spectatorCode) return;
     let alive = true;
     let lastStamp = "";
-    const pull = async () => {
-      const row = await fetchTournamentByCode(spectatorCode).catch(() => null);
+
+    const apply = (row: TournamentRow) => {
       if (!alive || !row) return;
       // Skip re-rendering the whole bracket when nothing actually changed.
       const stamp = `${row.status}|${row.live_updated_at ?? ""}`;
@@ -228,8 +241,28 @@ export function TournamentProvider({
         if (typeof live.tableCount === "number") setTableCount(live.tableCount);
       }
     };
+
+    const pull = async () => {
+      const row = await fetchTournamentByCode(spectatorCode).catch(() => null);
+      if (row) apply(row);
+    };
+
     void pull();
-    const timer = setInterval(pull, 4000);
+
+    // Slow compensation poll — only while the tab is actually visible.
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const startTimer = () => {
+      if (timer) return;
+      timer = setInterval(() => {
+        if (isVisible()) void pull();
+      }, SLOW_POLL_MS);
+    };
+    const stopTimer = () => {
+      if (timer) clearInterval(timer);
+      timer = undefined;
+    };
+    startTimer();
+
     const channel = supabase
       .channel(`tournament-${spectatorCode}`)
       .on(
@@ -240,18 +273,39 @@ export function TournamentProvider({
           table: "tournaments",
           filter: `code=eq.${spectatorCode}`,
         },
-        () => void pull(),
+        (payload) => {
+          const row = payload.new as TournamentRow | undefined;
+          // Use the pushed row when it is complete; otherwise fall back.
+          if (row && row.id && "live_updated_at" in row) apply(row);
+          else void pull();
+        },
       )
       .subscribe();
+
     const onBack = () => void pull();
-    if (typeof window !== "undefined") window.addEventListener(RECONNECT_EVENT, onBack);
+    const onVisible = () => {
+      if (isVisible()) {
+        startTimer();
+        void pull();
+      } else {
+        stopTimer();
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener(RECONNECT_EVENT, onBack);
+      document.addEventListener("visibilitychange", onVisible);
+    }
     return () => {
       alive = false;
-      clearInterval(timer);
+      stopTimer();
       supabase.removeChannel(channel);
-      if (typeof window !== "undefined") window.removeEventListener(RECONNECT_EVENT, onBack);
+      if (typeof window !== "undefined") {
+        window.removeEventListener(RECONNECT_EVENT, onBack);
+        document.removeEventListener("visibilitychange", onVisible);
+      }
     };
   }, [spectatorCode]);
+
 
 
   const [role, setRoleState] = useState<Role>("player");
@@ -547,6 +601,9 @@ export function TournamentProvider({
   const followedId = useRef<string>("");
   /** Serialized snapshot of the last state pushed/applied — blocks echo loops. */
   const lastPayload = useRef<string>("");
+  /** When the last publish went out — powers the leading-edge write. */
+  const lastPublishAt = useRef<number>(0);
+
 
 
   // Timestamps come back from Postgres as `+00:00` while we send `Z`; compare
@@ -560,16 +617,12 @@ export function TournamentProvider({
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentAdmin) return;
     let alive = true;
-    const pull = async () => {
-      let row = await fetchLatestOpenTournament().catch(() => null);
-      if (!row) {
-        // No open event: keep following the active one so a force-finish
-        // (which closes the event) still propagates to every admin device.
-        const code = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_KEY) : null;
-        if (code) row = await fetchTournamentByCode(code).catch(() => null);
-      }
+
+    const apply = (row: TournamentRow) => {
       if (!alive || !row) return;
-      setCurrentTournament((prev) => (prev && prev.id === row!.id && prev.status === row!.status ? prev : row));
+      setCurrentTournament((prev) =>
+        prev && prev.id === row.id && prev.status === row.status ? prev : row,
+      );
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
       // Only treat it as a switch once we've already followed another event —
       // never wipe local edits on the first pull after login.
@@ -601,30 +654,72 @@ export function TournamentProvider({
       setPlayers(incoming.players);
       setMatches(incoming.matches);
       setTableCount(incoming.tableCount);
-
-
-
     };
+
+    const pull = async () => {
+      let row = await fetchLatestOpenTournament().catch(() => null);
+      if (!row) {
+        // No open event: keep following the active one so a force-finish
+        // (which closes the event) still propagates to every admin device.
+        const code = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_KEY) : null;
+        if (code) row = await fetchTournamentByCode(code).catch(() => null);
+      }
+      if (row) apply(row);
+    };
+
     void pull();
-    const timer = setInterval(pull, 5000);
+
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const startTimer = () => {
+      if (timer) return;
+      timer = setInterval(() => {
+        if (isVisible()) void pull();
+      }, SLOW_POLL_MS);
+    };
+    const stopTimer = () => {
+      if (timer) clearInterval(timer);
+      timer = undefined;
+    };
+    startTimer();
+
     const channel = supabase
       .channel("admin-tournament-follow")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, () =>
-        void pull(),
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, (payload) => {
+        const row = payload.new as TournamentRow | undefined;
+        // The pushed row is enough when it is the event we already follow.
+        if (row && row.id && row.id === followedId.current && "live_updated_at" in row) apply(row);
+        else void pull();
+      })
       .subscribe();
+
     const onBack = () => void pull();
-    if (typeof window !== "undefined") window.addEventListener(RECONNECT_EVENT, onBack);
+    const onVisible = () => {
+      if (isVisible()) {
+        startTimer();
+        void pull();
+      } else {
+        stopTimer();
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener(RECONNECT_EVENT, onBack);
+      document.addEventListener("visibilitychange", onVisible);
+    }
     return () => {
       alive = false;
-      clearInterval(timer);
+      stopTimer();
       supabase.removeChannel(channel);
-      if (typeof window !== "undefined") window.removeEventListener(RECONNECT_EVENT, onBack);
+      if (typeof window !== "undefined") {
+        window.removeEventListener(RECONNECT_EVENT, onBack);
+        document.removeEventListener("visibilitychange", onVisible);
+      }
     };
   }, [spectator, hydrated, role, currentAdmin]);
 
+
   // Admins publish players + bracket so spectators and the other admins follow
   // the same event state — the roster must sync before the bracket exists too.
+  // First change goes out immediately; rapid follow-ups are tail-debounced.
   useEffect(() => {
     if (spectator || !hydrated || role !== "admin" || !currentTournament) return;
     if (!matches.length && !players.length) return;
@@ -632,15 +727,30 @@ export function TournamentProvider({
     const payload = JSON.stringify({ players, matches, tableCount });
     if (payload === lastPayload.current) return;
 
-    const timer = setTimeout(() => {
+    const push = () => {
       lastPayload.current = payload;
+      lastPublishAt.current = Date.now();
       const stamp = new Date().toISOString();
       lastPublishedStamp.current = stampOf(currentTournament.status, stamp);
       lastAppliedStamp.current = lastPublishedStamp.current;
-      void publishLiveState(currentTournament.id, { players, matches, tableCount }, stamp);
-    }, 300);
+      void publishLiveState(currentTournament.id, { players, matches, tableCount }, stamp).catch(
+        () => {
+          // Let the next change retry, and tell the referee the push failed.
+          lastPayload.current = "";
+          toast.error("同步失敗", { description: "分數尚未上傳，請確認網路後再試一次。" });
+        },
+      );
+    };
+
+    const sinceLast = Date.now() - lastPublishAt.current;
+    if (sinceLast >= PUBLISH_TAIL_MS) {
+      push();
+      return;
+    }
+    const timer = setTimeout(push, PUBLISH_TAIL_MS - sinceLast);
     return () => clearTimeout(timer);
   }, [spectator, hydrated, role, currentTournament, players, matches, tableCount]);
+
 
 
 

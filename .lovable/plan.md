@@ -1,52 +1,52 @@
-## 目標
+# 賽程系統優化建議
 
-依現有程式碼實況，產出一份可下載的技術文件（不改動任何 `src/` 應用程式碼），涵蓋 QR 報名、開始比賽、即時同步三大流程的 API 合約與事件時序，另附 Mermaid 時序圖。
+依「立即有感 → 功能加值 → 長期維運」排序，可以分批實作。
 
-## 已核對的實作事實
+## A. 同步與效能（最有感）
 
-- 觀眾端輪詢 4 秒；管理者端輪詢 5 秒；管理者發佈 debounce 300ms
-- 同步比對鍵 `stampOf(status, live_updated_at)`＝`${status}|${Date.parse(iso)}`（避免 `Z` 與 `+00:00` 造成的無限迴圈），另有 `lastPayload` 序列化比對阻擋 echo
-- Realtime：觀眾訂閱 `tournament-<CODE>` 並以 `code=eq.<CODE>` 過濾；管理者訂閱 `admin-tournament-follow`（全表）
-- 重連事件 `RECONNECT_EVENT` 觸發重新 pull
-- 報名頁為 `/register?t=<CODE>`，開賽後導向 `/watch/$code`
+1. **以 Realtime 推播為主、輪詢為輔**
+   目前觀眾 4 秒、管理者 5 秒各拉一次整包 `live_state`，人多時流量與延遲都被放大。改為：Realtime 事件直接帶入 payload 更新，輪詢降為 20–30 秒的補償機制（斷線／背景喚醒才立即拉）。
 
-## 文件內容大綱
+2. **只在頁面可見時同步**
+   監聽 `visibilitychange`，分頁在背景時暫停輪詢與重繪，回前景立即補拉一次。手機省電、也減少無謂寫入。
 
-**1. 角色與資料模型**
-- superadmin / admin / spectator（未登入掃碼者）
-- `tournaments`、`registrations`、`admin_roles` 欄位與 RLS 政策摘要（誰可 SELECT/INSERT/UPDATE/DELETE）
-- DB 函式 `is_any_admin`、`has_admin_role`
+3. **差異化寫入**
+   管理者每次計分都整包上傳 players+matches。可只在 `matches` 真的變動時寫入，並把 debounce 由 300ms 調成「立即寫一次 + 500ms 尾追」，讓第一筆分數更即時、連點時不轟炸。
 
-**2. API 合約**
+4. **UI 樂觀更新**
+   計分／確認勝方先本地更新，再背景送出，失敗才回滾＋提示。目前雖已是本地優先，但缺少失敗提示。
 
-Server Functions（`createServerFn`，含 zod 驗證與權限）：
+## B. 賽制與比賽功能
 
-| 函式 | 方法 | 權限 | 輸入 | 輸出 |
-|---|---|---|---|---|
-| `superadminExistsFn` | GET | 公開 | – | `{ exists }` |
-| `bootstrapSuperadminFn` | POST | 已登入且座位未被佔 | – | `{ ok }` |
-| `getMyRoleFn` | GET | 已登入 | – | `{ role: superadmin\|admin\|null }` |
-| `listAdminsFn` / `createAdminFn` / `setAdminPasswordFn` / `removeAdminFn` | GET/POST | superadmin | zod schema | 清單 / `{ ok }` |
-| `nameTakenFn` | POST | 公開 | `{ tournamentId, name }` | `{ taken }` |
-| `listRegistrationsFn` | POST | admin+ | `{ tournamentId }` | `[{ id, name, created_at }]` |
-| `deleteRegistrationFn` | POST | admin+ | `{ id }` | `{ ok }` |
+5. **雙敗淘汰 / 循環賽選項**：目前只有單淘汰，人數少時比賽場次太少。
+6. **種子序與手動調整賽程**：允許總管理者在生成後拖曳交換位置、指定輪空。
+7. **比賽計時與桌次看板**：每桌顯示進行中對戰、已耗時，方便現場調度。
+8. **選手戰績統計**：勝場、平均得分、Xtreme/Burst 次數，賽後結果頁一併呈現。
 
-直接走 Data API（RLS 保護）：`createTournament`、`finishTournament`、`publishLiveState`、`fetchTournamentByCode`、`listTournaments`、`fetchLatestOpenTournament`、`deleteTournament`、`addRegistration`（重複 → `23505` → `DUPLICATE`）。逐項標註角色、對應政策與錯誤訊息。
+## C. 報名與現場流程
 
-`live_state` payload 結構：`{ players, matches, tableCount }`。
+9. **報名名單即時去重提示**：現在是送出前檢查，可改為輸入時即時提示「此名稱已被使用」。
+10. **報名關閉開關**：總管理者可在生成賽程前手動鎖定報名，避免中途插入。
+11. **QR 掃描後直接進入等待室**：顯示目前報名人數與預計開賽狀態，減少重複掃描。
 
-**3. 事件流程時序**
-- QR 報名：superadmin `createTournament` → 產生 6 碼 code → 掃碼進 `/register?t=CODE` → `nameTakenFn` → insert → 寫入 joined name → 等待畫面訂閱 realtime → 有 `live_state` 即導向 `/watch/CODE`
-- 開始比賽：管理者 `listRegistrationsFn` 審核 → 加入選手 → 設定桌數 → `generateBracket` → 300ms 後 `publishLiveState` → 其他端 pull/realtime 套用 → 自動跳到「對戰」頁籤
-- 即時同步：三層機制（Realtime → 輪詢 → 重連事件），加上時間戳與 payload 雙重去重
-- 結束／強制結束：所有 match 設 done → `finishTournament` 寫 top4 → 報名 QR 停用 → `/results/$code`
+## D. 觀眾與分享
 
-**4. 錯誤與邊界情境**
-離線重連、時間戳落後不覆寫、切換賽事時清空舊資料、未發佈狀態不誤推、賽事非 open 時報名被 RLS 拒、名稱重複、未授權 401。
+12. **結果頁 OG 分享圖**：前四名頁面自動產生分享預覽圖與 metadata。
+13. **賽事歷史搜尋／篩選**：依日期、名稱搜尋，過往紀錄多了才好找。
 
-## 交付
+## E. 穩定性與維運
 
-- `/mnt/documents/API_CONTRACT.md`
-- `/mnt/documents/event-flow.mmd`（時序圖）
+14. **錯誤提示統一化**：目前多處 `catch` 靜默失敗，改為 toast 明確告知（同步失敗、權限不足、網路中斷）。
+15. **live_state 體積控制**：比賽場次多時 JSONB 會膨脹，可只保留必要欄位（移除已結束比賽的逐球 events，改存摘要）。
+16. **管理者操作稽核紀錄**：誰改了分數、誰強制結束，方便事後釐清爭議。
 
-不修改 `src/` 任何檔案。
+## 技術細節
+
+- Realtime payload 直接使用 `payload.new.live_state`，省去一次 `fetchTournamentByCode`。
+- 背景暫停：在 `tournament-store.tsx` 的兩個同步 `useEffect` 內以 `document.visibilityState` 控制 `setInterval`。
+- 差異化寫入：對 `matches` 做穩定序列化比對（現有 `lastPayload` 可拆成 players／matches 兩份指紋）。
+- 統計與雙敗賽制需擴充 `tournament-types.ts` 與 `standings.ts`，並在 `live_state` 加上 `format` 欄位以相容舊資料。
+
+---
+
+建議先做 A 段（1–4）＋ E14，改動集中在 `tournament-store.tsx`，風險低但體感提升最明顯。告訴我要先做哪幾項，我就開工。

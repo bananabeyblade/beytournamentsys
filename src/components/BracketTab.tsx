@@ -105,11 +105,13 @@ function halfPositions(counts: number[], height: number): number[][] {
       Array.from({ length: counts[k] }, (_, j) => {
         const a = prev[j * 2];
         const b = prev[j * 2 + 1];
-        if (a == null) return prev[j] ?? height / 2;
+        // Odd half: the last card has a single source, so sit exactly on it.
+        if (a == null) return b ?? height / 2;
         return b == null ? a : (a + b) / 2;
       }),
     );
   }
+
   return out;
 }
 

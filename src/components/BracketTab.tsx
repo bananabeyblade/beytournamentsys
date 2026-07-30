@@ -96,8 +96,33 @@ const BracketMatchCard = memo(function BracketMatchCard({
   );
 });
 
+function RoundColumn({
+  label,
+  cards,
+  align,
+}: {
+  label: string;
+  cards: CardProps[];
+  align: "left" | "right";
+}) {
+  return (
+    <div className="flex w-40 min-w-40 flex-col justify-around gap-3 sm:w-56 sm:min-w-56">
+      <p
+        className={`font-display text-[11px] tracking-widest text-primary ${
+          align === "right" ? "text-right" : ""
+        }`}
+      >
+        {label}
+      </p>
+      {cards.map((c) => (
+        <BracketMatchCard key={c.match.id} {...c} />
+      ))}
+    </div>
+  );
+}
+
 export function BracketTab() {
-  const { matches, playerName, roundName } = useTournament();
+  const { matches, players, playerName, roundName } = useTournament();
   const joinedName = useJoinedName();
   const [openId, setOpenId] = useState<string | null>(null);
   const { viewportRef, contentRef, zoom, zoomBy, reset, didMove, handlers } = usePanZoom();
@@ -135,6 +160,21 @@ export function BracketTab() {
       .map(([round, cards]) => ({ round, label: roundName(round), cards }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches, joinedName, onOpen]);
+
+  // Large events (>32 players) render as a mirrored bracket: the draw is split
+  // evenly to the left and right of the final, which keeps the tree far
+  // narrower on a phone screen.
+  const split = players.length > 32 && rounds.length > 1;
+  const halves = useMemo(() => {
+    if (!split) return null;
+    const body = rounds.slice(0, -1);
+    const final = rounds[rounds.length - 1];
+    const left = body.map((r) => ({ ...r, cards: r.cards.slice(0, Math.ceil(r.cards.length / 2)) }));
+    const right = body
+      .map((r) => ({ ...r, cards: r.cards.slice(Math.ceil(r.cards.length / 2)) }))
+      .reverse();
+    return { left, right, final };
+  }, [split, rounds]);
 
   if (!matches.length) {
     return <p className="panel p-4 text-sm text-muted-foreground">尚未產生賽程樹狀圖。</p>;
@@ -177,17 +217,31 @@ export function BracketTab() {
       >
         <div
           ref={contentRef}
-          className="flex gap-6 p-3"
+          className="flex items-stretch gap-3 p-3 sm:gap-6"
           style={{ transformOrigin: "0 0", width: "max-content" }}
         >
-          {rounds.map((r) => (
-            <div key={r.round} className="flex min-w-56 flex-col justify-around gap-4">
-              <p className="font-display text-xs tracking-widest text-primary">{r.label}</p>
-              {r.cards.map((c) => (
-                <BracketMatchCard key={c.match.id} {...c} />
+          {halves ? (
+            <>
+              {halves.left.map((r) => (
+                <RoundColumn key={`l${r.round}`} label={r.label} cards={r.cards} align="left" />
               ))}
-            </div>
-          ))}
+              <div className="flex w-40 min-w-40 flex-col justify-center gap-3 sm:w-56 sm:min-w-56">
+                <p className="text-center font-display text-[11px] tracking-widest text-primary">
+                  {halves.final.label}
+                </p>
+                {halves.final.cards.map((c) => (
+                  <BracketMatchCard key={c.match.id} {...c} />
+                ))}
+              </div>
+              {halves.right.map((r) => (
+                <RoundColumn key={`r${r.round}`} label={r.label} cards={r.cards} align="right" />
+              ))}
+            </>
+          ) : (
+            rounds.map((r) => (
+              <RoundColumn key={r.round} label={r.label} cards={r.cards} align="left" />
+            ))
+          )}
         </div>
         <span className="pointer-events-none absolute right-2 bottom-2 rounded bg-secondary/80 px-2 py-0.5 text-[10px] tracking-widest text-muted-foreground">
           {Math.round(zoom * 100)}%
@@ -196,8 +250,10 @@ export function BracketTab() {
 
       <p className="mt-2 text-xs text-muted-foreground">
         可雙指縮放、拖曳移動，雙擊快速放大；點擊已完成的比賽可查看歷程。
+        {split && " 超過 32 人時賽程會平均分佈於決賽左右兩側。"}
       </p>
       {openMatch && <MatchHistoryModal match={openMatch} onClose={() => setOpenId(null)} />}
     </div>
   );
 }
+

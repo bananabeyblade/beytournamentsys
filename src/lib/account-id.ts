@@ -15,3 +15,10 @@ export function displayAccount(id: string | null | undefined): string {
   if (!id) return "";
   return id.endsWith(`@${USERNAME_DOMAIN}`) ? id.slice(0, -(USERNAME_DOMAIN.length + 1)) : id;
 }
+
+/** Only this account may create or delete superadmins. */
+export const OWNER_EMAIL = "john410403123@gmail.com";
+
+export function isOwnerEmail(email: string | null | undefined): boolean {
+  return (email ?? "").trim().toLowerCase() === OWNER_EMAIL;
+}

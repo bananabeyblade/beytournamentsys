@@ -45,6 +45,10 @@ export interface Match {
   events: ScoreEvent[];
   nextMatchId: string | null;
   nextSlot: 1 | 2 | null;
+  /** Bumped on every edit so concurrent referees merge instead of overwrite. */
+  rev?: number;
+  /** Epoch millis of the last edit — tie-breaker for equal revisions. */
+  updatedAt?: number;
 }
 
 export interface CloudAdmin {

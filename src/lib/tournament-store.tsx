@@ -175,7 +175,10 @@ interface Ctx extends TournamentState {
   resumeTournament: (code: string) => Promise<string | null>;
   forceFinishTournament: () => Promise<string | null>;
   results: TournamentResults | null;
+  /** True once the event is archived — scoring and starting bouts are frozen. */
+  locked: boolean;
   spectator: boolean;
+
   playerName: (id: string | null) => string;
   roundName: (round: number) => string;
 

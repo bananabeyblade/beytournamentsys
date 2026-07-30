@@ -486,10 +486,24 @@ export function TournamentProvider({
   }, []);
 
   const resetTournament = useCallback(() => {
+    // Publish the cleared state first, otherwise the other admins and the
+    // spectators keep mirroring the old roster / bracket forever.
+    const active = currentTournament;
+    if (active) {
+      const stamp = new Date().toISOString();
+      lastPayload.current = JSON.stringify({ players: [], matches: [], tableCount });
+      lastPublishedStamp.current = stampOf(active.status, stamp);
+      lastAppliedStamp.current = lastPublishedStamp.current;
+      void publishLiveState(active.id, { players: [], matches: [], tableCount }, stamp).catch(
+        () => toast.error("同步失敗", { description: "清除結果尚未上傳，請確認網路。" }),
+      );
+    }
     setPlayers([]);
     setMatches([]);
     setCurrentTournament(null);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTournament, tableCount]);
+
 
   const loadSample = useCallback(() => {
     setMatches([]);

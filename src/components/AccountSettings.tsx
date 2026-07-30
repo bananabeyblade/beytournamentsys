@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, Save, Trash2, UserCog, UserPlus } from "lucide-react";
+import { KeyRound, Save, ShieldPlus, Trash2, UserCog, UserPlus } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { supabase } from "@/integrations/supabase/client";
 import {
   createAdminFn,
+  createSuperadminFn,
   listAdminsFn,
+  removeSuperadminFn,
   removeAdminFn,
   setAdminPasswordFn,
 } from "@/lib/admin.functions";
-import { USERNAME_RE, displayAccount } from "@/lib/account-id";
+import { USERNAME_RE, displayAccount, isOwnerEmail } from "@/lib/account-id";
 
 type Msg = { ok: boolean; text: string } | null;
 
@@ -247,12 +249,126 @@ function ManageAdmins() {
   );
 }
 
+function ManageSuperadmins() {
+  const { currentAdmin } = useTournament();
+  const [rows, setRows] = useState<AdminRow[]>([]);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [msg, setMsg] = useState<Msg>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    listAdminsFn()
+      .then((data) => setRows(data as AdminRow[]))
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(load, [load]);
+
+  const create = async () => {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+      setMsg({ ok: false, text: "請輸入有效的登入信箱" });
+      return;
+    }
+    if (password.length < 8) {
+      setMsg({ ok: false, text: "密碼至少需 8 碼" });
+      return;
+    }
+    setBusy(true);
+    try {
+      await createSuperadminFn({ data: { email: email.trim(), password } });
+      setEmail("");
+      setPassword("");
+      setMsg({ ok: true, text: "已新增總管理者" });
+      load();
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : "新增失敗" });
+    }
+    setBusy(false);
+  };
+
+  const remove = async (userId: string) => {
+    try {
+      await removeSuperadminFn({ data: { userId } });
+      setMsg({ ok: true, text: "已移除總管理者" });
+      load();
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : "移除失敗" });
+    }
+  };
+
+  const supers = rows.filter((r) => r.role === "superadmin");
+
+  return (
+    <div className="panel space-y-3 p-3">
+      <h2 className="flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
+        <ShieldPlus className="h-4 w-4" /> 總管理者帳號 SUPERADMINS
+      </h2>
+      <p className="text-xs text-muted-foreground">僅擁有者（{currentAdmin?.email}）可新增或刪除。</p>
+      <ul className="space-y-2">
+        {supers.map((a) => {
+          const owner = isOwnerEmail(a.email);
+          return (
+            <li
+              key={a.id}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-border bg-secondary/40 p-3"
+            >
+              <span className="truncate text-sm">
+                {a.email ?? a.user_id}
+                {owner && <span className="ml-1 text-[10px] text-primary">擁有者</span>}
+              </span>
+              {!owner && (
+                <button
+                  aria-label={`移除總管理者 ${a.email ?? a.user_id}`}
+                  onClick={() => remove(a.user_id)}
+                  className="grid h-10 w-10 place-items-center rounded-lg text-destructive"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="space-y-2 border-t border-border pt-3">
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="新總管理者登入信箱"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+        />
+        <input
+          value={password}
+          type="password"
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="密碼（至少 8 碼）"
+          className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+        />
+        {msg && (
+          <p className={`text-xs ${msg.ok ? "text-primary" : "text-destructive"}`}>{msg.text}</p>
+        )}
+        <button
+          onClick={create}
+          disabled={busy}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 font-display text-primary disabled:opacity-50"
+        >
+          <ShieldPlus className="h-4 w-4" /> 新增總管理者
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AccountSettings() {
   const { currentAdmin } = useTournament();
   if (!currentAdmin) return null;
   return (
     <div className="space-y-4">
       <MyAccount key={currentAdmin.email} />
+      {isOwnerEmail(currentAdmin.email) && <ManageSuperadmins />}
       {currentAdmin.isSuper && <ManageAdmins />}
     </div>
   );

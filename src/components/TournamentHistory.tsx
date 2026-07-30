@@ -44,7 +44,17 @@ export function TournamentHistory() {
     setBusy(null);
   }, []);
 
+  const exportTxt = useCallback((row: TournamentRow) => {
+    try {
+      downloadText(reportFileName(row), buildTournamentReport(row));
+      toast.success("已匯出賽事紀錄");
+    } catch {
+      toast.error("匯出失敗");
+    }
+  }, []);
+
   if (!currentAdmin) return null;
+
 
   return (
     <div className="panel space-y-3 p-3">

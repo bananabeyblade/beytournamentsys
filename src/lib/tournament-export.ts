@@ -8,13 +8,15 @@ function fmt(ts: string | null) {
   return new Date(ts).toLocaleString("zh-TW", { hour12: false });
 }
 
-function roundLabel(round: number, total: number) {
+function roundLabel(round: number, total: number, hasPrelim: boolean) {
+  if (hasPrelim && round === 0) return "預賽";
   const back = total - round;
   if (back === 1) return "決賽";
   if (back === 2) return "準決賽";
   if (back === 3) return "半準決賽";
-  return `第 ${round + 1} 輪`;
+  return `第 ${hasPrelim ? round : round + 1} 輪`;
 }
+
 
 const ORDINAL = ["1st", "2nd", "3rd", "4th"];
 

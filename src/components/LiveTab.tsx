@@ -150,7 +150,7 @@ export function LiveTab() {
       )}
 
 
-      {startId && role === "admin" && (
+      {startId && role === "admin" && !locked && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/85 p-4 backdrop-blur-sm">
           <div className="panel neon-edge w-full max-w-sm p-4">
             <h3 className="text-base neon-text">選擇桌號 SELECT TABLE</h3>

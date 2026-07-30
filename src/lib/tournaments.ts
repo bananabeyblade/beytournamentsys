@@ -31,13 +31,15 @@ export interface LiveState {
 
 /** Admin-only: pushes the current bracket so QR spectators can watch live. */
 export async function publishLiveState(id: string, state: LiveState, stamp?: string) {
-  await supabase
+  const { error } = await supabase
     .from("tournaments")
     .update({
       live_state: JSON.parse(JSON.stringify(state)),
       live_updated_at: stamp ?? new Date().toISOString(),
     })
     .eq("id", id);
+  // Surfaced to the referee as a toast — a silent failure loses live scores.
+  if (error) throw new Error("同步賽況失敗");
 }
 
 const COLS =

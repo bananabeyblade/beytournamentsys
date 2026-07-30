@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { History, Trophy, Play, Trash2 } from "lucide-react";
+import { History, Trophy, Play, Trash2, Download, Copy } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { listTournaments, deleteTournament, type TournamentRow } from "@/lib/tournaments";
+import {
+  buildTournamentText,
+  downloadText,
+  exportFileName,
+} from "@/lib/tournament-export";
 import { useTournament } from "@/lib/tournament-store";
 
 export function TournamentHistory() {
@@ -35,6 +41,24 @@ export function TournamentHistory() {
       setErr(e instanceof Error ? e.message : "刪除失敗");
     }
     setBusy(null);
+  }, []);
+
+  const exportTxt = useCallback((row: TournamentRow) => {
+    try {
+      downloadText(exportFileName(row), buildTournamentText(row));
+      toast.success("已匯出賽事紀錄 .txt");
+    } catch {
+      toast.error("匯出失敗");
+    }
+  }, []);
+
+  const copyTxt = useCallback(async (row: TournamentRow) => {
+    try {
+      await navigator.clipboard.writeText(buildTournamentText(row));
+      toast.success("已複製賽事紀錄");
+    } catch {
+      toast.error("複製失敗，請改用下載");
+    }
   }, []);
 
   if (!currentAdmin) return null;
@@ -78,6 +102,20 @@ export function TournamentHistory() {
                     <Trophy className="h-4 w-4" /> 成績
                   </Link>
                 )}
+                <button
+                  aria-label="下載賽事紀錄"
+                  onClick={() => exportTxt(r)}
+                  className="grid h-10 w-10 place-items-center rounded-lg border border-border text-muted-foreground"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+                <button
+                  aria-label="複製賽事紀錄"
+                  onClick={() => void copyTxt(r)}
+                  className="grid h-10 w-10 place-items-center rounded-lg border border-border text-muted-foreground"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
                 {currentAdmin.isSuper && (
                   <button
                     aria-label="刪除賽事"

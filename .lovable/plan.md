@@ -1,45 +1,61 @@
-## 目標
-讓 `src/components/BracketTab.tsx` 在大型賽事（32–128 人、上百場比賽）於手機上仍能順暢捲動、縮放與拖曳。
+## 建議：值得做，且只需前端改動
 
-## 現況（已確認）
-- 賽程樹以 `matches.filter(...)` 在每個 round 內重新過濾，每次 render 都對整份 `matches` 掃描一次（O(rounds × matches)）。
-- 縮放只有 +/- 按鈕（0.6–1.6），以 `transform: scale()` 套在整個 flex 容器上，外層 `overflow-auto`；縮放後容器版面尺寸不變，放大時會裁切、縮小時留白。
-- 沒有手勢支援：無雙指縮放、無拖曳平移、無雙擊縮放。
-- 所有比賽卡片一律掛載，沒有虛擬化或渲染節流。
+理由：
+- 賽後資料已完整存在雲端（名次 `results`、選手與每場比分事件 `live_state`），不需新增資料表或後端。
+- 賽事一旦刪除資料就沒了，匯出等於本地備份。
+- .txt 純文字最通用，手機可直接分享到 LINE／訊息。
 
-## 實作
+除了下載 .txt，另建議同時提供「複製到剪貼簿」（手機分享最快）。未來要 CSV/JSON 再擴充。
 
-### 1. 資料整理（渲染前計算）
-- 用 `useMemo` 依 `matches` 一次建出 `roundGroups: { round, name, matches[] }[]`，取代每輪的 `filter`。
-- 依賴陣列只放 `matches`，避免 `roundName` 造成重算。
+## 功能範圍
 
-### 2. 卡片元件化 + memo
-- 抽出 `BracketMatchCard`（同檔案內），以 `React.memo` 包裝。
-- props 只傳純值：`match`、`p1Name`、`p2Name`、`isMine`、`onOpen`。名稱在父層先算好，避免子層依賴整個 store。
-- `onOpen` 用 `useCallback` 穩定參考，讓 memo 生效；計分更新時只有變動的那張卡重繪。
+在「過往比賽 HISTORY」每一列加下載按鈕（所有管理者可用）：
+- 點擊 → 由該賽事資料產生純文字 → 下載 `賽事名稱_代碼_日期.txt`
+- 進行中的賽事也可匯出，標示為「進行中快照」
+- 同列附「複製內容」次要按鈕
 
-### 3. 手勢：縮放與拖曳
-- 改為自訂 pan/zoom 容器：外層固定尺寸 + `overflow: hidden` + `touch-action: none`，內層用 `transform: translate3d(x,y,0) scale(k)`。
-- 以 Pointer Events 實作：
-  - 單指拖曳平移；
-  - 雙指 pinch 縮放，以兩指中點為錨點（縮放後內容不跳動）；
-  - 雙擊在 1× 與 1.8× 間切換，以點擊點為錨點；
-  - 桌機保留滾輪 + Ctrl/⌘ 縮放。
-- 縮放範圍 0.5–2.5，平移邊界夾制（clamp）避免內容被拖出畫面外。
-- 位移/縮放狀態存在 ref，套用時直接改 DOM style，並用 `requestAnimationFrame` 合批 — 手勢過程中不觸發 React re-render。
-- 保留現有 +/− 按鈕（改為呼叫同一組 zoom 動作），加一顆「重置檢視」按鈕。
+## 輸出格式草稿
 
-### 4. 大型賽事的渲染量控制
-- 對每張卡片加 `content-visibility: auto` 與 `contain-intrinsic-size`，讓瀏覽器跳過視窗外卡片的排版與繪製（不改 DOM 結構、不影響捲動邏輯，也不破壞縮放）。
-- 移除縮放時的 `backdrop-filter` 成本：手勢進行中對容器加 `will-change: transform`，結束後移除。
+```text
+==============================
+竹塹陀螺集會所 BEYBLADE X 賽事紀錄
+==============================
+賽事名稱：夏季賽 #3
+賽事代碼：K7M2QP
+狀態：已結束
+建立時間：2026/07/28 19:02
+結束時間：2026/07/28 21:35
+參賽人數：16
 
-### 5. 行為與可及性
-- 維持現有樣式、`我的比賽` 高亮、已完成比賽點擊開啟 `MatchHistoryModal`。
-- 拖曳超過門檻（約 8px）時不視為點擊，避免平移誤觸開啟 modal。
-- +/− 與重置按鈕維持 44px 觸控尺寸與 `aria-label`。
-- 底部提示文字更新為「可雙指縮放、拖曳移動，雙擊快速放大」。
+------ 最終名次 ------
+1st  王小明
+2nd  李大華
+3rd  陳阿明
+4th  張三
+
+------ 參賽者名單 ------
+ 1. 王小明
+ 2. 李大華
+ ...
+
+------ 賽程紀錄 ------
+[第 1 輪]
+  M1 (桌 1)  王小明 4 : 2 李大華   勝：王小明
+      └ 王小明 Xtreme Finish +3 (3:0)
+      └ 李大華 Over Finish   +2 (3:2)
+      └ 王小明 Spin Finish   +1 (4:2)
+
+[準決賽] / [決賽] 同上
+==============================
+匯出時間：2026/07/30 18:20
+```
+輪次名稱依總輪數自動命名（決賽／準決賽／半準決賽／第 N 輪）。
 
 ## 技術細節
-- 只改 `src/components/BracketTab.tsx`（必要時新增 `src/components/bracket/` 下的 pan-zoom hook 檔案），不動 store、型別或資料流。
-- 不引入新套件，Pointer Events 原生實作。
-- 驗證方式：以 64 場以上的賽程在行動視窗測試 pinch/拖曳流暢度，並確認計分更新時只重繪對應卡片。
+
+- 新增 `src/lib/tournament-export.ts`
+  - `buildTournamentText(row)`：純函式，讀 `row.results` 與 `row.live_state`（`players`／`matches`／`tableCount`），把 `events` 逐筆展開成累計比分，用 `FINISHES` 對照中英文名稱與點數。
+  - `downloadText(filename, text)`：`Blob` + `URL.createObjectURL` + 暫時 `<a download>`。
+- 修改 `src/components/TournamentHistory.tsx`：每列加下載與複製按鈕，成功／失敗以 `sonner` toast 提示。
+- `live_state` 為空的舊賽事：仍輸出標頭與名次，並註記「無詳細賽程紀錄」。
+- 不需新增資料表、RLS 或伺服器函式；現有 `listTournaments` 已回傳所需欄位。

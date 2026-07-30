@@ -41,7 +41,7 @@ const STATE_KEY = "beyx-live-state";
 /** Realtime carries the updates; polling is only a slow safety net. */
 const SLOW_POLL_MS = 25000;
 /** Coalescing window for rapid scoring taps (first write goes out at once). */
-const PUBLISH_TAIL_MS = 500;
+const PUBLISH_TAIL_MS = 250;
 
 const isVisible = () => typeof document === "undefined" || document.visibilityState === "visible";
 
@@ -164,6 +164,8 @@ interface Ctx extends TournamentState {
   addScore: (matchId: string, slot: 1 | 2, type: FinishType, points: number) => void;
   undoScore: (matchId: string) => void;
   confirmWinner: (matchId: string) => void;
+  /** True when another device edited this bout moments ago (shared scoring). */
+  scoringElsewhere: (match: Match) => boolean;
   resetTournament: () => void;
   loadSample: () => void;
   currentTournament: TournamentRow | null;
@@ -782,6 +784,13 @@ export function TournamentProvider({
     };
   }, [spectator, results, currentTournament]);
 
+  const scoringElsewhere = useCallback((match: Match) => {
+    const edited = typeof match.updatedAt === "number" ? match.updatedAt : 0;
+    if (!edited || Date.now() - edited > 20000) return false;
+    const mine = localTouch.current[match.id] ?? 0;
+    return edited - mine > 1500;
+  }, []);
+
   const playerName = useCallback(
     (id: string | null) => (id ? (players.find((p) => p.id === id)?.name ?? "—") : "待定 TBD"),
     [players],
@@ -833,6 +842,7 @@ export function TournamentProvider({
     addScore,
     undoScore,
     confirmWinner,
+    scoringElsewhere,
     resetTournament,
     loadSample,
     spectator,

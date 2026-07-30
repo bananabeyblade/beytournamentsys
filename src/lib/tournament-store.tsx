@@ -75,38 +75,55 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/** Bit-reversal permutation of 0..count-1 — the standard seed-spread order. */
+function seedOrder(count: number): number[] {
+  const bits = Math.max(0, Math.round(Math.log2(Math.max(1, count))));
+  return Array.from({ length: count }, (_, i) => {
+    let rev = 0;
+    for (let b = 0; b < bits; b++) if (i & (1 << b)) rev |= 1 << (bits - 1 - b);
+    return { i, rev };
+  })
+    .sort((a, b) => a.rev - b.rev)
+    .map((x) => x.i);
+}
+
+const blankMatch = (round: number, index: number): Match => ({
+  id: uid(),
+  round,
+  index,
+  p1: null,
+  p2: null,
+  score1: 0,
+  score2: 0,
+  status: "waiting",
+  table: null,
+  winner: null,
+  events: [],
+  nextMatchId: null,
+  nextSlot: null,
+});
+
+/**
+ * Builds a full power-of-two main draw plus a preliminary ("預賽") round for the
+ * surplus players, so odd entry counts never produce empty bye cards.
+ */
 function buildBracket(players: Player[]): Match[] {
   if (players.length < 2) return [];
   const order = shuffle(players);
-  let size = 2;
-  while (size < order.length) size *= 2;
+  const n = order.length;
+  // Largest power of two that fits — everyone above it plays a prelim bout.
+  let main = 1;
+  while (main * 2 <= n) main *= 2;
+  const playIn = n - main;
+  const hasPrelim = playIn > 0;
+  const offset = hasPrelim ? 1 : 0;
 
+  // Main draw rounds (index 0 = first main round, `main / 2` bouts).
   const rounds: Match[][] = [];
-  const roundCount = Math.log2(size);
-
-  for (let r = 0; r < roundCount; r++) {
-    const count = size / 2 ** (r + 1);
-    const round: Match[] = [];
-    for (let i = 0; i < count; i++) {
-      round.push({
-        id: uid(),
-        round: r,
-        index: i,
-        p1: null,
-        p2: null,
-        score1: 0,
-        score2: 0,
-        status: "waiting",
-        table: null,
-        winner: null,
-        events: [],
-        nextMatchId: null,
-        nextSlot: null,
-      });
-    }
-    rounds.push(round);
+  for (let r = 0; r < Math.log2(main); r++) {
+    const count = main / 2 ** (r + 1);
+    rounds.push(Array.from({ length: count }, (_, i) => blankMatch(r + offset, i)));
   }
-
   for (let r = 0; r < rounds.length - 1; r++) {
     rounds[r].forEach((m, i) => {
       m.nextMatchId = rounds[r + 1][Math.floor(i / 2)].id;
@@ -114,51 +131,43 @@ function buildBracket(players: Player[]): Match[] {
     });
   }
 
-  // Spread the byes across the whole draw (standard seeding order) so the real
-  // first-round bouts never bunch up on one side of the tree. Bit-reversing the
-  // bout indices walks the bracket half by half, exactly like seed placement.
   const first = rounds[0];
-  const byes = size - order.length;
-  const paired = first.length - byes;
-  const bits = Math.max(0, Math.log2(first.length));
-  const seedOrder = first
-    .map((_, i) => {
-      let rev = 0;
-      for (let b = 0; b < bits; b++) if (i & (1 << b)) rev |= 1 << (bits - 1 - b);
-      return { i, rev };
-    })
-    .sort((a, b) => a.rev - b.rev)
-    .map((x) => x.i);
-  // The bouts that hold a real pair take the leading (widest-spread) seed slots;
-  // everything after them is a bye.
-  const byeAt = new Set(seedOrder.slice(paired));
+  // Seats reserved for prelim winners, spread evenly across both halves.
+  const spread = seedOrder(first.length);
+  const seats: { match: Match; slot: 1 | 2 }[] = [];
+  for (const slot of [1, 2] as const)
+    for (const i of spread) seats.push({ match: first[i], slot });
+  const reserved = seats.slice(0, playIn);
 
-  let next = 0;
-  first.forEach((m, i) => {
-    m.p1 = order[next++]?.id ?? null;
-    if (!byeAt.has(i)) m.p2 = order[next++]?.id ?? null;
+  const prelim: Match[] = reserved.map((seat, i) => {
+    const m = blankMatch(0, i);
+    m.nextMatchId = seat.match.id;
+    m.nextSlot = seat.slot;
+    return m;
   });
 
-
-  const all = rounds.flat();
-  // Resolve first-round byes only: walking further up would advance a player
-  // just because the opposing bout is still undecided.
-  for (const m of first) {
-    const solo = m.p1 && !m.p2 ? m.p1 : !m.p1 && m.p2 ? m.p2 : null;
-    if (!solo) continue;
-    m.status = "done";
-    m.winner = solo;
-    if (m.nextMatchId) {
-      const nm = all.find((x) => x.id === m.nextMatchId)!;
-      if (m.nextSlot === 1) nm.p1 = solo;
-      else nm.p2 = solo;
+  // Players: prelim bouts first (two each), then the direct entrants.
+  let next = 0;
+  for (const m of prelim) {
+    m.p1 = order[next++]?.id ?? null;
+    m.p2 = order[next++]?.id ?? null;
+    m.status = m.p1 && m.p2 ? "ready" : "waiting";
+  }
+  const reservedKey = new Set(reserved.map((s) => `${s.match.id}:${s.slot}`));
+  for (const i of spread) {
+    const m = first[i];
+    for (const slot of [1, 2] as const) {
+      if (reservedKey.has(`${m.id}:${slot}`)) continue;
+      const pid = order[next++]?.id ?? null;
+      if (slot === 1) m.p1 = pid;
+      else m.p2 = pid;
     }
   }
-  for (const m of all) {
-    if (m.status !== "done" && m.p1 && m.p2) m.status = "ready";
-  }
-  return all;
+  for (const m of first) if (m.p1 && m.p2) m.status = "ready";
+
+  return hasPrelim ? [...prelim, ...rounds.flat()] : rounds.flat();
 }
+
 
 
 interface Ctx extends TournamentState {

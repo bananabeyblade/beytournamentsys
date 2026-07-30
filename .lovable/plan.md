@@ -1,52 +1,45 @@
-# 賽程系統優化建議
+## 目標
+讓 `src/components/BracketTab.tsx` 在大型賽事（32–128 人、上百場比賽）於手機上仍能順暢捲動、縮放與拖曳。
 
-依「立即有感 → 功能加值 → 長期維運」排序，可以分批實作。
+## 現況（已確認）
+- 賽程樹以 `matches.filter(...)` 在每個 round 內重新過濾，每次 render 都對整份 `matches` 掃描一次（O(rounds × matches)）。
+- 縮放只有 +/- 按鈕（0.6–1.6），以 `transform: scale()` 套在整個 flex 容器上，外層 `overflow-auto`；縮放後容器版面尺寸不變，放大時會裁切、縮小時留白。
+- 沒有手勢支援：無雙指縮放、無拖曳平移、無雙擊縮放。
+- 所有比賽卡片一律掛載，沒有虛擬化或渲染節流。
 
-## A. 同步與效能（最有感）
+## 實作
 
-1. **以 Realtime 推播為主、輪詢為輔**
-   目前觀眾 4 秒、管理者 5 秒各拉一次整包 `live_state`，人多時流量與延遲都被放大。改為：Realtime 事件直接帶入 payload 更新，輪詢降為 20–30 秒的補償機制（斷線／背景喚醒才立即拉）。
+### 1. 資料整理（渲染前計算）
+- 用 `useMemo` 依 `matches` 一次建出 `roundGroups: { round, name, matches[] }[]`，取代每輪的 `filter`。
+- 依賴陣列只放 `matches`，避免 `roundName` 造成重算。
 
-2. **只在頁面可見時同步**
-   監聽 `visibilitychange`，分頁在背景時暫停輪詢與重繪，回前景立即補拉一次。手機省電、也減少無謂寫入。
+### 2. 卡片元件化 + memo
+- 抽出 `BracketMatchCard`（同檔案內），以 `React.memo` 包裝。
+- props 只傳純值：`match`、`p1Name`、`p2Name`、`isMine`、`onOpen`。名稱在父層先算好，避免子層依賴整個 store。
+- `onOpen` 用 `useCallback` 穩定參考，讓 memo 生效；計分更新時只有變動的那張卡重繪。
 
-3. **差異化寫入**
-   管理者每次計分都整包上傳 players+matches。可只在 `matches` 真的變動時寫入，並把 debounce 由 300ms 調成「立即寫一次 + 500ms 尾追」，讓第一筆分數更即時、連點時不轟炸。
+### 3. 手勢：縮放與拖曳
+- 改為自訂 pan/zoom 容器：外層固定尺寸 + `overflow: hidden` + `touch-action: none`，內層用 `transform: translate3d(x,y,0) scale(k)`。
+- 以 Pointer Events 實作：
+  - 單指拖曳平移；
+  - 雙指 pinch 縮放，以兩指中點為錨點（縮放後內容不跳動）；
+  - 雙擊在 1× 與 1.8× 間切換，以點擊點為錨點；
+  - 桌機保留滾輪 + Ctrl/⌘ 縮放。
+- 縮放範圍 0.5–2.5，平移邊界夾制（clamp）避免內容被拖出畫面外。
+- 位移/縮放狀態存在 ref，套用時直接改 DOM style，並用 `requestAnimationFrame` 合批 — 手勢過程中不觸發 React re-render。
+- 保留現有 +/− 按鈕（改為呼叫同一組 zoom 動作），加一顆「重置檢視」按鈕。
 
-4. **UI 樂觀更新**
-   計分／確認勝方先本地更新，再背景送出，失敗才回滾＋提示。目前雖已是本地優先，但缺少失敗提示。
+### 4. 大型賽事的渲染量控制
+- 對每張卡片加 `content-visibility: auto` 與 `contain-intrinsic-size`，讓瀏覽器跳過視窗外卡片的排版與繪製（不改 DOM 結構、不影響捲動邏輯，也不破壞縮放）。
+- 移除縮放時的 `backdrop-filter` 成本：手勢進行中對容器加 `will-change: transform`，結束後移除。
 
-## B. 賽制與比賽功能
-
-5. **雙敗淘汰 / 循環賽選項**：目前只有單淘汰，人數少時比賽場次太少。
-6. **種子序與手動調整賽程**：允許總管理者在生成後拖曳交換位置、指定輪空。
-7. **比賽計時與桌次看板**：每桌顯示進行中對戰、已耗時，方便現場調度。
-8. **選手戰績統計**：勝場、平均得分、Xtreme/Burst 次數，賽後結果頁一併呈現。
-
-## C. 報名與現場流程
-
-9. **報名名單即時去重提示**：現在是送出前檢查，可改為輸入時即時提示「此名稱已被使用」。
-10. **報名關閉開關**：總管理者可在生成賽程前手動鎖定報名，避免中途插入。
-11. **QR 掃描後直接進入等待室**：顯示目前報名人數與預計開賽狀態，減少重複掃描。
-
-## D. 觀眾與分享
-
-12. **結果頁 OG 分享圖**：前四名頁面自動產生分享預覽圖與 metadata。
-13. **賽事歷史搜尋／篩選**：依日期、名稱搜尋，過往紀錄多了才好找。
-
-## E. 穩定性與維運
-
-14. **錯誤提示統一化**：目前多處 `catch` 靜默失敗，改為 toast 明確告知（同步失敗、權限不足、網路中斷）。
-15. **live_state 體積控制**：比賽場次多時 JSONB 會膨脹，可只保留必要欄位（移除已結束比賽的逐球 events，改存摘要）。
-16. **管理者操作稽核紀錄**：誰改了分數、誰強制結束，方便事後釐清爭議。
+### 5. 行為與可及性
+- 維持現有樣式、`我的比賽` 高亮、已完成比賽點擊開啟 `MatchHistoryModal`。
+- 拖曳超過門檻（約 8px）時不視為點擊，避免平移誤觸開啟 modal。
+- +/− 與重置按鈕維持 44px 觸控尺寸與 `aria-label`。
+- 底部提示文字更新為「可雙指縮放、拖曳移動，雙擊快速放大」。
 
 ## 技術細節
-
-- Realtime payload 直接使用 `payload.new.live_state`，省去一次 `fetchTournamentByCode`。
-- 背景暫停：在 `tournament-store.tsx` 的兩個同步 `useEffect` 內以 `document.visibilityState` 控制 `setInterval`。
-- 差異化寫入：對 `matches` 做穩定序列化比對（現有 `lastPayload` 可拆成 players／matches 兩份指紋）。
-- 統計與雙敗賽制需擴充 `tournament-types.ts` 與 `standings.ts`，並在 `live_state` 加上 `format` 欄位以相容舊資料。
-
----
-
-建議先做 A 段（1–4）＋ E14，改動集中在 `tournament-store.tsx`，風險低但體感提升最明顯。告訴我要先做哪幾項，我就開工。
+- 只改 `src/components/BracketTab.tsx`（必要時新增 `src/components/bracket/` 下的 pan-zoom hook 檔案），不動 store、型別或資料流。
+- 不引入新套件，Pointer Events 原生實作。
+- 驗證方式：以 64 場以上的賽程在行動視窗測試 pinch/拖曳流暢度，並確認計分更新時只重繪對應卡片。

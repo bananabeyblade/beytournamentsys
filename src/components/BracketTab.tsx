@@ -248,6 +248,52 @@ function FinalLink({
   );
 }
 
+/** One link per preliminary bout, drawn to the main-draw card it feeds. */
+function PrelimLinks({
+  pairs,
+  height,
+  mirror,
+}: {
+  pairs: { from: number; to: number }[];
+  height: number;
+  mirror: boolean;
+}) {
+  const mid = CONN_W / 2;
+  const near = mirror ? { right: 0 } : { left: 0 };
+  const far = mirror ? { left: 0 } : { right: 0 };
+  return (
+    <div className="shrink-0" style={{ width: CONN_W }}>
+      <div style={{ height: HEAD_H }} />
+      <div className="relative" style={{ height }}>
+        {pairs.map(({ from, to }, i) => {
+          const top = Math.min(from, to);
+          const bottom = Math.max(from, to);
+          return (
+            <div key={i}>
+              <span
+                className="absolute border-t border-border"
+                style={{ ...near, top: from, width: mid }}
+              />
+              {bottom > top && (
+                <span
+                  className="absolute border-l border-border"
+                  style={{ [mirror ? "right" : "left"]: mid, top, height: bottom - top }}
+                />
+              )}
+              <span
+                className="absolute border-t border-border"
+                style={{ ...far, top: to, width: mid }}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+
 export function BracketTab() {
   const { matches, players, playerName, roundName } = useTournament();
   const joinedName = useJoinedName();

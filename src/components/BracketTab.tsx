@@ -468,11 +468,14 @@ export function BracketTab() {
                 key={r.round}
                 label={r.label}
                 cards={r.cards}
-                ys={flatYs[i] ?? []}
+                // A one-round draw (single final) is centred like the mirrored
+                // layout instead of hugging the top-left corner.
+                ys={rounds.length === 1 ? [height / 2] : (flatYs[i] ?? [])}
                 height={height}
-                align="left"
+                align={rounds.length === 1 ? "center" : "left"}
               />
             ))
+
           )}
 
         </div>

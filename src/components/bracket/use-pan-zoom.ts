@@ -130,7 +130,7 @@ export function usePanZoom() {
         cy: (a.y + b.y) / 2 - (rect?.top ?? 0),
       };
     }
-  }, []);
+  }, [setBusy]);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -179,7 +179,7 @@ export function usePanZoom() {
         }
       }
     },
-    [zoomAt],
+    [setBusy, zoomAt],
   );
 
   // Wheel needs a non-passive native listener to preventDefault.
@@ -203,6 +203,7 @@ export function usePanZoom() {
 
   useEffect(() => () => {
     if (frame.current != null) cancelAnimationFrame(frame.current);
+    if (idleTimer.current) clearTimeout(idleTimer.current);
   }, []);
 
   return {

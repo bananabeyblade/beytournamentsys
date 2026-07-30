@@ -8,13 +8,15 @@ function fmt(ts: string | null) {
   return new Date(ts).toLocaleString("zh-TW", { hour12: false });
 }
 
-function roundLabel(round: number, total: number) {
+function roundLabel(round: number, total: number, hasPrelim: boolean) {
+  if (hasPrelim && round === 0) return "預賽";
   const back = total - round;
   if (back === 1) return "決賽";
   if (back === 2) return "準決賽";
   if (back === 3) return "半準決賽";
-  return `第 ${round + 1} 輪`;
+  return `第 ${hasPrelim ? round : round + 1} 輪`;
 }
+
 
 const ORDINAL = ["1st", "2nd", "3rd", "4th"];
 
@@ -57,11 +59,14 @@ export function buildTournamentText(row: TournamentRow): string {
 
   if (matches.length) {
     const total = Math.max(...matches.map((m) => m.round)) + 1;
+    const c0 = matches.filter((m) => m.round === 0).length;
+    const c1 = matches.filter((m) => m.round === 1).length;
+    const hasPrelim = total >= 2 && c0 !== c1 * 2;
     L.push("------ 賽程紀錄 ------");
     for (let r = 0; r < total; r++) {
       const list = matches.filter((m) => m.round === r).sort((a, b) => a.index - b.index);
       if (!list.length) continue;
-      L.push(`[${roundLabel(r, total)}]`);
+      L.push(`[${roundLabel(r, total, hasPrelim)}]`);
       list.forEach((m, i) => {
         const table = m.table != null ? ` (桌 ${m.table})` : "";
         const win = m.winner ? `   勝：${nameOf(m.winner)}` : "";

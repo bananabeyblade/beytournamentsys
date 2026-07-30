@@ -248,6 +248,52 @@ function FinalLink({
   );
 }
 
+/** One link per preliminary bout, drawn to the main-draw card it feeds. */
+function PrelimLinks({
+  pairs,
+  height,
+  mirror,
+}: {
+  pairs: { from: number; to: number }[];
+  height: number;
+  mirror: boolean;
+}) {
+  const mid = CONN_W / 2;
+  const near = mirror ? { right: 0 } : { left: 0 };
+  const far = mirror ? { left: 0 } : { right: 0 };
+  return (
+    <div className="shrink-0" style={{ width: CONN_W }}>
+      <div style={{ height: HEAD_H }} />
+      <div className="relative" style={{ height }}>
+        {pairs.map(({ from, to }, i) => {
+          const top = Math.min(from, to);
+          const bottom = Math.max(from, to);
+          return (
+            <div key={i}>
+              <span
+                className="absolute border-t border-border"
+                style={{ ...near, top: from, width: mid }}
+              />
+              {bottom > top && (
+                <span
+                  className="absolute border-l border-border"
+                  style={{ [mirror ? "right" : "left"]: mid, top, height: bottom - top }}
+                />
+              )}
+              <span
+                className="absolute border-t border-border"
+                style={{ ...far, top: to, width: mid }}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+
 export function BracketTab() {
   const { matches, players, playerName, roundName } = useTournament();
   const joinedName = useJoinedName();
@@ -296,12 +342,20 @@ export function BracketTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches, joinedName, onOpen, seedOf]);
 
+  // A preliminary round holds fewer bouts than a full round, so it is laid out
+  // against the cards it feeds instead of the halving rule used everywhere else.
+  const prelimRound = useMemo(() => {
+    if (rounds.length < 2) return null;
+    return rounds[0].cards.length !== rounds[1].cards.length * 2 ? rounds[0] : null;
+  }, [rounds]);
+
   // Mirrored layout: the draw is split evenly to the left and right of the
   // final, which keeps the tree far narrower on a phone screen.
   const layout = useMemo(() => {
-    if (rounds.length < 2) return null;
-    const body = rounds.slice(0, -1);
-    const final = rounds[rounds.length - 1];
+    const main = prelimRound ? rounds.slice(1) : rounds;
+    if (main.length < 2) return null;
+    const body = main.slice(0, -1);
+    const final = main[main.length - 1];
     const half = (cards: CardProps[]) => Math.ceil(cards.length / 2);
     const left = body.map((r) => ({ ...r, cards: r.cards.slice(0, half(r.cards)) }));
     const rightOuter = body.map((r) => ({ ...r, cards: r.cards.slice(half(r.cards)) }));
@@ -316,8 +370,47 @@ export function BracketTab() {
       rightOuter.map((r) => r.cards.length),
       height,
     );
-    return { left, right, final, height, leftYs, rightYs, finalY: height / 2 };
-  }, [rounds]);
+
+    // Prelim cards sit next to their target bout; siblings feeding the same
+    // bout are spread symmetrically around it.
+    const split = half(body[0].cards);
+    const prelimLeft: { card: CardProps; y: number; targetY: number }[] = [];
+    const prelimRight: { card: CardProps; y: number; targetY: number }[] = [];
+    if (prelimRound) {
+      const groups = new Map<string, CardProps[]>();
+      for (const c of prelimRound.cards) {
+        const key = c.match.nextMatchId ?? c.match.id;
+        const list = groups.get(key);
+        if (list) list.push(c);
+        else groups.set(key, [c]);
+      }
+      for (const [targetId, list] of groups) {
+        const gi = body[0].cards.findIndex((c) => c.match.id === targetId);
+        if (gi < 0) continue;
+        const isLeft = gi < split;
+        const targetY = isLeft ? (leftYs[0]?.[gi] ?? height / 2) : (rightYs[0]?.[gi - split] ?? height / 2);
+        list.forEach((card, k) => {
+          const y = targetY + (k - (list.length - 1) / 2) * PITCH;
+          (isLeft ? prelimLeft : prelimRight).push({ card, y, targetY });
+        });
+      }
+      prelimLeft.sort((a, b) => a.y - b.y);
+      prelimRight.sort((a, b) => a.y - b.y);
+    }
+
+    return {
+      left,
+      right,
+      final,
+      height,
+      leftYs,
+      rightYs,
+      finalY: height / 2,
+      prelimLabel: prelimRound?.label ?? "",
+      prelimLeft,
+      prelimRight,
+    };
+  }, [rounds, prelimRound]);
 
   const flatHeight = PITCH * Math.max(1, rounds[0]?.cards.length ?? 1);
   const flatYs = useMemo(
@@ -328,6 +421,7 @@ export function BracketTab() {
       ),
     [rounds, flatHeight],
   );
+
 
   // Fit the whole tree into the viewport whenever its shape changes.
   useEffect(() => {
@@ -394,7 +488,24 @@ export function BracketTab() {
         >
           {layout ? (
             <>
+              {layout.prelimLeft.length > 0 && (
+                <div className="flex">
+                  <Column
+                    label={layout.prelimLabel}
+                    cards={layout.prelimLeft.map((p) => p.card)}
+                    ys={layout.prelimLeft.map((p) => p.y)}
+                    height={height}
+                    align="left"
+                  />
+                  <PrelimLinks
+                    pairs={layout.prelimLeft.map((p) => ({ from: p.y, to: p.targetY }))}
+                    height={height}
+                    mirror={false}
+                  />
+                </div>
+              )}
               {layout.left.map((r, i) => (
+
                 <div key={`l${r.round}`} className="flex">
                   <Column
                     label={r.label}
@@ -458,7 +569,24 @@ export function BracketTab() {
                   </div>
                 );
               })}
+              {layout.prelimRight.length > 0 && (
+                <div className="flex">
+                  <PrelimLinks
+                    pairs={layout.prelimRight.map((p) => ({ from: p.y, to: p.targetY }))}
+                    height={height}
+                    mirror
+                  />
+                  <Column
+                    label={layout.prelimLabel}
+                    cards={layout.prelimRight.map((p) => p.card)}
+                    ys={layout.prelimRight.map((p) => p.y)}
+                    height={height}
+                    align="right"
+                  />
+                </div>
+              )}
             </>
+
           ) : (
             rounds.map((r, i) => (
               <Column

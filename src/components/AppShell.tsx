@@ -7,6 +7,7 @@ import { PlayersTab } from "@/components/PlayersTab";
 import { SettingsTab } from "@/components/SettingsTab";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { useJoinedName } from "@/lib/joined-name";
+import logoAsset from "@/assets/beyx-logo.png";
 
 const TABS = [
   { id: "live", label: "對戰", icon: Swords },

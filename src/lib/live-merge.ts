@@ -1,4 +1,4 @@
-import type { Match, Player } from "./tournament-types";
+import type { Match } from "./tournament-types";
 
 /** Version tuple used to decide which copy of a match is newer. */
 const revOf = (m: Match) => (typeof m.rev === "number" ? m.rev : 0);
@@ -28,13 +28,4 @@ export function mergeMatches(local: Match[], incoming: Match[]): Match[] {
     const own = mine.get(remote.id);
     return own && isNewer(own, remote) ? own : remote;
   });
-}
-
-/** Rosters merge by union so simultaneous sign-up approvals both survive. */
-export function mergePlayers(local: Player[], incoming: Player[]): Player[] {
-  if (!incoming.length) return incoming;
-  const seen = new Set(incoming.map((p) => p.id));
-  const extras = local.filter((p) => !seen.has(p.id));
-  if (!extras.length) return incoming;
-  return [...incoming, ...extras].map((p, i) => ({ ...p, seed: i + 1 }));
 }

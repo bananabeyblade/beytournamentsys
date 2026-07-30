@@ -29,15 +29,17 @@ export interface LiveState {
   tableCount: number;
 }
 
-/** Admin-only: pushes the current bracket so QR spectators can watch live. */
+/**
+ * Admin-only: pushes the current bracket so QR spectators can watch live.
+ * The write goes through a database function that merges match-by-match, so
+ * two referees scoring different tables at once never overwrite each other.
+ */
 export async function publishLiveState(id: string, state: LiveState, stamp?: string) {
-  const { error } = await supabase
-    .from("tournaments")
-    .update({
-      live_state: JSON.parse(JSON.stringify(state)),
-      live_updated_at: stamp ?? new Date().toISOString(),
-    })
-    .eq("id", id);
+  const { error } = await supabase.rpc("publish_live_state", {
+    _tournament_id: id,
+    _state: JSON.parse(JSON.stringify(state)),
+    _stamp: stamp ?? new Date().toISOString(),
+  });
   // Surfaced to the referee as a toast — a silent failure loses live scores.
   if (error) throw new Error("同步賽況失敗");
 }

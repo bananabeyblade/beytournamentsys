@@ -43,6 +43,24 @@ export function TournamentHistory() {
     setBusy(null);
   }, []);
 
+  const exportTxt = useCallback((row: TournamentRow) => {
+    try {
+      downloadText(exportFileName(row), buildTournamentText(row));
+      toast.success("已匯出賽事紀錄 .txt");
+    } catch {
+      toast.error("匯出失敗");
+    }
+  }, []);
+
+  const copyTxt = useCallback(async (row: TournamentRow) => {
+    try {
+      await navigator.clipboard.writeText(buildTournamentText(row));
+      toast.success("已複製賽事紀錄");
+    } catch {
+      toast.error("複製失敗，請改用下載");
+    }
+  }, []);
+
   if (!currentAdmin) return null;
 
   return (

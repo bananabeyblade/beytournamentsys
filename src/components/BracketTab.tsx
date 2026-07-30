@@ -183,13 +183,14 @@ function Connectors({
           const bottom = Math.max(...ends, yMid);
           return (
             <div key={j}>
-              {ends.map((y) => (
+              {ends.map((y, k) => (
                 <span
-                  key={y}
+                  key={k}
                   className="absolute border-t border-border"
                   style={{ ...near, top: y, width: mid }}
                 />
               ))}
+
               {bottom > top && (
                 <span
                   className="absolute border-l border-border"

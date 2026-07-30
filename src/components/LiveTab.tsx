@@ -15,8 +15,9 @@ function MatchCard({
   onOpen: () => void;
   onStart: () => void;
 }) {
-  const { playerName, roundName, role } = useTournament();
+  const { playerName, roundName, role, locked } = useTournament();
   const isLive = match.status === "live";
+
 
   return (
     <div className={`panel p-3 ${isLive ? "neon-edge" : ""}`}>

@@ -151,10 +151,18 @@ export const createSuperadminFn = createServerFn({ method: "POST" })
         await supabaseAdmin.auth.admin.updateUserById(userId, { password: data.password });
       }
     }
-    const { error } = await supabaseAdmin
+    const existing = await supabaseAdmin
       .from("admin_roles")
-      .upsert({ user_id: userId, email, role: "superadmin" }, { onConflict: "user_id,role" });
-    if (error) throw new Error("授予總管理者權限失敗");
+      .select("id")
+      .eq("user_id", userId)
+      .eq("role", "superadmin")
+      .maybeSingle();
+    if (!existing.data) {
+      const { error } = await supabaseAdmin
+        .from("admin_roles")
+        .insert({ user_id: userId, email, role: "superadmin" });
+      if (error) throw new Error("授予總管理者權限失敗");
+    }
     return { ok: true };
   });
 

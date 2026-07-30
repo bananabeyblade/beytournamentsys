@@ -47,7 +47,7 @@ function AdminLoginPage() {
           進入賽事系統
         </Link>
       )}
-      <SettingsTab />
+      <AdminAuthPanel />
     </main>
   );
 }

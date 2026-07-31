@@ -31,7 +31,7 @@ import {
   type TournamentRow,
 } from "./tournaments";
 import { computeTop4 } from "./standings";
-import { mergeMatches, touchMatch } from "./live-merge";
+import { mergeMatches, mergePlayers, touchMatch } from "./live-merge";
 import { displayAccount, toLoginEmail } from "./account-id";
 import { isUsernameAccount, padAdminPassword } from "./admin-password";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
@@ -218,6 +218,8 @@ export function TournamentProvider({
 }) {
   const spectator = !!spectatorCode;
   const [players, setPlayers] = useState<Player[]>([]);
+  /** Player ids deleted on this device (id → epoch millis) — merge tombstones. */
+  const removedPlayers = useRef<Record<string, number>>({});
   const [matches, setMatches] = useState<Match[]>([]);
   const [tableCount, setTableCount] = useState(2);
   const [currentTournament, setCurrentTournament] = useState<TournamentRow | null>(null);
@@ -447,6 +449,8 @@ export function TournamentProvider({
   }, []);
 
   const removePlayer = useCallback((id: string) => {
+    // Tombstone the id so an older cloud snapshot can't resurrect the player.
+    removedPlayers.current[id] = Date.now();
     setPlayers((prev) => prev.filter((p) => p.id !== id).map((p, i) => ({ ...p, seed: i + 1 })));
   }, []);
 
@@ -536,6 +540,7 @@ export function TournamentProvider({
         toast.error("同步失敗", { description: "清除結果尚未上傳，請確認網路。" }),
       );
     }
+    removedPlayers.current = {};
     setPlayers([]);
     setMatches([]);
     setCurrentTournament(null);
@@ -553,6 +558,7 @@ export function TournamentProvider({
       const row = await createTournament(clean);
       setCurrentTournament(row);
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      removedPlayers.current = {};
       setPlayers([]);
       setMatches([]);
       return null;
@@ -568,6 +574,8 @@ export function TournamentProvider({
       if (!row) return "找不到該賽事";
       setCurrentTournament(row);
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      // Switching events: previous event's delete tombstones no longer apply.
+      removedPlayers.current = {};
       const live = row.live_state;
       if (live) {
         setPlayers((live.players ?? []) as Player[]);
@@ -675,6 +683,7 @@ export function TournamentProvider({
         // Fresh event with nothing published yet: drop leftovers from the
         // previous tournament so this device doesn't republish stale data.
         if (switched) {
+          removedPlayers.current = {};
           setPlayers([]);
           setMatches([]);
         }
@@ -693,7 +702,11 @@ export function TournamentProvider({
       const serialized = JSON.stringify(incoming);
       if (serialized === lastPayload.current) return;
       lastPayload.current = serialized;
-      setPlayers(incoming.players);
+      // Merge the roster by id so a player added here (or by the other admin a
+      // moment ago) is never wiped by an older snapshot; deletions stay applied.
+      setPlayers((prev) =>
+        mergePlayers(prev, incoming.players, Object.keys(removedPlayers.current)),
+      );
       // Merge per match: another referee's tables come in, while a bout this
       // device just scored (higher rev) survives until its own push lands.
       setMatches((prev) => mergeMatches(prev, incoming.matches));
@@ -777,7 +790,17 @@ export function TournamentProvider({
       const stamp = new Date().toISOString();
       lastPublishedStamp.current = stampOf(currentTournament.status, stamp);
       lastAppliedStamp.current = lastPublishedStamp.current;
-      void publishLiveState(currentTournament.id, { players, matches, tableCount }, stamp).catch(
+      void publishLiveState(
+        currentTournament.id,
+        {
+          players,
+          matches,
+          tableCount,
+          // Send tombstones so the server-side roster merge drops them too.
+          removedPlayers: Object.keys(removedPlayers.current),
+        },
+        stamp,
+      ).catch(
         () => {
           // Let the next change retry, and tell the referee the push failed.
           lastPayload.current = "";

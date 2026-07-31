@@ -1,4 +1,26 @@
-import type { Match } from "./tournament-types";
+import type { Match, Player } from "./tournament-types";
+
+/**
+ * Merges the incoming roster with the local one by player id, so a player added
+ * on this device survives an older cloud snapshot (and two admins adding at the
+ * same time never wipe each other). `removedIds` are tombstones: ids deleted
+ * locally are dropped even when the cloud copy still lists them.
+ */
+export function mergePlayers(
+  local: Player[],
+  incoming: Player[],
+  removedIds: Iterable<string> = [],
+): Player[] {
+  const removed = new Set(removedIds);
+  const seen = new Set<string>();
+  const out: Player[] = [];
+  for (const p of [...incoming, ...local]) {
+    if (removed.has(p.id) || seen.has(p.id)) continue;
+    seen.add(p.id);
+    out.push(p);
+  }
+  return out.map((p, i) => (p.seed === i + 1 ? p : { ...p, seed: i + 1 }));
+}
 
 /** Version tuple used to decide which copy of a match is newer. */
 const revOf = (m: Match) => (typeof m.rev === "number" ? m.rev : 0);

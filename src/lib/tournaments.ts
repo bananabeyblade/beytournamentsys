@@ -27,6 +27,8 @@ export interface LiveState {
   players: unknown[];
   matches: unknown[];
   tableCount: number;
+  /** Ids of players deleted locally — applied as tombstones during the merge. */
+  removedPlayers?: string[];
 }
 
 /**

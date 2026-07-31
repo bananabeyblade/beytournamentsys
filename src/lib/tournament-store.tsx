@@ -882,11 +882,19 @@ export function TournamentProvider({
     if (archivedId.current === currentTournament.id) return;
     archivedId.current = currentTournament.id;
     let alive = true;
+    const code = currentTournament.code;
     finishTournament(currentTournament.id, results)
       .then((row) => alive && setCurrentTournament(row))
-      .catch(() => {
+      .catch(async () => {
+        // Another admin may have archived the same event a moment earlier —
+        // adopt their row instead of retrying (and never toast for that case).
+        const row = await fetchTournamentByCode(code).catch(() => null);
+        if (row && row.status !== "open") {
+          if (alive) setCurrentTournament(row);
+          return;
+        }
         archivedId.current = "";
-        toast.error("成績封存失敗", { description: "請確認網路後再試一次。" });
+        if (alive) toast.error("成績封存失敗", { description: "請確認網路後再試一次。" });
       });
     return () => {
       alive = false;

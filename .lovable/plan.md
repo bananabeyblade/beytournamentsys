@@ -1,26 +1,43 @@
-## 目標
+# 修正「新增選手時參賽者莫名消失」
 
-1. 標題「竹塹陀螺集會所」前加入上傳的六角形陀螺標誌（去背處理）。
-2. 參賽者在「對戰」頁能一眼看到自己的比賽（突顯 + 置頂）。
-3. 「賽程」頁的比賽都能點擊查看該場得分紀錄。
+## 問題原因
 
-## 變更內容
+選手名單（roster）在多裝置同步時是「整份覆蓋」，而對戰（matches）是「逐場合併」：
 
-**標誌（去背）**
-- 用去背工具把上傳圖片處理成透明 PNG，存為 `src/assets/beyx-logo.png`。
-- `src/components/AppShell.tsx`：標題列改為 `[logo] 竹塹陀螺集會所` 的橫向排列，logo 約 32–36px、加上 `alt="竹塹陀螺集會所標誌"`，手機上不擠壓文字（`shrink-0` + 標題 `truncate`）。
+- `src/lib/tournament-store.tsx` 的 admin 追蹤流程在收到雲端快照時直接 `setPlayers(incoming.players)`，完全丟棄本機名單。
+- 資料庫端的 `publish_live_state` 也只做 `COALESCE(_state->'players', ...)`，即最後寫入者覆蓋整份名單。
 
-**對戰頁突顯自己（`src/components/LiveTab.tsx`）**
-- 使用既有的 `useJoinedName()` 與 `isSameName()` 判斷該場是否包含自己。
-- 自己的比賽：卡片加上霓虹外框／`bg-primary/5`，標題列顯示「你的比賽 YOUR MATCH」標籤，自己的名字以 `text-primary font-bold` 標示並加「(你)」。
-- 在「進行中」與「等待開賽」兩個清單中，把自己的比賽排到最前面。
+所以只要出現下列時序，剛新增的選手就會被抹掉：
 
-**賽程可點看紀錄（`src/components/BracketTab.tsx`）**
-- 目前只有已結束（`done`）的比賽可點；改為只要該場有得分紀錄或已開賽（`live`／`done`，或 `events.length > 0`）就可點開 `MatchHistoryModal`。
-- 完全未開賽（無選手或 waiting）仍保持不可點，避免誤觸。
-- 提示文字調整為「點擊查看比賽紀錄」。
+```text
+管理者A 新增選手 → 尚在 250ms 發佈延遲內
+                → 收到別台裝置/輪詢的舊快照 → setPlayers(舊名單) → 新選手消失
+管理者A 新增甲   ┐ 兩人幾乎同時新增
+管理者B 新增乙   ┘ → 後寫入者的整份名單覆蓋前者 → 一人消失
+```
 
-## 技術備註
+掃碼報名核准（`PlayersTab` 的 `addPlayers`）走同一條路徑，因此也會被吞掉。
 
-- 標誌透過 imagegen 的去背編輯產生透明 PNG，直接以 ES6 import 使用，不改動其他版面。
-- 只動前端呈現層，計分／同步邏輯不變。
+## 修正方向
+
+1. 名單改為「依 id 合併」而非覆蓋：本機有、雲端還沒有的選手保留；雲端有、本機沒有的加入；重新編號 seed。
+2. 刪除仍要生效：本機記錄「已刪除的選手 id」墓碑清單（含時間戳），合併時排除這些 id，並隨快照一起發佈，讓其他裝置也套用刪除。
+3. 資料庫 `publish_live_state` 同步改為在 SQL 端合併名單（依 id 聯集，排除傳入的 removed id），避免兩台裝置同時寫入時互相覆蓋。
+4. 賽程已產生後（matches 不為空）名單合併不改動既有對戰，維持現行 `mergeMatches` 行為。
+
+## 技術細節
+
+- `src/lib/live-merge.ts`：新增 `mergePlayers(local, incoming, removedIds)`，依 id 聯集、去除墓碑、依原順序重排 `seed`。
+- `src/lib/tournament-store.tsx`：
+  - 新增 `removedPlayers` ref（id → 刪除時間），`removePlayer` 寫入墓碑。
+  - admin `apply()` 與 spectator `apply()` 改呼叫 `mergePlayers`，不再直接覆蓋。
+  - 發佈 payload 加入 `removedPlayers`，並納入 `lastPayload` 比對。
+- `src/lib/tournament-types.ts`：`TournamentState` 增加選填 `removedPlayers`。
+- 一支新的 migration：更新 `publish_live_state`，以 `id` 為鍵合併 `players`，並套用 `_state->'removedPlayers'` 的排除清單。
+
+## 驗證
+
+- 單一裝置連續快速新增多位選手，名單不再回滾。
+- 兩個管理者同時新增不同選手，兩人都保留。
+- 任一裝置刪除選手，其他裝置也會移除且不會「復活」。
+- 產生賽程、計分流程不受影響。

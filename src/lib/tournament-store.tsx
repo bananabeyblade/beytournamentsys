@@ -856,11 +856,18 @@ export function TournamentProvider({
     };
 
     const sinceLast = Date.now() - lastPublishAt.current;
-    if (sinceLast >= PUBLISH_TAIL_MS) {
+    const sinceApply = Date.now() - lastApplyAt.current;
+    // Right after applying a cloud snapshot, always take the debounced path so
+    // several admins can't trade leading-edge publishes back and forth.
+    const wait = Math.max(
+      PUBLISH_TAIL_MS - sinceLast,
+      sinceApply < PUBLISH_TAIL_MS ? PUBLISH_TAIL_MS - sinceApply : 0,
+    );
+    if (wait <= 0) {
       push();
       return;
     }
-    const timer = setTimeout(push, PUBLISH_TAIL_MS - sinceLast);
+    const timer = setTimeout(push, wait);
     return () => clearTimeout(timer);
   }, [spectator, hydrated, role, currentTournament, players, matches, tableCount]);
 

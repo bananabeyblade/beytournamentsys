@@ -657,6 +657,15 @@ export function TournamentProvider({
   const lastPayload = useRef<string>("");
   /** When the last publish went out — powers the leading-edge write. */
   const lastPublishAt = useRef<number>(0);
+  /** When we last applied a cloud snapshot — suppresses publish ping-pong. */
+  const lastApplyAt = useRef<number>(0);
+
+  // Mirrors of the live state so the follow loop can merge (and record the
+  // merged payload) synchronously, without waiting for a re-render.
+  const playersRef = useRef<Player[]>(players);
+  const matchesRef = useRef<Match[]>(matches);
+  playersRef.current = players;
+  matchesRef.current = matches;
 
   // Timestamps come back from Postgres as `+00:00` while we send `Z`; compare
   // them as epoch millis so a device never re-applies its own publish (which
@@ -684,6 +693,9 @@ export function TournamentProvider({
         // previous tournament so this device doesn't republish stale data.
         if (switched) {
           removedPlayers.current = {};
+          playersRef.current = [];
+          matchesRef.current = [];
+          lastPayload.current = "";
           setPlayers([]);
           setMatches([]);
         }
@@ -699,17 +711,33 @@ export function TournamentProvider({
         tableCount:
           typeof row.live_state.tableCount === "number" ? row.live_state.tableCount : tableCount,
       };
-      const serialized = JSON.stringify(incoming);
-      if (serialized === lastPayload.current) return;
-      lastPayload.current = serialized;
       // Merge the roster by id so a player added here (or by the other admin a
       // moment ago) is never wiped by an older snapshot; deletions stay applied.
-      setPlayers((prev) =>
-        mergePlayers(prev, incoming.players, Object.keys(removedPlayers.current)),
+      const mergedPlayers = mergePlayers(
+        playersRef.current,
+        incoming.players,
+        Object.keys(removedPlayers.current),
       );
       // Merge per match: another referee's tables come in, while a bout this
       // device just scored (higher rev) survives until its own push lands.
-      setMatches((prev) => mergeMatches(prev, incoming.matches));
+      const mergedMatches = mergeMatches(matchesRef.current, incoming.matches);
+
+      // Record the MERGED result (not the raw snapshot) as the echo guard:
+      // otherwise the publish effect reads the merge as a fresh local edit and
+      // two admins bounce publishes off each other forever.
+      const merged = JSON.stringify({
+        players: mergedPlayers,
+        matches: mergedMatches,
+        tableCount: incoming.tableCount,
+      });
+      if (merged === lastPayload.current) return;
+      lastPayload.current = merged;
+      lastApplyAt.current = Date.now();
+
+      playersRef.current = mergedPlayers;
+      matchesRef.current = mergedMatches;
+      setPlayers(mergedPlayers);
+      setMatches(mergedMatches);
       setTableCount(incoming.tableCount);
     };
 
@@ -722,6 +750,16 @@ export function TournamentProvider({
         if (code) row = await fetchTournamentByCode(code).catch(() => null);
       }
       if (row) apply(row);
+    };
+
+    // Coalesce bursts of realtime events into at most one fetch per window.
+    let pullTimer: ReturnType<typeof setTimeout> | undefined;
+    const queuePull = () => {
+      if (pullTimer) return;
+      pullTimer = setTimeout(() => {
+        pullTimer = undefined;
+        void pull();
+      }, 800);
     };
 
     void pull();
@@ -744,8 +782,15 @@ export function TournamentProvider({
       .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, (payload) => {
         const row = payload.new as TournamentRow | undefined;
         // The pushed row is enough when it is the event we already follow.
-        if (row && row.id && row.id === followedId.current && "live_updated_at" in row) apply(row);
-        else void pull();
+        if (row && row.id && row.id === followedId.current && "live_updated_at" in row) {
+          apply(row);
+          return;
+        }
+        // Another (already closed) event changed — irrelevant to this device.
+        if (row && row.id && followedId.current && row.id !== followedId.current) {
+          if (row.status && row.status !== "open") return;
+        }
+        queuePull();
       })
       .subscribe();
 
@@ -765,6 +810,7 @@ export function TournamentProvider({
     return () => {
       alive = false;
       stopTimer();
+      if (pullTimer) clearTimeout(pullTimer);
       supabase.removeChannel(channel);
       if (typeof window !== "undefined") {
         window.removeEventListener(RECONNECT_EVENT, onBack);

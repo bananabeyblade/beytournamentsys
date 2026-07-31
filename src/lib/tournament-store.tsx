@@ -574,6 +574,8 @@ export function TournamentProvider({
       if (!row) return "找不到該賽事";
       setCurrentTournament(row);
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      // Switching events: previous event's delete tombstones no longer apply.
+      removedPlayers.current = {};
       const live = row.live_state;
       if (live) {
         setPlayers((live.players ?? []) as Player[]);

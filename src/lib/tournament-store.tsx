@@ -697,7 +697,11 @@ export function TournamentProvider({
       const serialized = JSON.stringify(incoming);
       if (serialized === lastPayload.current) return;
       lastPayload.current = serialized;
-      setPlayers(incoming.players);
+      // Merge the roster by id so a player added here (or by the other admin a
+      // moment ago) is never wiped by an older snapshot; deletions stay applied.
+      setPlayers((prev) =>
+        mergePlayers(prev, incoming.players, Object.keys(removedPlayers.current)),
+      );
       // Merge per match: another referee's tables come in, while a bout this
       // device just scored (higher rev) survives until its own push lands.
       setMatches((prev) => mergeMatches(prev, incoming.matches));

@@ -31,7 +31,7 @@ import {
   type TournamentRow,
 } from "./tournaments";
 import { computeTop4 } from "./standings";
-import { mergeMatches, touchMatch } from "./live-merge";
+import { mergeMatches, mergePlayers, touchMatch } from "./live-merge";
 import { displayAccount, toLoginEmail } from "./account-id";
 import { isUsernameAccount, padAdminPassword } from "./admin-password";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";

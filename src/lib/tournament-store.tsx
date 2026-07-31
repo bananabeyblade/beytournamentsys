@@ -785,7 +785,17 @@ export function TournamentProvider({
       const stamp = new Date().toISOString();
       lastPublishedStamp.current = stampOf(currentTournament.status, stamp);
       lastAppliedStamp.current = lastPublishedStamp.current;
-      void publishLiveState(currentTournament.id, { players, matches, tableCount }, stamp).catch(
+      void publishLiveState(
+        currentTournament.id,
+        {
+          players,
+          matches,
+          tableCount,
+          // Send tombstones so the server-side roster merge drops them too.
+          removedPlayers: Object.keys(removedPlayers.current),
+        },
+        stamp,
+      ).catch(
         () => {
           // Let the next change retry, and tell the referee the push failed.
           lastPayload.current = "";

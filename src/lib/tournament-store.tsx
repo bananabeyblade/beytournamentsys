@@ -540,6 +540,7 @@ export function TournamentProvider({
         toast.error("同步失敗", { description: "清除結果尚未上傳，請確認網路。" }),
       );
     }
+    removedPlayers.current = {};
     setPlayers([]);
     setMatches([]);
     setCurrentTournament(null);
@@ -557,6 +558,7 @@ export function TournamentProvider({
       const row = await createTournament(clean);
       setCurrentTournament(row);
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      removedPlayers.current = {};
       setPlayers([]);
       setMatches([]);
       return null;
@@ -679,6 +681,7 @@ export function TournamentProvider({
         // Fresh event with nothing published yet: drop leftovers from the
         // previous tournament so this device doesn't republish stale data.
         if (switched) {
+          removedPlayers.current = {};
           setPlayers([]);
           setMatches([]);
         }

@@ -218,6 +218,8 @@ export function TournamentProvider({
 }) {
   const spectator = !!spectatorCode;
   const [players, setPlayers] = useState<Player[]>([]);
+  /** Player ids deleted on this device (id → epoch millis) — merge tombstones. */
+  const removedPlayers = useRef<Record<string, number>>({});
   const [matches, setMatches] = useState<Match[]>([]);
   const [tableCount, setTableCount] = useState(2);
   const [currentTournament, setCurrentTournament] = useState<TournamentRow | null>(null);

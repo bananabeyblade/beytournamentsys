@@ -657,6 +657,15 @@ export function TournamentProvider({
   const lastPayload = useRef<string>("");
   /** When the last publish went out — powers the leading-edge write. */
   const lastPublishAt = useRef<number>(0);
+  /** When we last applied a cloud snapshot — suppresses publish ping-pong. */
+  const lastApplyAt = useRef<number>(0);
+
+  // Mirrors of the live state so the follow loop can merge (and record the
+  // merged payload) synchronously, without waiting for a re-render.
+  const playersRef = useRef<Player[]>(players);
+  const matchesRef = useRef<Match[]>(matches);
+  playersRef.current = players;
+  matchesRef.current = matches;
 
   // Timestamps come back from Postgres as `+00:00` while we send `Z`; compare
   // them as epoch millis so a device never re-applies its own publish (which
@@ -684,6 +693,9 @@ export function TournamentProvider({
         // previous tournament so this device doesn't republish stale data.
         if (switched) {
           removedPlayers.current = {};
+          playersRef.current = [];
+          matchesRef.current = [];
+          lastPayload.current = "";
           setPlayers([]);
           setMatches([]);
         }
@@ -699,17 +711,33 @@ export function TournamentProvider({
         tableCount:
           typeof row.live_state.tableCount === "number" ? row.live_state.tableCount : tableCount,
       };
-      const serialized = JSON.stringify(incoming);
-      if (serialized === lastPayload.current) return;
-      lastPayload.current = serialized;
       // Merge the roster by id so a player added here (or by the other admin a
       // moment ago) is never wiped by an older snapshot; deletions stay applied.
-      setPlayers((prev) =>
-        mergePlayers(prev, incoming.players, Object.keys(removedPlayers.current)),
+      const mergedPlayers = mergePlayers(
+        playersRef.current,
+        incoming.players,
+        Object.keys(removedPlayers.current),
       );
       // Merge per match: another referee's tables come in, while a bout this
       // device just scored (higher rev) survives until its own push lands.
-      setMatches((prev) => mergeMatches(prev, incoming.matches));
+      const mergedMatches = mergeMatches(matchesRef.current, incoming.matches);
+
+      // Record the MERGED result (not the raw snapshot) as the echo guard:
+      // otherwise the publish effect reads the merge as a fresh local edit and
+      // two admins bounce publishes off each other forever.
+      const merged = JSON.stringify({
+        players: mergedPlayers,
+        matches: mergedMatches,
+        tableCount: incoming.tableCount,
+      });
+      if (merged === lastPayload.current) return;
+      lastPayload.current = merged;
+      lastApplyAt.current = Date.now();
+
+      playersRef.current = mergedPlayers;
+      matchesRef.current = mergedMatches;
+      setPlayers(mergedPlayers);
+      setMatches(mergedMatches);
       setTableCount(incoming.tableCount);
     };
 
@@ -722,6 +750,16 @@ export function TournamentProvider({
         if (code) row = await fetchTournamentByCode(code).catch(() => null);
       }
       if (row) apply(row);
+    };
+
+    // Coalesce bursts of realtime events into at most one fetch per window.
+    let pullTimer: ReturnType<typeof setTimeout> | undefined;
+    const queuePull = () => {
+      if (pullTimer) return;
+      pullTimer = setTimeout(() => {
+        pullTimer = undefined;
+        void pull();
+      }, 800);
     };
 
     void pull();
@@ -744,8 +782,15 @@ export function TournamentProvider({
       .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, (payload) => {
         const row = payload.new as TournamentRow | undefined;
         // The pushed row is enough when it is the event we already follow.
-        if (row && row.id && row.id === followedId.current && "live_updated_at" in row) apply(row);
-        else void pull();
+        if (row && row.id && row.id === followedId.current && "live_updated_at" in row) {
+          apply(row);
+          return;
+        }
+        // Another (already closed) event changed — irrelevant to this device.
+        if (row && row.id && followedId.current && row.id !== followedId.current) {
+          if (row.status && row.status !== "open") return;
+        }
+        queuePull();
       })
       .subscribe();
 
@@ -765,6 +810,7 @@ export function TournamentProvider({
     return () => {
       alive = false;
       stopTimer();
+      if (pullTimer) clearTimeout(pullTimer);
       supabase.removeChannel(channel);
       if (typeof window !== "undefined") {
         window.removeEventListener(RECONNECT_EVENT, onBack);
@@ -810,11 +856,18 @@ export function TournamentProvider({
     };
 
     const sinceLast = Date.now() - lastPublishAt.current;
-    if (sinceLast >= PUBLISH_TAIL_MS) {
+    const sinceApply = Date.now() - lastApplyAt.current;
+    // Right after applying a cloud snapshot, always take the debounced path so
+    // several admins can't trade leading-edge publishes back and forth.
+    const wait = Math.max(
+      PUBLISH_TAIL_MS - sinceLast,
+      sinceApply < PUBLISH_TAIL_MS ? PUBLISH_TAIL_MS - sinceApply : 0,
+    );
+    if (wait <= 0) {
       push();
       return;
     }
-    const timer = setTimeout(push, PUBLISH_TAIL_MS - sinceLast);
+    const timer = setTimeout(push, wait);
     return () => clearTimeout(timer);
   }, [spectator, hydrated, role, currentTournament, players, matches, tableCount]);
 
@@ -829,11 +882,19 @@ export function TournamentProvider({
     if (archivedId.current === currentTournament.id) return;
     archivedId.current = currentTournament.id;
     let alive = true;
+    const code = currentTournament.code;
     finishTournament(currentTournament.id, results)
       .then((row) => alive && setCurrentTournament(row))
-      .catch(() => {
+      .catch(async () => {
+        // Another admin may have archived the same event a moment earlier —
+        // adopt their row instead of retrying (and never toast for that case).
+        const row = await fetchTournamentByCode(code).catch(() => null);
+        if (row && row.status !== "open") {
+          if (alive) setCurrentTournament(row);
+          return;
+        }
         archivedId.current = "";
-        toast.error("成績封存失敗", { description: "請確認網路後再試一次。" });
+        if (alive) toast.error("成績封存失敗", { description: "請確認網路後再試一次。" });
       });
     return () => {
       alive = false;

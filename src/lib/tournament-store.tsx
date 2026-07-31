@@ -447,6 +447,8 @@ export function TournamentProvider({
   }, []);
 
   const removePlayer = useCallback((id: string) => {
+    // Tombstone the id so an older cloud snapshot can't resurrect the player.
+    removedPlayers.current[id] = Date.now();
     setPlayers((prev) => prev.filter((p) => p.id !== id).map((p, i) => ({ ...p, seed: i + 1 })));
   }, []);
 

@@ -10,6 +10,9 @@ export const superadminExistsFn = createServerFn({ method: "GET" }).handler(asyn
     .from("admin_roles")
     .select("id", { count: "exact", head: true })
     .eq("role", "superadmin");
-  if (error) throw new Error("無法檢查總管理者狀態");
+  if (error) {
+    console.error("[setup] superadminExists failed", error.code, error.message, error.details);
+    throw new Error("無法檢查總管理者狀態");
+  }
   return { exists: (count ?? 0) > 0 };
 });

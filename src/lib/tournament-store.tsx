@@ -823,6 +823,11 @@ export function TournamentProvider({
   const lastPublishAt = useRef<number>(0);
   /** When we last applied a cloud snapshot — suppresses publish ping-pong. */
   const lastApplyAt = useRef<number>(0);
+  /** Cloud sync indicator shown to admins (green / amber / red). */
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  /** Latest cloud pull, exposed so the retry button can force a re-read. */
+  const pullRef = useRef<(() => Promise<void>) | null>(null);
 
   // Mirrors of the live state so the follow loop can merge (and record the
   // merged payload) synchronously, without waiting for a re-render.

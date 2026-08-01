@@ -31,7 +31,7 @@ import {
   type TournamentRow,
 } from "./tournaments";
 import { computeTop4 } from "./standings";
-import { activeLock, mergeMatches, mergePlayers, touchMatch } from "./live-merge";
+import { LOCK_TTL_MS, activeLock, mergeMatches, mergePlayers, touchMatch } from "./live-merge";
 import { displayAccount, isOwnerEmail, toLoginEmail } from "./account-id";
 import { isUsernameAccount, padAdminPassword } from "./admin-password";
 import { logAction, type AuditAction } from "./audit";

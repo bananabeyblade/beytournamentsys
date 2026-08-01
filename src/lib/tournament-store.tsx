@@ -865,8 +865,11 @@ export function TournamentProvider({
   // merged payload) synchronously, without waiting for a re-render.
   const playersRef = useRef<Player[]>(players);
   const matchesRef = useRef<Match[]>(matches);
+  const tableCountRef = useRef<number>(tableCount);
   playersRef.current = players;
   matchesRef.current = matches;
+  tableCountRef.current = tableCount;
+
 
   // Timestamps come back from Postgres as `+00:00` while we send `Z`; compare
   // them as epoch millis so a device never re-applies its own publish (which

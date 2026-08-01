@@ -459,7 +459,10 @@ export function TournamentProvider({
     await supabase.auth.signOut();
     setCurrentAdmin(null);
     setRoleState("player");
+    // Stop following the event on this device so a later sign-in starts clean.
+    followedId.current = "";
   }, []);
+
 
   // Audit trail: every roster/bracket/scoring change is recorded with the
   // acting account so the owner can trace who changed what, and when.

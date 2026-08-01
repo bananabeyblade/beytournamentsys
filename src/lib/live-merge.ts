@@ -42,17 +42,36 @@ export function isNewer(a: Match, b: Match) {
   return timeOf(a) > timeOf(b);
 }
 
+/** A scoring lock stops counting once its heartbeat is this old. */
+export const LOCK_TTL_MS = 30000;
+
+/** True when the match is locked by a referee whose lock is still alive. */
+export function activeLock(m: Match, now = Date.now()) {
+  if (!m.lockedBy || typeof m.lockedAt !== "number") return null;
+  if (now - m.lockedAt > LOCK_TTL_MS) return null;
+  return { by: m.lockedBy, name: m.lockedByName ?? "另一位管理者", at: m.lockedAt };
+}
+
+/** Drops an expired lock so a disconnected referee can never block a table. */
+function withoutStaleLock(m: Match, now = Date.now()): Match {
+  if (!m.lockedBy || activeLock(m, now)) return m;
+  return { ...m, lockedBy: null, lockedByName: null, lockedAt: null };
+}
+
 /**
  * Merges an incoming published bracket with the local one per match, so two
  * referees scoring different tables at the same time never clobber each other.
  * The incoming list defines which matches exist (bracket regeneration / reset);
  * the local copy only wins when it is a strictly newer revision of that match.
+ * Lock fields ride along with the winning copy, and expired locks are cleared.
  */
 export function mergeMatches(local: Match[], incoming: Match[]): Match[] {
   if (!incoming.length) return incoming;
+  const now = Date.now();
   const mine = new Map(local.map((m) => [m.id, m]));
   return incoming.map((remote) => {
     const own = mine.get(remote.id);
-    return own && isNewer(own, remote) ? own : remote;
+    const win = own && isNewer(own, remote) ? own : remote;
+    return withoutStaleLock(win, now);
   });
 }

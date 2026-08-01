@@ -913,7 +913,10 @@ export function TournamentProvider({
         players: (row.live_state.players ?? []) as Player[],
         matches: (row.live_state.matches ?? []) as Match[],
         tableCount:
-          typeof row.live_state.tableCount === "number" ? row.live_state.tableCount : tableCount,
+          typeof row.live_state.tableCount === "number"
+            ? row.live_state.tableCount
+            : tableCountRef.current,
+
       };
       // Merge the roster by id so a player added here (or by the other admin a
       // moment ago) is never wiped by an older snapshot; deletions stay applied.

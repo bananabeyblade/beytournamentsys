@@ -133,6 +133,9 @@ export function SettingsTab() {
 
       {role === "admin" && <TournamentHistory />}
 
+      <AuditLogCard />
+
+
       {currentAdmin?.isSuper && (
         <div className="panel space-y-3 p-3">
           <h2 className="text-sm tracking-widest text-muted-foreground">賽事設定 TOURNAMENT</h2>

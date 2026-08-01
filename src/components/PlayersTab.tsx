@@ -2,11 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2, Users, QrCode, Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useTournament } from "@/lib/tournament-store";
-import { fetchRegistrations, deleteRegistration, type Registration } from "@/lib/registration";
+import {
+  fetchRegistrations,
+  deleteRegistration,
+  deleteRegistrations,
+  type Registration,
+} from "@/lib/registration";
 import { supabase } from "@/integrations/supabase/client";
 
 /** Coalescing window for bursts of sign-ups (e.g. 64 phones scanning at once). */
 const REFRESH_THROTTLE_MS = 1000;
+/** Sign-ups cleared per request when approving the whole waiting list. */
+const APPROVE_BATCH = 25;
+
 
 export function PlayersTab() {
   const { players, addPlayers, removePlayer, role, currentAdmin, currentTournament } =

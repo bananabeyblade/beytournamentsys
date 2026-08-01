@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { RotateCcw, X, Trophy } from "lucide-react";
+import { useEffect, useState } from "react";
+import { RotateCcw, X, Trophy, Lock, Unlock } from "lucide-react";
 import { FINISHES, WIN_TARGET, type Match } from "@/lib/tournament-types";
 import { useTournament } from "@/lib/tournament-store";
+
 
 const toneClass: Record<string, string> = {
   spin: "bg-spin/20 border-spin text-spin",

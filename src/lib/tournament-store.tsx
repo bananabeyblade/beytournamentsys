@@ -192,6 +192,21 @@ interface Ctx extends TournamentState {
   confirmWinner: (matchId: string) => void;
   /** True when another device edited this bout moments ago (shared scoring). */
   scoringElsewhere: (match: Match) => boolean;
+  /** Edit lock for a bout: who is scoring it right now (null when free). */
+  lockInfo: (match: Match) => { by: string; name: string; at: number } | null;
+  /** Takes the scoring lock. False when another referee already holds it. */
+  acquireMatchLock: (matchId: string) => boolean;
+  /** Heartbeat while the scoring sheet stays open. */
+  renewMatchLock: (matchId: string) => void;
+  releaseMatchLock: (matchId: string) => void;
+  /** Owner-only escape hatch: steal a stuck lock. */
+  forceUnlockMatch: (matchId: string) => void;
+  /** Cloud sync state of the live bracket. */
+  syncStatus: SyncStatus;
+  lastSyncedAt: number | null;
+  retrySync: () => void;
+  /** True for the platform owner account (john410403123@gmail.com). */
+  isOwner: boolean;
   resetTournament: () => void;
   loadSample: () => void;
   currentTournament: TournamentRow | null;

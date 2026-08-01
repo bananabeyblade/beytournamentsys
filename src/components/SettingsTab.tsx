@@ -6,6 +6,7 @@ import { FirstTimeSetup } from "./FirstTimeSetup";
 import { QrRegisterCard } from "./QrRegisterCard";
 import { AdminLoginQrCard } from "./AdminLoginQrCard";
 import { TournamentHistory } from "./TournamentHistory";
+import { AuditLogCard } from "./AuditLogCard";
 
 export function SettingsTab() {
   const {

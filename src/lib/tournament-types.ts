@@ -49,6 +49,12 @@ export interface Match {
   rev?: number;
   /** Epoch millis of the last edit — tie-breaker for equal revisions. */
   updatedAt?: number;
+  /** Edit lock: admin user id currently scoring this bout. */
+  lockedBy?: string | null;
+  /** Display name/account of the lock holder. */
+  lockedByName?: string | null;
+  /** Epoch millis of the last lock heartbeat — expires after LOCK_TTL_MS. */
+  lockedAt?: number | null;
 }
 
 export interface CloudAdmin {

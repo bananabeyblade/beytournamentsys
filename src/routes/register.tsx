@@ -61,7 +61,7 @@ function RegisterPage() {
       void navigate({ to: "/watch/$code", params: { code } });
     };
     void check();
-    const timer = setInterval(check, 5000);
+    const timer = setInterval(check, 20000);
     const channel = supabase
       .channel(`register-${code}`)
       .on(

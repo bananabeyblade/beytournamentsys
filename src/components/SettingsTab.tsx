@@ -6,6 +6,7 @@ import { FirstTimeSetup } from "./FirstTimeSetup";
 import { QrRegisterCard } from "./QrRegisterCard";
 import { AdminLoginQrCard } from "./AdminLoginQrCard";
 import { TournamentHistory } from "./TournamentHistory";
+import { AuditLogCard } from "./AuditLogCard";
 
 export function SettingsTab() {
   const {
@@ -132,6 +133,9 @@ export function SettingsTab() {
       {currentAdmin?.isSuper && <AdminLoginQrCard />}
 
       {role === "admin" && <TournamentHistory />}
+
+      <AuditLogCard />
+
 
       {currentAdmin?.isSuper && (
         <div className="panel space-y-3 p-3">

@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { RotateCcw, X, Trophy } from "lucide-react";
+import { useEffect, useState } from "react";
+import { RotateCcw, X, Trophy, Lock, Unlock } from "lucide-react";
 import { FINISHES, WIN_TARGET, type Match } from "@/lib/tournament-types";
 import { useTournament } from "@/lib/tournament-store";
+
 
 const toneClass: Record<string, string> = {
   spin: "bg-spin/20 border-spin text-spin",
@@ -35,12 +36,44 @@ function SlotCard({
 }
 
 export function ScoringModal({ match, onClose }: { match: Match; onClose: () => void }) {
-  const { playerName, addScore, undoScore, confirmWinner, roundName, locked } = useTournament();
+  const {
+    playerName,
+    addScore,
+    undoScore,
+    confirmWinner,
+    roundName,
+    locked,
+    role,
+    currentAdmin,
+    lockInfo,
+    acquireMatchLock,
+    renewMatchLock,
+    releaseMatchLock,
+    forceUnlockMatch,
+    isOwner,
+  } = useTournament();
   const [slot, setSlot] = useState<1 | 2>(1);
 
+  const held = lockInfo(match);
+  // Someone else is already scoring this bout: show it read-only instead of
+  // letting two referees fight over the same score.
+  const heldByOther = !!held && held.by !== currentAdmin?.id;
+
+  // Take the lock on open and keep it alive while the modal stays open.
+  useEffect(() => {
+    if (role !== "admin" || locked) return;
+    acquireMatchLock(match.id);
+    const beat = setInterval(() => renewMatchLock(match.id), 10000);
+    return () => {
+      clearInterval(beat);
+      releaseMatchLock(match.id);
+    };
+  }, [match.id, role, locked, acquireMatchLock, renewMatchLock, releaseMatchLock]);
+
   const reached = match.score1 >= WIN_TARGET || match.score2 >= WIN_TARGET;
-  const frozen = reached || locked;
+  const frozen = reached || locked || heldByOther;
   const winnerName = match.score1 >= WIN_TARGET ? playerName(match.p1) : playerName(match.p2);
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/85 p-0 backdrop-blur-sm sm:items-center sm:p-4">
@@ -99,17 +132,37 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
 
         <button
           onClick={() => undoScore(match.id)}
-          disabled={!match.events.length || locked}
+          disabled={!match.events.length || locked || heldByOther}
           className="mt-3 flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary font-semibold disabled:opacity-40"
         >
           <RotateCcw className="h-5 w-5" /> 復原上一步 Undo
         </button>
 
+        {heldByOther && (
+          <div className="mt-3 rounded-xl border border-destructive/60 bg-destructive/10 p-3 text-xs">
+            <p className="flex items-center gap-2 font-semibold text-destructive">
+              <Lock className="h-4 w-4" /> {held?.name} 正在計分，此局暫為唯讀
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              對方關閉計分視窗或斷線 30 秒後會自動解鎖。
+            </p>
+            {isOwner && (
+              <button
+                onClick={() => forceUnlockMatch(match.id)}
+                className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/60 bg-accent/40 font-semibold text-primary"
+              >
+                <Unlock className="h-4 w-4" /> 強制解鎖並接手
+              </button>
+            )}
+          </div>
+        )}
+
         {locked && (
           <p className="mt-3 text-center text-xs text-primary">賽事已結束，計分已封存。</p>
         )}
 
-        {reached && !locked && (
+        {reached && !locked && !heldByOther && (
+
           <div className="mt-4 rounded-xl border-2 border-primary bg-accent/40 p-4 text-center neon-edge">
             <Trophy className="mx-auto h-8 w-8 text-primary" />
             <p className="mt-2 font-display text-lg neon-text">{winnerName} Wins!</p>

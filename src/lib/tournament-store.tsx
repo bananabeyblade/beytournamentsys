@@ -44,6 +44,9 @@ const STATE_KEY = "beyx-live-state";
 const SLOW_POLL_MS = 25000;
 /** Coalescing window for rapid scoring taps (first write goes out at once). */
 const PUBLISH_TAIL_MS = 250;
+/** A held lock is only re-written (and re-synced) once it is this old. */
+const LOCK_RENEW_AFTER_MS = Math.round(LOCK_TTL_MS * 0.6);
+
 
 /** Cloud sync state of the live bracket, surfaced to admins as a badge. */
 export type SyncStatus = "idle" | "syncing" | "synced" | "error";

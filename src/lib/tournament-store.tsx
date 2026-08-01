@@ -920,6 +920,8 @@ export function TournamentProvider({
       }
       if (row) apply(row);
     };
+    pullRef.current = pull;
+
 
     // Coalesce bursts of realtime events into at most one fetch per window.
     let pullTimer: ReturnType<typeof setTimeout> | undefined;

@@ -132,17 +132,37 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
 
         <button
           onClick={() => undoScore(match.id)}
-          disabled={!match.events.length || locked}
+          disabled={!match.events.length || locked || heldByOther}
           className="mt-3 flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary font-semibold disabled:opacity-40"
         >
           <RotateCcw className="h-5 w-5" /> 復原上一步 Undo
         </button>
 
+        {heldByOther && (
+          <div className="mt-3 rounded-xl border border-destructive/60 bg-destructive/10 p-3 text-xs">
+            <p className="flex items-center gap-2 font-semibold text-destructive">
+              <Lock className="h-4 w-4" /> {held?.name} 正在計分，此局暫為唯讀
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              對方關閉計分視窗或斷線 30 秒後會自動解鎖。
+            </p>
+            {isOwner && (
+              <button
+                onClick={() => forceUnlockMatch(match.id)}
+                className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/60 bg-accent/40 font-semibold text-primary"
+              >
+                <Unlock className="h-4 w-4" /> 強制解鎖並接手
+              </button>
+            )}
+          </div>
+        )}
+
         {locked && (
           <p className="mt-3 text-center text-xs text-primary">賽事已結束，計分已封存。</p>
         )}
 
-        {reached && !locked && (
+        {reached && !locked && !heldByOther && (
+
           <div className="mt-4 rounded-xl border-2 border-primary bg-accent/40 p-4 text-center neon-edge">
             <Trophy className="mx-auto h-8 w-8 text-primary" />
             <p className="mt-2 font-display text-lg neon-text">{winnerName} Wins!</p>

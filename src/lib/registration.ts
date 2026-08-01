@@ -1,6 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
-import { deleteRegistrationFn, listRegistrationsFn } from "./registrations.functions";
+import {
+  deleteRegistrationFn,
+  deleteRegistrationsFn,
+  listRegistrationsFn,
+} from "./registrations.functions";
 import { nameTakenFn } from "./registration-check.functions";
+
 
 export interface Registration {
   id: string;
@@ -41,3 +46,10 @@ export async function addRegistration(tournamentId: string, name: string) {
 export async function deleteRegistration(id: string) {
   await deleteRegistrationFn({ data: { id } });
 }
+
+/** Admin-only: clears many sign-ups per request (batch approval). */
+export async function deleteRegistrations(ids: string[]) {
+  if (!ids.length) return;
+  await deleteRegistrationsFn({ data: { ids } });
+}
+

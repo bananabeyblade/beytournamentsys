@@ -31,7 +31,7 @@ import {
   type TournamentRow,
 } from "./tournaments";
 import { computeTop4 } from "./standings";
-import { activeLock, mergeMatches, mergePlayers, touchMatch } from "./live-merge";
+import { LOCK_TTL_MS, activeLock, mergeMatches, mergePlayers, touchMatch } from "./live-merge";
 import { displayAccount, isOwnerEmail, toLoginEmail } from "./account-id";
 import { isUsernameAccount, padAdminPassword } from "./admin-password";
 import { logAction, type AuditAction } from "./audit";
@@ -44,6 +44,9 @@ const STATE_KEY = "beyx-live-state";
 const SLOW_POLL_MS = 25000;
 /** Coalescing window for rapid scoring taps (first write goes out at once). */
 const PUBLISH_TAIL_MS = 250;
+/** A held lock is only re-written (and re-synced) once it is this old. */
+const LOCK_RENEW_AFTER_MS = Math.round(LOCK_TTL_MS * 0.6);
+
 
 /** Cloud sync state of the live bracket, surfaced to admins as a badge. */
 export type SyncStatus = "idle" | "syncing" | "synced" | "error";
@@ -456,7 +459,10 @@ export function TournamentProvider({
     await supabase.auth.signOut();
     setCurrentAdmin(null);
     setRoleState("player");
+    // Stop following the event on this device so a later sign-in starts clean.
+    followedId.current = "";
   }, []);
+
 
   // Audit trail: every roster/bracket/scoring change is recorded with the
   // acting account so the owner can trace who changed what, and when.
@@ -559,6 +565,10 @@ export function TournamentProvider({
     [setLock],
   );
 
+  // Heartbeat: only writes (and therefore syncs) when the lock is close to
+  // expiring, so an open scoring sheet doesn't republish the whole event
+  // every 10 seconds — which also inflated `rev` and made other referees
+  // see a false "someone else is scoring" warning.
   const renewMatchLock = useCallback(
     (matchId: string) => {
       const admin = auditRef.current.admin;
@@ -567,6 +577,7 @@ export function TournamentProvider({
       if (!m) return;
       const held = activeLock(m);
       if (held && held.by !== admin.id) return;
+      if (held && held.by === admin.id && Date.now() - held.at < LOCK_RENEW_AFTER_MS) return;
       setLock(matchId, { by: admin.id, name: admin.email });
     },
     [setLock],
@@ -577,11 +588,14 @@ export function TournamentProvider({
       const admin = auditRef.current.admin;
       const m = matchesRef.current.find((x) => x.id === matchId);
       if (!m || !m.lockedBy) return;
+      // A decided bout already dropped its lock — don't bump its revision again.
+      if (m.status === "done") return;
       if (admin && m.lockedBy !== admin.id) return;
       setLock(matchId, null);
     },
     [setLock],
   );
+
 
   const forceUnlockMatch = useCallback(
     (matchId: string) => {
@@ -706,10 +720,15 @@ export function TournamentProvider({
     }
     log("tournament_reset", { count: playersRef.current.length });
     removedPlayers.current = {};
+    // Forget the followed event too, otherwise the sync loop re-adopts the
+    // same tournament from localStorage and the cleared state reappears.
+    if (typeof window !== "undefined") localStorage.removeItem(ACTIVE_KEY);
+    followedId.current = "";
     setPlayers([]);
     setMatches([]);
     setCurrentTournament(null);
   }, [currentTournament, tableCount, log]);
+
 
   const loadSample = useCallback(() => {
     setMatches([]);
@@ -849,8 +868,11 @@ export function TournamentProvider({
   // merged payload) synchronously, without waiting for a re-render.
   const playersRef = useRef<Player[]>(players);
   const matchesRef = useRef<Match[]>(matches);
+  const tableCountRef = useRef<number>(tableCount);
   playersRef.current = players;
   matchesRef.current = matches;
+  tableCountRef.current = tableCount;
+
 
   // Timestamps come back from Postgres as `+00:00` while we send `Z`; compare
   // them as epoch millis so a device never re-applies its own publish (which
@@ -894,7 +916,10 @@ export function TournamentProvider({
         players: (row.live_state.players ?? []) as Player[],
         matches: (row.live_state.matches ?? []) as Match[],
         tableCount:
-          typeof row.live_state.tableCount === "number" ? row.live_state.tableCount : tableCount,
+          typeof row.live_state.tableCount === "number"
+            ? row.live_state.tableCount
+            : tableCountRef.current,
+
       };
       // Merge the roster by id so a player added here (or by the other admin a
       // moment ago) is never wiped by an older snapshot; deletions stay applied.

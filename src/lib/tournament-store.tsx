@@ -1035,6 +1035,38 @@ export function TournamentProvider({
     return () => clearTimeout(timer);
   }, [spectator, hydrated, role, currentTournament, players, matches, tableCount]);
 
+  /** Re-sends the current bracket and re-pulls the cloud copy (badge retry). */
+  const retrySync = useCallback(() => {
+    const active = currentTournament;
+    if (!active || active.status !== "open") {
+      void pullRef.current?.();
+      return;
+    }
+    setSyncStatus("syncing");
+    const stamp = new Date().toISOString();
+    lastPayload.current = JSON.stringify({ players, matches, tableCount });
+    lastPublishAt.current = Date.now();
+    lastPublishedStamp.current = stampOf(active.status, stamp);
+    lastAppliedStamp.current = lastPublishedStamp.current;
+    publishLiveState(
+      active.id,
+      { players, matches, tableCount, removedPlayers: Object.keys(removedPlayers.current) },
+      stamp,
+    )
+      .then(() => {
+        setSyncStatus("synced");
+        setLastSyncedAt(Date.now());
+        void pullRef.current?.();
+      })
+      .catch(() => {
+        lastPayload.current = "";
+        setSyncStatus("error");
+        toast.error("同步失敗", { description: "請確認網路後再試一次。" });
+      });
+  }, [currentTournament, players, matches, tableCount]);
+
+
+
   const results = useMemo(() => computeTop4(matches, players), [matches, players]);
 
   /** Guards against every online admin archiving the same event at once. */

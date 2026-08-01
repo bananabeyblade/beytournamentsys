@@ -6,9 +6,7 @@ import { USERNAME_DOMAIN } from "./account-id";
  * passwords, so a fixed internal suffix is appended before the password reaches
  * the auth service. Users still type only their own short password.
  */
-export const ADMIN_PASSWORD_PEPPER = "#beyx.pad";
-
-export const ADMIN_PASSWORD_MIN = 4;
+const ADMIN_PASSWORD_PEPPER = "#beyx.pad";
 
 export function padAdminPassword(password: string): string {
   return `${password}${ADMIN_PASSWORD_PEPPER}`;

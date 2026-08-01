@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 export const JOINED_NAME_KEY = "beyx-joined-name";
 export const JOINED_NAME_EVENT = "beyx-joined-name-change";
 
-export function readJoinedName(): string {
+function readJoinedName(): string {
   if (typeof window === "undefined") return "";
   return window.localStorage.getItem(JOINED_NAME_KEY) ?? "";
 }

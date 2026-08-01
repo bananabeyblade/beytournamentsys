@@ -36,12 +36,6 @@ export function touchMatch(m: Match): Match {
   return { ...m, rev: revOf(m) + 1, updatedAt: Date.now() };
 }
 
-/** True when `a` should win over `b` in a merge. */
-export function isNewer(a: Match, b: Match) {
-  if (revOf(a) !== revOf(b)) return revOf(a) > revOf(b);
-  return timeOf(a) > timeOf(b);
-}
-
 /** A scoring lock stops counting once its heartbeat is this old. */
 export const LOCK_TTL_MS = 30000;
 

@@ -559,6 +559,10 @@ export function TournamentProvider({
     [setLock],
   );
 
+  // Heartbeat: only writes (and therefore syncs) when the lock is close to
+  // expiring, so an open scoring sheet doesn't republish the whole event
+  // every 10 seconds — which also inflated `rev` and made other referees
+  // see a false "someone else is scoring" warning.
   const renewMatchLock = useCallback(
     (matchId: string) => {
       const admin = auditRef.current.admin;
@@ -567,6 +571,7 @@ export function TournamentProvider({
       if (!m) return;
       const held = activeLock(m);
       if (held && held.by !== admin.id) return;
+      if (held && held.by === admin.id && Date.now() - held.at < LOCK_RENEW_AFTER_MS) return;
       setLock(matchId, { by: admin.id, name: admin.email });
     },
     [setLock],
@@ -577,11 +582,14 @@ export function TournamentProvider({
       const admin = auditRef.current.admin;
       const m = matchesRef.current.find((x) => x.id === matchId);
       if (!m || !m.lockedBy) return;
+      // A decided bout already dropped its lock — don't bump its revision again.
+      if (m.status === "done") return;
       if (admin && m.lockedBy !== admin.id) return;
       setLock(matchId, null);
     },
     [setLock],
   );
+
 
   const forceUnlockMatch = useCallback(
     (matchId: string) => {

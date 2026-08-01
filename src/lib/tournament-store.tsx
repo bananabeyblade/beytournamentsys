@@ -704,32 +704,47 @@ export function TournamentProvider({
         toast.error("同步失敗", { description: "清除結果尚未上傳，請確認網路。" }),
       );
     }
+    log("tournament_reset", { count: playersRef.current.length });
     removedPlayers.current = {};
     setPlayers([]);
     setMatches([]);
     setCurrentTournament(null);
-  }, [currentTournament, tableCount]);
+  }, [currentTournament, tableCount, log]);
 
   const loadSample = useCallback(() => {
     setMatches([]);
     setPlayers(SAMPLE_NAMES.map((name, i) => ({ id: uid(), name, seed: i + 1 })));
   }, []);
 
-  const startNewTournament = useCallback(async (name: string) => {
-    const clean = name.trim();
-    if (!clean) return "請輸入賽事名稱";
-    try {
-      const row = await createTournament(clean);
-      setCurrentTournament(row);
-      if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
-      removedPlayers.current = {};
-      setPlayers([]);
-      setMatches([]);
-      return null;
-    } catch (e) {
-      return e instanceof Error ? e.message : "建立賽事失敗";
-    }
-  }, []);
+  const startNewTournament = useCallback(
+    async (name: string) => {
+      const clean = name.trim();
+      if (!clean) return "請輸入賽事名稱";
+      try {
+        const row = await createTournament(clean);
+        setCurrentTournament(row);
+        if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+        removedPlayers.current = {};
+        setPlayers([]);
+        setMatches([]);
+        const admin = auditRef.current.admin;
+        if (admin) {
+          logAction({
+            actorUserId: admin.id,
+            actorEmail: admin.email,
+            action: "tournament_create",
+            detail: { name: row.name },
+            tournamentId: row.id,
+            tournamentName: row.name,
+          });
+        }
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : "建立賽事失敗";
+      }
+    },
+    [],
+  );
 
   /** Switch the admin view back to an existing (in-progress) tournament. */
   const resumeTournament = useCallback(async (code: string) => {

@@ -99,12 +99,14 @@ export function PlayersTab() {
     const list = [...pending];
     const accepted: string[] = [];
     const failed: Registration[] = [];
-    for (const r of list) {
+    // Batched deletes: 64 sign-ups become 3 requests instead of 64 round trips.
+    for (let i = 0; i < list.length; i += APPROVE_BATCH) {
+      const chunk = list.slice(i, i + APPROVE_BATCH);
       try {
-        await deleteRegistration(r.id);
-        accepted.push(r.name);
+        await deleteRegistrations(chunk.map((r) => r.id));
+        accepted.push(...chunk.map((r) => r.name));
       } catch {
-        failed.push(r);
+        failed.push(...chunk);
       }
     }
     if (accepted.length) addPlayers(newNames(accepted));
@@ -113,6 +115,7 @@ export function PlayersTab() {
     else toast.success(`已核准 ${accepted.length} 位選手`);
     setBusy(false);
   };
+
 
 
   return (

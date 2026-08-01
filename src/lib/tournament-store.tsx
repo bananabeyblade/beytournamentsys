@@ -45,6 +45,9 @@ const SLOW_POLL_MS = 25000;
 /** Coalescing window for rapid scoring taps (first write goes out at once). */
 const PUBLISH_TAIL_MS = 250;
 
+/** Cloud sync state of the live bracket, surfaced to admins as a badge. */
+export type SyncStatus = "idle" | "syncing" | "synced" | "error";
+
 const isVisible = () => typeof document === "undefined" || document.visibilityState === "visible";
 
 interface PersistedState {

@@ -717,10 +717,15 @@ export function TournamentProvider({
     }
     log("tournament_reset", { count: playersRef.current.length });
     removedPlayers.current = {};
+    // Forget the followed event too, otherwise the sync loop re-adopts the
+    // same tournament from localStorage and the cleared state reappears.
+    if (typeof window !== "undefined") localStorage.removeItem(ACTIVE_KEY);
+    followedId.current = "";
     setPlayers([]);
     setMatches([]);
     setCurrentTournament(null);
   }, [currentTournament, tableCount, log]);
+
 
   const loadSample = useCallback(() => {
     setMatches([]);

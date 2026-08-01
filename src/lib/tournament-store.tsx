@@ -1000,7 +1000,8 @@ export function TournamentProvider({
       const stamp = new Date().toISOString();
       lastPublishedStamp.current = stampOf(currentTournament.status, stamp);
       lastAppliedStamp.current = lastPublishedStamp.current;
-      void publishLiveState(
+      setSyncStatus("syncing");
+      publishLiveState(
         currentTournament.id,
         {
           players,
@@ -1010,14 +1011,19 @@ export function TournamentProvider({
           removedPlayers: Object.keys(removedPlayers.current),
         },
         stamp,
-      ).catch(
-        () => {
+      )
+        .then(() => {
+          setSyncStatus("synced");
+          setLastSyncedAt(Date.now());
+        })
+        .catch(() => {
           // Let the next change retry, and tell the referee the push failed.
           lastPayload.current = "";
+          setSyncStatus("error");
           toast.error("同步失敗", { description: "分數尚未上傳，請確認網路後再試一次。" });
-        },
-      );
+        });
     };
+
 
     const sinceLast = Date.now() - lastPublishAt.current;
     const sinceApply = Date.now() - lastApplyAt.current;

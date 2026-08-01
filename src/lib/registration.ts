@@ -1,6 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
-import { deleteRegistrationFn, listRegistrationsFn } from "./registrations.functions";
+import {
+  deleteRegistrationFn,
+  deleteRegistrationsFn,
+  listRegistrationsFn,
+} from "./registrations.functions";
 import { nameTakenFn } from "./registration-check.functions";
+
 
 export interface Registration {
   id: string;

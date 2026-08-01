@@ -455,24 +455,62 @@ export function TournamentProvider({
     setRoleState("player");
   }, []);
 
-  const addPlayers = useCallback((names: string[]) => {
-    const clean = names.map((n) => n.trim()).filter(Boolean);
-    if (!clean.length) return;
-    setPlayers((prev) => [
-      ...prev,
-      ...clean.map((name, i) => ({ id: uid(), name, seed: prev.length + i + 1 })),
-    ]);
+  // Audit trail: every roster/bracket/scoring change is recorded with the
+  // acting account so the owner can trace who changed what, and when.
+  const auditRef = useRef<{ admin: CloudAdmin | null; tour: TournamentRow | null }>({
+    admin: null,
+    tour: null,
+  });
+  auditRef.current = { admin: currentAdmin, tour: currentTournament };
+
+  const log = useCallback((action: AuditAction, detail?: Record<string, unknown>) => {
+    const { admin, tour } = auditRef.current;
+    if (!admin) return;
+    logAction({
+      actorUserId: admin.id,
+      actorEmail: admin.email,
+      action,
+      detail,
+      tournamentId: tour?.id ?? null,
+      tournamentName: tour?.name ?? null,
+    });
   }, []);
 
-  const removePlayer = useCallback((id: string) => {
-    // Tombstone the id so an older cloud snapshot can't resurrect the player.
-    removedPlayers.current[id] = Date.now();
-    setPlayers((prev) => prev.filter((p) => p.id !== id).map((p, i) => ({ ...p, seed: i + 1 })));
+  /** "A vs B" label for audit details. */
+  const matchupOf = useCallback((m: Match) => {
+    const nameOf = (id: string | null) =>
+      id ? (playersRef.current.find((p) => p.id === id)?.name ?? "—") : "待定";
+    return `${nameOf(m.p1)} vs ${nameOf(m.p2)}`;
   }, []);
+
+  const addPlayers = useCallback(
+    (names: string[]) => {
+      const clean = names.map((n) => n.trim()).filter(Boolean);
+      if (!clean.length) return;
+      setPlayers((prev) => [
+        ...prev,
+        ...clean.map((name, i) => ({ id: uid(), name, seed: prev.length + i + 1 })),
+      ]);
+      log("player_add", { names: clean, count: clean.length });
+    },
+    [log],
+  );
+
+  const removePlayer = useCallback(
+    (id: string) => {
+      // Tombstone the id so an older cloud snapshot can't resurrect the player.
+      removedPlayers.current[id] = Date.now();
+      const gone = playersRef.current.find((p) => p.id === id)?.name;
+      setPlayers((prev) => prev.filter((p) => p.id !== id).map((p, i) => ({ ...p, seed: i + 1 })));
+      log("player_remove", { name: gone ?? id });
+    },
+    [log],
+  );
 
   const generateBracket = useCallback(() => {
     setMatches(buildBracket(players));
-  }, [players]);
+    log("bracket_generate", { count: players.length });
+  }, [players, log]);
 
   /** Remembers which bouts this device edited, to spot another referee's edits. */
   const localTouch = useRef<Record<string, number>>({});
@@ -480,68 +518,175 @@ export function TournamentProvider({
     localTouch.current[matchId] = Date.now();
   };
 
-  const startMatch = useCallback((matchId: string, table: number) => {
-    markLocal(matchId);
-    setMatches((prev) =>
-      prev.map((m) => (m.id === matchId ? touchMatch({ ...m, status: "live", table }) : m)),
-    );
-  }, []);
+  // ---- Per-match edit lock (optimistic: rides on the match revision) --------
 
-  const addScore = useCallback((matchId: string, slot: 1 | 2, type: FinishType, points: number) => {
-    markLocal(matchId);
-    setMatches((prev) =>
-      prev.map((m) => {
-        if (m.id !== matchId) return m;
-        return touchMatch({
-          ...m,
-          score1: slot === 1 ? m.score1 + points : m.score1,
-          score2: slot === 2 ? m.score2 + points : m.score2,
-          events: [...m.events, { slot, type, points }],
-        });
-      }),
-    );
-  }, []);
+  const lockInfo = useCallback((match: Match) => activeLock(match), []);
 
-  const undoScore = useCallback((matchId: string) => {
-    markLocal(matchId);
-    setMatches((prev) =>
-      prev.map((m) => {
-        if (m.id !== matchId || !m.events.length) return m;
-        const events = [...m.events];
-        const last = events.pop()!;
-        return touchMatch({
-          ...m,
-          events,
-          score1: last.slot === 1 ? m.score1 - last.points : m.score1,
-          score2: last.slot === 2 ? m.score2 - last.points : m.score2,
-        });
-      }),
-    );
-  }, []);
+  /** Applies a lock mutation to one match, bumping its revision so it syncs. */
+  const setLock = useCallback(
+    (matchId: string, lock: { by: string; name: string } | null) => {
+      markLocal(matchId);
+      setMatches((prev) =>
+        prev.map((m) =>
+          m.id === matchId
+            ? touchMatch({
+                ...m,
+                lockedBy: lock ? lock.by : null,
+                lockedByName: lock ? lock.name : null,
+                lockedAt: lock ? Date.now() : null,
+              })
+            : m,
+        ),
+      );
+    },
+    [],
+  );
 
-  const confirmWinner = useCallback((matchId: string) => {
-    markLocal(matchId);
-    setMatches((prev) => {
-      const next = prev.map((m) => ({ ...m }));
-      const m = next.find((x) => x.id === matchId);
-      if (!m) return prev;
-      const winner = m.score1 >= WIN_TARGET ? m.p1 : m.score2 >= WIN_TARGET ? m.p2 : null;
-      if (!winner) return prev;
-      m.winner = winner;
-      m.status = "done";
-      m.table = null;
-      Object.assign(m, touchMatch(m));
-      if (m.nextMatchId) {
-        const nm = next.find((x) => x.id === m.nextMatchId)!;
-        if (m.nextSlot === 1) nm.p1 = winner;
-        else nm.p2 = winner;
-        if (nm.p1 && nm.p2 && nm.status === "waiting") nm.status = "ready";
-        markLocal(nm.id);
-        Object.assign(nm, touchMatch(nm));
-      }
-      return next;
-    });
-  }, []);
+  const acquireMatchLock = useCallback(
+    (matchId: string) => {
+      const admin = auditRef.current.admin;
+      if (!admin) return false;
+      const m = matchesRef.current.find((x) => x.id === matchId);
+      if (!m) return false;
+      const held = activeLock(m);
+      if (held && held.by !== admin.id) return false;
+      setLock(matchId, { by: admin.id, name: admin.email });
+      return true;
+    },
+    [setLock],
+  );
+
+  const renewMatchLock = useCallback(
+    (matchId: string) => {
+      const admin = auditRef.current.admin;
+      if (!admin) return;
+      const m = matchesRef.current.find((x) => x.id === matchId);
+      if (!m) return;
+      const held = activeLock(m);
+      if (held && held.by !== admin.id) return;
+      setLock(matchId, { by: admin.id, name: admin.email });
+    },
+    [setLock],
+  );
+
+  const releaseMatchLock = useCallback(
+    (matchId: string) => {
+      const admin = auditRef.current.admin;
+      const m = matchesRef.current.find((x) => x.id === matchId);
+      if (!m || !m.lockedBy) return;
+      if (admin && m.lockedBy !== admin.id) return;
+      setLock(matchId, null);
+    },
+    [setLock],
+  );
+
+  const forceUnlockMatch = useCallback(
+    (matchId: string) => {
+      if (!isOwnerEmail(auditRef.current.admin?.email)) return;
+      const m = matchesRef.current.find((x) => x.id === matchId);
+      setLock(matchId, null);
+      if (m) log("match_lock_force", { matchup: matchupOf(m), name: m.lockedByName ?? "" });
+    },
+    [setLock, log, matchupOf],
+  );
+
+  const startMatch = useCallback(
+    (matchId: string, table: number) => {
+      markLocal(matchId);
+      setMatches((prev) =>
+        prev.map((m) => (m.id === matchId ? touchMatch({ ...m, status: "live", table }) : m)),
+      );
+      const m = matchesRef.current.find((x) => x.id === matchId);
+      log("match_start", { matchup: m ? matchupOf(m) : matchId, table });
+    },
+    [log, matchupOf],
+  );
+
+  const addScore = useCallback(
+    (matchId: string, slot: 1 | 2, type: FinishType, points: number) => {
+      markLocal(matchId);
+      let logged: { matchup: string; score: string } | null = null;
+      setMatches((prev) =>
+        prev.map((m) => {
+          if (m.id !== matchId) return m;
+          const next = touchMatch({
+            ...m,
+            score1: slot === 1 ? m.score1 + points : m.score1,
+            score2: slot === 2 ? m.score2 + points : m.score2,
+            events: [...m.events, { slot, type, points }],
+          });
+          logged = { matchup: matchupOf(m), score: `${next.score1} : ${next.score2}` };
+          return next;
+        }),
+      );
+      log("score_add", {
+        ...(logged ?? { matchup: matchId }),
+        finish: `選手 ${slot} +${points} (${type})`,
+      });
+    },
+    [log, matchupOf],
+  );
+
+  const undoScore = useCallback(
+    (matchId: string) => {
+      markLocal(matchId);
+      let logged: { matchup: string; score: string } | null = null;
+      setMatches((prev) =>
+        prev.map((m) => {
+          if (m.id !== matchId || !m.events.length) return m;
+          const events = [...m.events];
+          const last = events.pop()!;
+          const next = touchMatch({
+            ...m,
+            events,
+            score1: last.slot === 1 ? m.score1 - last.points : m.score1,
+            score2: last.slot === 2 ? m.score2 - last.points : m.score2,
+          });
+          logged = { matchup: matchupOf(m), score: `${next.score1} : ${next.score2}` };
+          return next;
+        }),
+      );
+      if (logged) log("score_undo", logged);
+    },
+    [log, matchupOf],
+  );
+
+  const confirmWinner = useCallback(
+    (matchId: string) => {
+      markLocal(matchId);
+      let logged: { matchup: string; winner: string } | null = null;
+      setMatches((prev) => {
+        const next = prev.map((m) => ({ ...m }));
+        const m = next.find((x) => x.id === matchId);
+        if (!m) return prev;
+        const winner = m.score1 >= WIN_TARGET ? m.p1 : m.score2 >= WIN_TARGET ? m.p2 : null;
+        if (!winner) return prev;
+        logged = {
+          matchup: matchupOf(m),
+          winner: playersRef.current.find((p) => p.id === winner)?.name ?? "—",
+        };
+        m.winner = winner;
+        m.status = "done";
+        m.table = null;
+        // The bout is decided: drop the scoring lock with it.
+        m.lockedBy = null;
+        m.lockedByName = null;
+        m.lockedAt = null;
+        Object.assign(m, touchMatch(m));
+        if (m.nextMatchId) {
+          const nm = next.find((x) => x.id === m.nextMatchId)!;
+          if (m.nextSlot === 1) nm.p1 = winner;
+          else nm.p2 = winner;
+          if (nm.p1 && nm.p2 && nm.status === "waiting") nm.status = "ready";
+          markLocal(nm.id);
+          Object.assign(nm, touchMatch(nm));
+        }
+        return next;
+      });
+      if (logged) log("match_confirm", logged);
+    },
+    [log, matchupOf],
+  );
 
   const resetTournament = useCallback(() => {
     // Publish the cleared state first, otherwise the other admins and the

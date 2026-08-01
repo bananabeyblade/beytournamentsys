@@ -6,6 +6,7 @@ import { BracketTab } from "@/components/BracketTab";
 import { PlayersTab } from "@/components/PlayersTab";
 import { SettingsTab } from "@/components/SettingsTab";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
+import { SyncStatusBadge } from "@/components/SyncStatusBadge";
 import { useJoinedName } from "@/lib/joined-name";
 import logoAsset from "@/assets/beyx-logo.png";
 

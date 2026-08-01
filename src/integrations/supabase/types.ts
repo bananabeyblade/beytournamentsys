@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_actions: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_user_id: string
+          created_at: string
+          detail: Json
+          id: string
+          tournament_id: string | null
+          tournament_name: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_user_id: string
+          created_at?: string
+          detail?: Json
+          id?: string
+          tournament_id?: string | null
+          tournament_name?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_user_id?: string
+          created_at?: string
+          detail?: Json
+          id?: string
+          tournament_id?: string | null
+          tournament_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_actions_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_roles: {
         Row: {
           created_at: string

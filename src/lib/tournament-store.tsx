@@ -805,11 +805,12 @@ export function TournamentProvider({
         { players, matches: closed, tableCount },
         stamp,
       ).catch(() => undefined);
+      log("tournament_force_finish", { count: players.length });
       return null;
     } catch (e) {
       return e instanceof Error ? e.message : "結束賽事失敗";
     }
-  }, [currentTournament, matches, players, tableCount]);
+  }, [currentTournament, matches, players, tableCount, log]);
 
   // Restore the last created tournament so the QR card survives reloads.
   useEffect(() => {

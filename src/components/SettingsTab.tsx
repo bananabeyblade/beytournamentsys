@@ -7,6 +7,7 @@ import { QrRegisterCard } from "./QrRegisterCard";
 import { AdminLoginQrCard } from "./AdminLoginQrCard";
 import { TournamentHistory } from "./TournamentHistory";
 import { AuditLogCard } from "./AuditLogCard";
+import { SystemStatusCard } from "./SystemStatusCard";
 
 export function SettingsTab() {
   const {

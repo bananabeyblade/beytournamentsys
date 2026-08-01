@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export const MIN_SCALE = 0.5;
-export const MAX_SCALE = 2.5;
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 2.5;
 
 interface View {
   x: number;

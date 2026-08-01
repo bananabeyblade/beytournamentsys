@@ -37,7 +37,7 @@ export function touchMatch(m: Match): Match {
 }
 
 /** True when `a` should win over `b` in a merge. */
-export function isNewer(a: Match, b: Match) {
+function isNewer(a: Match, b: Match) {
   if (revOf(a) !== revOf(b)) return revOf(a) > revOf(b);
   return timeOf(a) > timeOf(b);
 }

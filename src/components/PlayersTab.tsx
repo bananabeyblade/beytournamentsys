@@ -129,7 +129,7 @@ export function PlayersTab() {
             />
             <button
               onClick={() => {
-                addPlayers([single]);
+                addPlayers(newNames([single]));
                 setSingle("");
               }}
               className="grid min-h-12 w-14 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"
@@ -146,7 +146,7 @@ export function PlayersTab() {
           />
           <button
             onClick={() => {
-              addPlayers(bulk.split("\n"));
+              addPlayers(newNames(bulk.split("\n")));
               setBulk("");
             }}
             className="min-h-12 w-full rounded-xl border border-primary/60 bg-accent/40 font-display text-primary"
@@ -161,6 +161,14 @@ export function PlayersTab() {
           <h2 className="mb-2 flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
             <QrCode className="h-4 w-4" /> 掃碼報名待審核 ({pending.length})
           </h2>
+          <button
+            onClick={approveAll}
+            disabled={busy}
+            className="mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
+          >
+            <CheckCheck className="h-5 w-5" />
+            {busy ? "處理中…" : `全部核准 (${pending.length})`}
+          </button>
           <ul className="space-y-2">
             {pending.map((r) => (
               <li
@@ -170,18 +178,21 @@ export function PlayersTab() {
                 <span className="truncate">{r.name}</span>
                 <button
                   aria-label={`加入 ${r.name}`}
+                  disabled={busy}
                   onClick={() => resolve(r.id, true)}
-                  className="grid h-10 w-10 place-items-center rounded-lg border border-primary/60 text-primary"
+                  className="grid h-10 w-10 place-items-center rounded-lg border border-primary/60 text-primary disabled:opacity-40"
                 >
                   <Check className="h-5 w-5" />
                 </button>
                 <button
                   aria-label={`拒絕 ${r.name}`}
+                  disabled={busy}
                   onClick={() => resolve(r.id, false)}
-                  className="grid h-10 w-10 place-items-center rounded-lg text-destructive"
+                  className="grid h-10 w-10 place-items-center rounded-lg text-destructive disabled:opacity-40"
                 >
                   <Trash2 className="h-5 w-5" />
                 </button>
+
               </li>
             ))}
           </ul>

@@ -52,13 +52,31 @@ function RegisterPage() {
 
   // Once the referee starts the event, viewers jump straight to the live
   // screen — pushed instantly by realtime, with polling as a fallback.
+  // The same check also notices a sign-up the referee rejected, so nobody is
+  // left staring at the waiting screen forever.
   useEffect(() => {
     if (!done || !code) return;
     let alive = true;
     const check = async () => {
       const row = await fetchTournamentByCode(code).catch(() => null);
-      if (!alive || !row?.live_state) return;
-      void navigate({ to: "/watch/$code", params: { code } });
+      if (!alive || !row) return;
+      if (row.live_state) {
+        void navigate({ to: "/watch/$code", params: { code } });
+        return;
+      }
+      // Still pending? Then the name is present in the sign-up list. Gone and
+      // not on the published roster either → the referee rejected it.
+      const joined = readJoined();
+      if (!joined) return;
+      const onRoster = ((row.live_state as { players?: { name?: string }[] } | null)?.players ?? [])
+        .some((p) => (p?.name ?? "").trim().toLowerCase() === joined.toLowerCase());
+      if (onRoster) return;
+      const stillPending = await isNameTaken(row.id, joined).catch(() => true);
+      if (!alive || stillPending) return;
+      if (typeof window !== "undefined") window.localStorage.removeItem(JOINED_KEY);
+      writeJoinedName("");
+      setErr("報名未被裁判保留，請重新報名。");
+      setDone(false);
     };
     void check();
     const timer = setInterval(check, 20000);
@@ -79,6 +97,7 @@ function RegisterPage() {
       window.removeEventListener(RECONNECT_EVENT, onBack);
     };
   }, [done, code, navigate]);
+
 
   useEffect(() => {
     let alive = true;

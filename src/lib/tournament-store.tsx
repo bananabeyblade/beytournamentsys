@@ -459,9 +459,25 @@ export function TournamentProvider({
     await supabase.auth.signOut();
     setCurrentAdmin(null);
     setRoleState("player");
-    // Stop following the event on this device so a later sign-in starts clean.
+    // Wipe every trace of the event on this device: the next admin to sign in
+    // here must not inherit (or republish) the previous admin's roster.
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(ACTIVE_KEY);
+      localStorage.removeItem(STATE_KEY);
+    }
     followedId.current = "";
+    abandonedId.current = "";
+    removedPlayers.current = {};
+    lastPayload.current = "";
+    lastPublishedStamp.current = "";
+    lastAppliedStamp.current = "";
+    playersRef.current = [];
+    matchesRef.current = [];
+    setPlayers([]);
+    setMatches([]);
+    setCurrentTournament(null);
   }, []);
+
 
 
   // Audit trail: every roster/bracket/scoring change is recorded with the

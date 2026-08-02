@@ -6,7 +6,12 @@ import { fetchTournamentByCode, type TournamentRow } from "@/lib/tournaments";
 import { supabase } from "@/integrations/supabase/client";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
-import { writeJoinedName } from "@/lib/joined-name";
+import { JOINED_NAME_KEY, writeJoinedName } from "@/lib/joined-name";
+
+/** Name this device registered with, used to detect a rejected sign-up. */
+const readJoined = () =>
+  typeof window === "undefined" ? "" : (window.localStorage.getItem(JOINED_NAME_KEY) ?? "");
+
 
 export const Route = createFileRoute("/register")({
   validateSearch: (search: Record<string, unknown>) => ({

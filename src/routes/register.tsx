@@ -64,15 +64,13 @@ function RegisterPage() {
         void navigate({ to: "/watch/$code", params: { code } });
         return;
       }
-      // Still pending? Then the name is present in the sign-up list. Gone and
-      // not on the published roster either → the referee rejected it.
+      // Nothing published yet: if the sign-up row is gone, it was rejected
+      // (an approved player would already appear in a published roster).
       const joined = readJoined();
       if (!joined) return;
-      const onRoster = ((row.live_state as { players?: { name?: string }[] } | null)?.players ?? [])
-        .some((p) => (p?.name ?? "").trim().toLowerCase() === joined.toLowerCase());
-      if (onRoster) return;
       const stillPending = await isNameTaken(row.id, joined).catch(() => true);
       if (!alive || stillPending) return;
+
       if (typeof window !== "undefined") window.localStorage.removeItem(JOINED_KEY);
       writeJoinedName("");
       setErr("報名未被裁判保留，請重新報名。");

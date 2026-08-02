@@ -898,6 +898,9 @@ export function TournamentProvider({
   const lastPublishedStamp = useRef<string>("");
   const lastAppliedStamp = useRef<string>("");
   const followedId = useRef<string>("");
+  /** Event cleared on this device — never auto-adopted again (only via 進入賽事). */
+  const abandonedId = useRef<string>("");
+
   /** Serialized snapshot of the last state pushed/applied — blocks echo loops. */
   const lastPayload = useRef<string>("");
   /** When the last publish went out — powers the leading-edge write. */

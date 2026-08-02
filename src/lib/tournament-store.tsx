@@ -935,6 +935,9 @@ export function TournamentProvider({
 
     const apply = (row: TournamentRow) => {
       if (!alive || !row) return;
+      // A tournament cleared on this device stays cleared until the admin
+      // explicitly re-enters it from the history list.
+      if (row.id === abandonedId.current) return;
       setCurrentTournament((prev) =>
         prev && prev.id === row.id && prev.status === row.status ? prev : row,
       );
@@ -944,22 +947,23 @@ export function TournamentProvider({
       const switched = followedId.current !== "" && followedId.current !== row.id;
       followedId.current = row.id;
       const stamp = stampOf(row.status, row.live_updated_at);
-      if (!row.live_state || !row.live_updated_at) {
-        // Fresh event with nothing published yet: drop leftovers from the
-        // previous tournament so this device doesn't republish stale data.
-        if (switched) {
-          removedPlayers.current = {};
-          playersRef.current = [];
-          matchesRef.current = [];
-          lastPayload.current = "";
-          setPlayers([]);
-          setMatches([]);
-        }
-        return;
+      if (switched) {
+        // Different event: drop everything from the previous one, otherwise its
+        // roster gets merged into (and republished onto) this tournament.
+        removedPlayers.current = {};
+        playersRef.current = [];
+        matchesRef.current = [];
+        lastPayload.current = "";
+        lastPublishedStamp.current = "";
+        lastAppliedStamp.current = "";
+        setPlayers([]);
+        setMatches([]);
       }
+      if (!row.live_state || !row.live_updated_at) return;
 
       if (stamp === lastPublishedStamp.current || stamp === lastAppliedStamp.current) return;
       lastAppliedStamp.current = stamp;
+
 
       const incoming = {
         players: (row.live_state.players ?? []) as Player[],

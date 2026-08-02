@@ -804,12 +804,28 @@ export function TournamentProvider({
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
       // Switching events: previous event's delete tombstones no longer apply.
       removedPlayers.current = {};
-      const live = row.live_state;
-      if (live) {
-        setPlayers((live.players ?? []) as Player[]);
-        setMatches((live.matches ?? []) as Match[]);
-        if (typeof live.tableCount === "number") setTableCount(live.tableCount);
-      }
+      followedId.current = row.id;
+      // Re-entering an event explicitly cancels the "abandoned" mark.
+      if (abandonedId.current === row.id) abandonedId.current = "";
+      const nextPlayers = (row.live_state?.players ?? []) as Player[];
+      const nextMatches = (row.live_state?.matches ?? []) as Match[];
+      const nextTables =
+        typeof row.live_state?.tableCount === "number"
+          ? row.live_state.tableCount
+          : tableCountRef.current;
+      lastPayload.current = JSON.stringify({
+        players: nextPlayers,
+        matches: nextMatches,
+        tableCount: nextTables,
+      });
+      lastAppliedStamp.current = stampOf(row.status, row.live_updated_at);
+      lastPublishedStamp.current = lastAppliedStamp.current;
+      playersRef.current = nextPlayers;
+      matchesRef.current = nextMatches;
+      setPlayers(nextPlayers);
+      setMatches(nextMatches);
+      setTableCount(nextTables);
+
       return null;
     } catch {
       return "無法載入賽事";

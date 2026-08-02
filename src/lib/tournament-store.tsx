@@ -737,12 +737,16 @@ export function TournamentProvider({
     log("tournament_reset", { count: playersRef.current.length });
     removedPlayers.current = {};
     // Forget the followed event too, otherwise the sync loop re-adopts the
-    // same tournament from localStorage and the cleared state reappears.
+    // same tournament (it is still "open" in the cloud) and it reappears.
     if (typeof window !== "undefined") localStorage.removeItem(ACTIVE_KEY);
     followedId.current = "";
+    if (active) abandonedId.current = active.id;
+    playersRef.current = [];
+    matchesRef.current = [];
     setPlayers([]);
     setMatches([]);
     setCurrentTournament(null);
+
   }, [currentTournament, tableCount, log]);
 
 

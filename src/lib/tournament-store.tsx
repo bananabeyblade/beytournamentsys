@@ -459,9 +459,25 @@ export function TournamentProvider({
     await supabase.auth.signOut();
     setCurrentAdmin(null);
     setRoleState("player");
-    // Stop following the event on this device so a later sign-in starts clean.
+    // Wipe every trace of the event on this device: the next admin to sign in
+    // here must not inherit (or republish) the previous admin's roster.
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(ACTIVE_KEY);
+      localStorage.removeItem(STATE_KEY);
+    }
     followedId.current = "";
+    abandonedId.current = "";
+    removedPlayers.current = {};
+    lastPayload.current = "";
+    lastPublishedStamp.current = "";
+    lastAppliedStamp.current = "";
+    playersRef.current = [];
+    matchesRef.current = [];
+    setPlayers([]);
+    setMatches([]);
+    setCurrentTournament(null);
   }, []);
+
 
 
   // Audit trail: every roster/bracket/scoring change is recorded with the
@@ -721,12 +737,16 @@ export function TournamentProvider({
     log("tournament_reset", { count: playersRef.current.length });
     removedPlayers.current = {};
     // Forget the followed event too, otherwise the sync loop re-adopts the
-    // same tournament from localStorage and the cleared state reappears.
+    // same tournament (it is still "open" in the cloud) and it reappears.
     if (typeof window !== "undefined") localStorage.removeItem(ACTIVE_KEY);
     followedId.current = "";
+    if (active) abandonedId.current = active.id;
+    playersRef.current = [];
+    matchesRef.current = [];
     setPlayers([]);
     setMatches([]);
     setCurrentTournament(null);
+
   }, [currentTournament, tableCount, log]);
 
 
@@ -744,8 +764,18 @@ export function TournamentProvider({
         setCurrentTournament(row);
         if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
         removedPlayers.current = {};
+        // Reset the echo guards so the fresh (empty) event is definitely
+        // published once — otherwise other devices keep the old snapshot.
+        followedId.current = row.id;
+        abandonedId.current = "";
+        lastPayload.current = "";
+        lastPublishedStamp.current = "";
+        lastAppliedStamp.current = "";
+        playersRef.current = [];
+        matchesRef.current = [];
         setPlayers([]);
         setMatches([]);
+
         const admin = auditRef.current.admin;
         if (admin) {
           logAction({
@@ -774,12 +804,28 @@ export function TournamentProvider({
       if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
       // Switching events: previous event's delete tombstones no longer apply.
       removedPlayers.current = {};
-      const live = row.live_state;
-      if (live) {
-        setPlayers((live.players ?? []) as Player[]);
-        setMatches((live.matches ?? []) as Match[]);
-        if (typeof live.tableCount === "number") setTableCount(live.tableCount);
-      }
+      followedId.current = row.id;
+      // Re-entering an event explicitly cancels the "abandoned" mark.
+      if (abandonedId.current === row.id) abandonedId.current = "";
+      const nextPlayers = (row.live_state?.players ?? []) as Player[];
+      const nextMatches = (row.live_state?.matches ?? []) as Match[];
+      const nextTables =
+        typeof row.live_state?.tableCount === "number"
+          ? row.live_state.tableCount
+          : tableCountRef.current;
+      lastPayload.current = JSON.stringify({
+        players: nextPlayers,
+        matches: nextMatches,
+        tableCount: nextTables,
+      });
+      lastAppliedStamp.current = stampOf(row.status, row.live_updated_at);
+      lastPublishedStamp.current = lastAppliedStamp.current;
+      playersRef.current = nextPlayers;
+      matchesRef.current = nextMatches;
+      setPlayers(nextPlayers);
+      setMatches(nextMatches);
+      setTableCount(nextTables);
+
       return null;
     } catch {
       return "無法載入賽事";
@@ -852,6 +898,9 @@ export function TournamentProvider({
   const lastPublishedStamp = useRef<string>("");
   const lastAppliedStamp = useRef<string>("");
   const followedId = useRef<string>("");
+  /** Event cleared on this device — never auto-adopted again (only via 進入賽事). */
+  const abandonedId = useRef<string>("");
+
   /** Serialized snapshot of the last state pushed/applied — blocks echo loops. */
   const lastPayload = useRef<string>("");
   /** When the last publish went out — powers the leading-edge write. */
@@ -886,6 +935,9 @@ export function TournamentProvider({
 
     const apply = (row: TournamentRow) => {
       if (!alive || !row) return;
+      // A tournament cleared on this device stays cleared until the admin
+      // explicitly re-enters it from the history list.
+      if (row.id === abandonedId.current) return;
       setCurrentTournament((prev) =>
         prev && prev.id === row.id && prev.status === row.status ? prev : row,
       );
@@ -895,22 +947,23 @@ export function TournamentProvider({
       const switched = followedId.current !== "" && followedId.current !== row.id;
       followedId.current = row.id;
       const stamp = stampOf(row.status, row.live_updated_at);
-      if (!row.live_state || !row.live_updated_at) {
-        // Fresh event with nothing published yet: drop leftovers from the
-        // previous tournament so this device doesn't republish stale data.
-        if (switched) {
-          removedPlayers.current = {};
-          playersRef.current = [];
-          matchesRef.current = [];
-          lastPayload.current = "";
-          setPlayers([]);
-          setMatches([]);
-        }
-        return;
+      if (switched) {
+        // Different event: drop everything from the previous one, otherwise its
+        // roster gets merged into (and republished onto) this tournament.
+        removedPlayers.current = {};
+        playersRef.current = [];
+        matchesRef.current = [];
+        lastPayload.current = "";
+        lastPublishedStamp.current = "";
+        lastAppliedStamp.current = "";
+        setPlayers([]);
+        setMatches([]);
       }
+      if (!row.live_state || !row.live_updated_at) return;
 
       if (stamp === lastPublishedStamp.current || stamp === lastAppliedStamp.current) return;
       lastAppliedStamp.current = stamp;
+
 
       const incoming = {
         players: (row.live_state.players ?? []) as Player[],

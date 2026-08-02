@@ -764,8 +764,18 @@ export function TournamentProvider({
         setCurrentTournament(row);
         if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
         removedPlayers.current = {};
+        // Reset the echo guards so the fresh (empty) event is definitely
+        // published once — otherwise other devices keep the old snapshot.
+        followedId.current = row.id;
+        abandonedId.current = "";
+        lastPayload.current = "";
+        lastPublishedStamp.current = "";
+        lastAppliedStamp.current = "";
+        playersRef.current = [];
+        matchesRef.current = [];
         setPlayers([]);
         setMatches([]);
+
         const admin = auditRef.current.admin;
         if (admin) {
           logAction({

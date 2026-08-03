@@ -415,7 +415,11 @@ export function BracketTab() {
     const left = body.map((r) => ({ ...r, cards: r.cards.slice(0, half(r.cards)) }));
     const rightOuter = body.map((r) => ({ ...r, cards: r.cards.slice(half(r.cards)) }));
     const right = [...rightOuter].reverse();
-    const height = PITCH * Math.max(1, left[0].cards.length, rightOuter[0].cards.length);
+    // The bronze match hangs under the final, so keep room for it.
+    const height = Math.max(
+      PITCH * Math.max(1, left[0].cards.length, rightOuter[0].cards.length),
+      bronze ? PITCH * 4 : 0,
+    );
     // ys indexed the same way as `left` / `rightOuter` (outermost round first).
     const leftYs = halfPositions(
       left.map((r) => r.cards.length),

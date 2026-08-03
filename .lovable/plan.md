@@ -1,45 +1,37 @@
-# 移除「角色切換」功能影響評估
+# 新增季軍賽（3rd/4th 決定戰）＋ 64 人賽程表預覽圖
 
-## 目前功能在做什麼
+## 目標
 
-「角色切換 ROLE」讓已登入的管理者可以在「管理者」與「參賽者」兩種檢視模式間切換：
+1. 四強（SEMI）產生後，兩位敗者自動配對打一場「季軍賽」，勝者為季軍、敗者為殿軍。
+2. 產生一張 64 人賽程表的預覽圖（PNG），方便確認左右對稱樹狀圖與季軍賽的位置。
 
-- 出現位置：
-  1. `AppShell` 頂部右上角按鈕（總管理者已隱藏）
-  2. `SettingsTab` 設定頁中的「角色切換 ROLE」區塊
-- 狀態：`role` = `"admin" | "player"`
-- 切換邏輯：
-  - 登入後 `syncRole()` 會自動把 `role` 設成 `"admin"`
-  - 管理者可手動切回 `"player"` 以預覽參賽者視角
-  - 未登入或掃 QR Code 進入 `/watch` 的使用者固定為 `"player"` / `spectator=true`
+## 行為設計
 
-## 移除後的影響
+- 只有當賽程有四強（主籤 ≥ 4 人）時才建立季軍賽；小型賽事（僅決賽）不建立。
+- 季軍賽與決賽同一輪次，顯示於決賽區塊下方，標題為「季軍賽 3RD」。
+- 兩場四強結束後，敗者自動填入季軍賽，狀態轉為 ready，可指派桌號並照常計分（同樣 4 分制、可查歷程）。
+- 名次頁（前四名）改為：冠軍／亞軍取決賽結果，季軍／殿軍取季軍賽結果；季軍賽未完成時仍沿用目前「以四強得分排序」的暫定顯示。
+- 強制結束賽事時，季軍賽與其他比賽一併標記結束（沿用現有邏輯，不需改動）。
 
-### 不會壞掉的部分
+## 技術實作
 
-1. **權限控管仍然安全**：能否新增/刪除選手、產生賽程、輸入比分，最終由 `currentAdmin` 與雲端 `admin_roles` / RLS 決定，不是只靠 `role` 字串。
-2. **QR Code 觀眾流程不受影響**：`/watch/:code` 使用 `spectatorCode` 強制進入唯讀 spectator 模式，與 `role` 切換無關。
-3. **總管理者體驗不變**：總管理者本來就不會在頂部看到切換按鈕。
+- `src/lib/tournament-types.ts`：`Match` 新增 `kind?: "main" | "third"`，以及敗者去向 `loserNextMatchId?: string | null`、`loserNextSlot?: 1 | 2 | null`。
+- `src/lib/tournament-store.tsx`
+  - `blankMatch` 補上新欄位預設值。
+  - `buildBracket`：主籤 ≥ 4 時，於決賽同輪新增一張 `kind: "third"` 卡（index 在決賽之後），並把兩場四強的 `loserNextMatchId/loserNextSlot` 指向它。
+  - `confirmWinner`：除了現有勝者晉級外，若該場有 `loserNextMatchId`，把敗者寫入對應 slot，雙方到齊即 `ready`（同樣 markLocal + touchMatch 以正確同步）。
+  - `totalRounds` / `hasPrelim` 計算需排除 `kind === "third"`，避免季軍賽讓輪次判斷（八強／四強／決賽名稱）錯位。
+  - `roundName` 不變；季軍賽標題由畫面依 `kind` 顯示。
+- `src/lib/live-merge.ts`：合併時保留新欄位（沿用既有逐場欄位合併，補上 loser 去向與 kind）。
+- `src/lib/standings.ts`：`computeTop4` 優先讀取 `kind === "third"` 且已完成的比賽決定 3/4 名，否則保留現行 fallback。
+- `src/components/BracketTab.tsx`：決賽欄位改為可放兩張卡（決賽在中線、季軍賽在其下方並加小標籤「季軍賽 3RD」），左右連線邏輯不變。
+- `src/components/LiveTab.tsx`：季軍賽卡片顯示「季軍賽」標籤（其餘流程與一般比賽相同）。
+- `src/lib/tournament-export.ts`：匯出時季軍賽單獨列出，並在名次區標示季軍賽結果。
 
-### 會改變的部分
+## 預覽圖產出
 
-1. **一般管理者無法預覽參賽者畫面**：移除後，只要登入就是管理者視角，無法一鍵切換看見選手/觀眾看到的簡化介面。
-2. **頂部按鈕與設定頁區塊消失**：`AppShell` 與 `SettingsTab` 會更簡潔。
-3. **`role` 狀態可改為衍生值**：不再需要 `setRole`，`role` 可直接由 `currentAdmin` 與 `spectator` 決定：
-   - `spectator === true` → `"player"`
-   - `currentAdmin != null` → `"admin"`
-   - 否則 → `"player"`
-4. **部分 UI 條件判斷簡化**：`role === "admin"` 可改為 `!!currentAdmin && !spectator`。
+- 以 64 位測試選手在本機預覽產生賽程，將樹狀圖縮放至完整可見後截圖，輸出 `/mnt/documents/bracket-64-preview.png` 供下載檢視（含季軍賽卡片）。
 
-### 潛在風險
+## 不變動
 
-- 若未來希望管理者「以參賽者身分查看自己的對戰」，此功能會被移除，需要另開 `/watch/:code` 或新增其他預覽入口。
-- 若直接刪除 `setRole` 但沒有把 `role` 改為衍生值，可能導致登入後 `role` 停留在 `"player"`，管理者看不到管理功能。
-
-## 建議做法
-
-1. 將 `role` 從 `useState` 改為由 `currentAdmin` / `spectator` 衍生的 `useMemo`。
-2. 移除 `setRole` 與 `SettingsTab` 的「角色切換 ROLE」區塊。
-3. 移除 `AppShell` 頂部右上角的角色切換按鈕（保留「我是管理者 / 裁判」登入入口給未登入者）。
-4. 更新所有 `role === "admin"` 判斷，改用 `!!currentAdmin && !spectator` 或保留 `role` 衍生值。
-5. 驗證：登入管理者後應直接進入管理視角；未登入者仍看到掃碼提示與管理者登入按鈕；QR Code 觀眾仍為唯讀。
+- 計分規則、鎖定機制、報名/QR、權限與同步架構皆不調整。

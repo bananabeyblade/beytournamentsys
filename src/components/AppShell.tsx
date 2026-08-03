@@ -73,7 +73,7 @@ export function AppShell({ title }: { title?: string }) {
               <h1 className="truncate font-display text-lg neon-text">
                 {title ?? "竹塹陀螺集會所"}
               </h1>
-              {joinedName ? (
+              {joinedName && !isSuper ? (
                 <p className="truncate text-xs text-primary">
                   參賽者 · <span className="font-semibold">{joinedName}</span>
                 </p>

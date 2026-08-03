@@ -731,6 +731,18 @@ export function TournamentProvider({
           markLocal(nm.id);
           Object.assign(nm, touchMatch(nm));
         }
+        // A semi-final also feeds the bronze match with its loser.
+        if (m.loserNextMatchId) {
+          const bm = next.find((x) => x.id === m.loserNextMatchId);
+          if (bm) {
+            const loser = m.p1 === winner ? m.p2 : m.p1;
+            if (m.loserNextSlot === 1) bm.p1 = loser;
+            else bm.p2 = loser;
+            if (bm.p1 && bm.p2 && bm.status === "waiting") bm.status = "ready";
+            markLocal(bm.id);
+            Object.assign(bm, touchMatch(bm));
+          }
+        }
         return next;
       });
       if (logged) log("match_confirm", logged);

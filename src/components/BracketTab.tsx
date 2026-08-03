@@ -360,12 +360,14 @@ export function BracketTab() {
   }, [players]);
 
   // One pass over matches: group by round and pre-resolve names / seeds / flags.
-  const rounds = useMemo(() => {
+  // The bronze match shares the final's round, so it is pulled out separately.
+  const { rounds, bronze } = useMemo(() => {
     const map = new Map<number, CardProps[]>();
-    for (const m of matches) {
+    let bronzeCard: CardProps | null = null;
+    const toCard = (m: Match): CardProps => {
       const name1 = playerName(m.p1);
       const name2 = playerName(m.p2);
-      const card: CardProps = {
+      return {
         match: m,
         name1,
         name2,
@@ -375,13 +377,23 @@ export function BracketTab() {
         mine2: isSameName(name2, joinedName),
         onOpen,
       };
+    };
+    for (const m of matches) {
+      const card = toCard(m);
+      if (m.kind === "third") {
+        bronzeCard = card;
+        continue;
+      }
       const list = map.get(m.round);
       if (list) list.push(card);
       else map.set(m.round, [card]);
     }
-    return [...map.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([round, cards]) => ({ round, label: roundName(round), cards }));
+    return {
+      bronze: bronzeCard,
+      rounds: [...map.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([round, cards]) => ({ round, label: roundName(round), cards })),
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches, joinedName, onOpen, seedOf]);
 

@@ -1245,18 +1245,22 @@ export function TournamentProvider({
     [players],
   );
 
+  // The bronze match shares the final's round number, so it is excluded from
+  // every round-shape calculation (otherwise round labels shift).
+  const mainMatches = useMemo(() => matches.filter((m) => m.kind !== "third"), [matches]);
+
   const totalRounds = useMemo(
-    () => (matches.length ? Math.max(...matches.map((m) => m.round)) + 1 : 0),
-    [matches],
+    () => (mainMatches.length ? Math.max(...mainMatches.map((m) => m.round)) + 1 : 0),
+    [mainMatches],
   );
 
   /** True when round 0 is a preliminary round (fewer bouts than a full round). */
   const hasPrelim = useMemo(() => {
     if (totalRounds < 2) return false;
-    const c0 = matches.filter((m) => m.round === 0).length;
-    const c1 = matches.filter((m) => m.round === 1).length;
+    const c0 = mainMatches.filter((m) => m.round === 0).length;
+    const c1 = mainMatches.filter((m) => m.round === 1).length;
     return c0 !== c1 * 2;
-  }, [matches, totalRounds]);
+  }, [mainMatches, totalRounds]);
 
   const roundName = useCallback(
     (round: number) => {

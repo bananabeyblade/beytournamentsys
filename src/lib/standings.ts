@@ -7,8 +7,10 @@ import type { TournamentResults, Top4Entry } from "./tournaments";
  */
 export function computeTop4(matches: Match[], players: Player[]): TournamentResults | null {
   if (!matches.length) return null;
-  const totalRounds = Math.max(...matches.map((m) => m.round)) + 1;
-  const final = matches.find((m) => m.round === totalRounds - 1);
+  const main = matches.filter((m) => m.kind !== "third");
+  if (!main.length) return null;
+  const totalRounds = Math.max(...main.map((m) => m.round)) + 1;
+  const final = main.find((m) => m.round === totalRounds - 1);
   if (!final || final.status !== "done" || !final.winner) return null;
 
   const nameOf = (id: string | null) => players.find((p) => p.id === id)?.name ?? "—";
@@ -19,9 +21,17 @@ export function computeTop4(matches: Match[], players: Player[]): TournamentResu
     { rank: 2, name: nameOf(loserOf(final)) },
   ];
 
+  // The bronze match decides 3rd / 4th whenever it was actually played.
+  const bronze = matches.find((m) => m.kind === "third");
+  if (bronze && bronze.status === "done" && bronze.winner) {
+    top4.push({ rank: 3, name: nameOf(bronze.winner) });
+    top4.push({ rank: 4, name: nameOf(loserOf(bronze)) });
+    return { top4, playerCount: players.length };
+  }
+
   // Only semi-finals that were actually decided count — a force-finished
   // (never played) bout must not invent a 3rd/4th place.
-  const semis = matches.filter(
+  const semis = main.filter(
     (m) => m.round === totalRounds - 2 && m.status === "done" && !!m.winner,
   );
   const third = semis

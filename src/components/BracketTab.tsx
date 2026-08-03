@@ -152,6 +152,48 @@ function Column({
   );
 }
 
+/** Centre column: the final, with the bronze match hung underneath it. */
+function FinalColumn({
+  label,
+  final,
+  bronze,
+  y,
+  height,
+}: {
+  label: string;
+  final: CardProps[];
+  bronze: CardProps | null;
+  y: number;
+  height: number;
+}) {
+  const bronzeTop = y + PITCH * 1.4;
+  return (
+    <div className="shrink-0" style={{ width: COL_W }}>
+      <p
+        className="font-display truncate text-center text-[10px] tracking-widest text-primary"
+        style={{ height: HEAD_H }}
+      >
+        {label}
+      </p>
+      <div className="relative" style={{ height }}>
+        {final.map((c) => (
+          <div key={c.match.id} className="absolute inset-x-0" style={{ top: y - CARD_H / 2 }}>
+            <BracketMatchCard {...c} />
+          </div>
+        ))}
+        {bronze && (
+          <div className="absolute inset-x-0" style={{ top: bronzeTop - CARD_H / 2 }}>
+            <p className="font-display mb-0.5 text-center text-[9px] tracking-widest text-muted-foreground">
+              季軍賽 3RD
+            </p>
+            <BracketMatchCard {...bronze} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Bracket-shaped connectors drawn straight from the real card centres.
  * `fromYs` = source column centres, `toYs` = target column centres.
@@ -318,12 +360,14 @@ export function BracketTab() {
   }, [players]);
 
   // One pass over matches: group by round and pre-resolve names / seeds / flags.
-  const rounds = useMemo(() => {
+  // The bronze match shares the final's round, so it is pulled out separately.
+  const { rounds, bronze } = useMemo(() => {
     const map = new Map<number, CardProps[]>();
-    for (const m of matches) {
+    let bronzeCard: CardProps | null = null;
+    const toCard = (m: Match): CardProps => {
       const name1 = playerName(m.p1);
       const name2 = playerName(m.p2);
-      const card: CardProps = {
+      return {
         match: m,
         name1,
         name2,
@@ -333,13 +377,23 @@ export function BracketTab() {
         mine2: isSameName(name2, joinedName),
         onOpen,
       };
+    };
+    for (const m of matches) {
+      const card = toCard(m);
+      if (m.kind === "third") {
+        bronzeCard = card;
+        continue;
+      }
       const list = map.get(m.round);
       if (list) list.push(card);
       else map.set(m.round, [card]);
     }
-    return [...map.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([round, cards]) => ({ round, label: roundName(round), cards }));
+    return {
+      bronze: bronzeCard,
+      rounds: [...map.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([round, cards]) => ({ round, label: roundName(round), cards })),
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches, joinedName, onOpen, seedOf]);
 
@@ -361,7 +415,11 @@ export function BracketTab() {
     const left = body.map((r) => ({ ...r, cards: r.cards.slice(0, half(r.cards)) }));
     const rightOuter = body.map((r) => ({ ...r, cards: r.cards.slice(half(r.cards)) }));
     const right = [...rightOuter].reverse();
-    const height = PITCH * Math.max(1, left[0].cards.length, rightOuter[0].cards.length);
+    // The bronze match hangs under the final, so keep room for it.
+    const height = Math.max(
+      PITCH * Math.max(1, left[0].cards.length, rightOuter[0].cards.length),
+      bronze ? PITCH * 4 : 0,
+    );
     // ys indexed the same way as `left` / `rightOuter` (outermost round first).
     const leftYs = halfPositions(
       left.map((r) => r.cards.length),
@@ -533,12 +591,12 @@ export function BracketTab() {
                 </div>
               ))}
 
-              <Column
+              <FinalColumn
                 label={layout.final.label}
-                cards={layout.final.cards}
-                ys={[layout.finalY]}
+                final={layout.final.cards}
+                bronze={bronze}
+                y={layout.finalY}
                 height={height}
-                align="center"
               />
 
               {layout.right.map((r, i) => {

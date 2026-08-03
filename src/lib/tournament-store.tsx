@@ -109,6 +109,9 @@ const blankMatch = (round: number, index: number): Match => ({
   events: [],
   nextMatchId: null,
   nextSlot: null,
+  kind: "main",
+  loserNextMatchId: null,
+  loserNextSlot: null,
 });
 
 /**
@@ -173,7 +176,21 @@ function buildBracket(players: Player[]): Match[] {
   }
   for (const m of first) if (m.p1 && m.p2) m.status = "ready";
 
-  return hasPrelim ? [...prelim, ...rounds.flat()] : rounds.flat();
+  // Bronze match: the two semi-final losers meet to settle 3rd / 4th place.
+  const third: Match[] = [];
+  if (rounds.length >= 2) {
+    const semis = rounds[rounds.length - 2];
+    const finalRound = rounds[rounds.length - 1][0].round;
+    const bronze = blankMatch(finalRound, 1);
+    bronze.kind = "third";
+    third.push(bronze);
+    semis.forEach((m, i) => {
+      m.loserNextMatchId = bronze.id;
+      m.loserNextSlot = i === 0 ? 1 : 2;
+    });
+  }
+
+  return [...(hasPrelim ? prelim : []), ...rounds.flat(), ...third];
 }
 
 
@@ -714,6 +731,18 @@ export function TournamentProvider({
           markLocal(nm.id);
           Object.assign(nm, touchMatch(nm));
         }
+        // A semi-final also feeds the bronze match with its loser.
+        if (m.loserNextMatchId) {
+          const bm = next.find((x) => x.id === m.loserNextMatchId);
+          if (bm) {
+            const loser = m.p1 === winner ? m.p2 : m.p1;
+            if (m.loserNextSlot === 1) bm.p1 = loser;
+            else bm.p2 = loser;
+            if (bm.p1 && bm.p2 && bm.status === "waiting") bm.status = "ready";
+            markLocal(bm.id);
+            Object.assign(bm, touchMatch(bm));
+          }
+        }
         return next;
       });
       if (logged) log("match_confirm", logged);
@@ -1216,18 +1245,22 @@ export function TournamentProvider({
     [players],
   );
 
+  // The bronze match shares the final's round number, so it is excluded from
+  // every round-shape calculation (otherwise round labels shift).
+  const mainMatches = useMemo(() => matches.filter((m) => m.kind !== "third"), [matches]);
+
   const totalRounds = useMemo(
-    () => (matches.length ? Math.max(...matches.map((m) => m.round)) + 1 : 0),
-    [matches],
+    () => (mainMatches.length ? Math.max(...mainMatches.map((m) => m.round)) + 1 : 0),
+    [mainMatches],
   );
 
   /** True when round 0 is a preliminary round (fewer bouts than a full round). */
   const hasPrelim = useMemo(() => {
     if (totalRounds < 2) return false;
-    const c0 = matches.filter((m) => m.round === 0).length;
-    const c1 = matches.filter((m) => m.round === 1).length;
+    const c0 = mainMatches.filter((m) => m.round === 0).length;
+    const c1 = mainMatches.filter((m) => m.round === 1).length;
     return c0 !== c1 * 2;
-  }, [matches, totalRounds]);
+  }, [mainMatches, totalRounds]);
 
   const roundName = useCallback(
     (round: number) => {

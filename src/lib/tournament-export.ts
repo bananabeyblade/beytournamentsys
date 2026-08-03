@@ -58,13 +58,26 @@ export function buildTournamentText(row: TournamentRow): string {
   }
 
   if (matches.length) {
-    const total = Math.max(...matches.map((m) => m.round)) + 1;
-    const c0 = matches.filter((m) => m.round === 0).length;
-    const c1 = matches.filter((m) => m.round === 1).length;
+    const main = matches.filter((m) => m.kind !== "third");
+    const bronze = matches.filter((m) => m.kind === "third");
+    const total = Math.max(...main.map((m) => m.round)) + 1;
+    const c0 = main.filter((m) => m.round === 0).length;
+    const c1 = main.filter((m) => m.round === 1).length;
     const hasPrelim = total >= 2 && c0 !== c1 * 2;
+    const dumpEvents = (m: Match) => {
+      let s1 = 0;
+      let s2 = 0;
+      for (const ev of m.events ?? []) {
+        const f = FINISHES.find((x) => x.type === ev.type);
+        if (ev.slot === 1) s1 += ev.points;
+        else s2 += ev.points;
+        const who = ev.slot === 1 ? nameOf(m.p1) : nameOf(m.p2);
+        L.push(`      └ ${who} ${f?.label ?? ev.type} +${ev.points} (${s1}:${s2})`);
+      }
+    };
     L.push("------ 賽程紀錄 ------");
     for (let r = 0; r < total; r++) {
-      const list = matches.filter((m) => m.round === r).sort((a, b) => a.index - b.index);
+      const list = main.filter((m) => m.round === r).sort((a, b) => a.index - b.index);
       if (!list.length) continue;
       L.push(`[${roundLabel(r, total, hasPrelim)}]`);
       list.forEach((m, i) => {
@@ -73,15 +86,17 @@ export function buildTournamentText(row: TournamentRow): string {
         L.push(
           `  M${i + 1}${table}  ${nameOf(m.p1)} ${m.score1} : ${m.score2} ${nameOf(m.p2)}${win}`,
         );
-        let s1 = 0;
-        let s2 = 0;
-        for (const ev of m.events ?? []) {
-          const f = FINISHES.find((x) => x.type === ev.type);
-          if (ev.slot === 1) s1 += ev.points;
-          else s2 += ev.points;
-          const who = ev.slot === 1 ? nameOf(m.p1) : nameOf(m.p2);
-          L.push(`      └ ${who} ${f?.label ?? ev.type} +${ev.points} (${s1}:${s2})`);
-        }
+        dumpEvents(m);
+      });
+      L.push("");
+    }
+    if (bronze.length) {
+      L.push("[季軍賽]");
+      bronze.forEach((m) => {
+        const table = m.table != null ? ` (桌 ${m.table})` : "";
+        const win = m.winner ? `   季軍：${nameOf(m.winner)}` : "";
+        L.push(`  3RD${table}  ${nameOf(m.p1)} ${m.score1} : ${m.score2} ${nameOf(m.p2)}${win}`);
+        dumpEvents(m);
       });
       L.push("");
     }

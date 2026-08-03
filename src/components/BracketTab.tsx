@@ -152,6 +152,48 @@ function Column({
   );
 }
 
+/** Centre column: the final, with the bronze match hung underneath it. */
+function FinalColumn({
+  label,
+  final,
+  bronze,
+  y,
+  height,
+}: {
+  label: string;
+  final: CardProps[];
+  bronze: CardProps | null;
+  y: number;
+  height: number;
+}) {
+  const bronzeTop = y + PITCH * 1.4;
+  return (
+    <div className="shrink-0" style={{ width: COL_W }}>
+      <p
+        className="font-display truncate text-center text-[10px] tracking-widest text-primary"
+        style={{ height: HEAD_H }}
+      >
+        {label}
+      </p>
+      <div className="relative" style={{ height }}>
+        {final.map((c) => (
+          <div key={c.match.id} className="absolute inset-x-0" style={{ top: y - CARD_H / 2 }}>
+            <BracketMatchCard {...c} />
+          </div>
+        ))}
+        {bronze && (
+          <div className="absolute inset-x-0" style={{ top: bronzeTop - CARD_H / 2 }}>
+            <p className="font-display mb-0.5 text-center text-[9px] tracking-widest text-muted-foreground">
+              季軍賽 3RD
+            </p>
+            <BracketMatchCard {...bronze} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Bracket-shaped connectors drawn straight from the real card centres.
  * `fromYs` = source column centres, `toYs` = target column centres.

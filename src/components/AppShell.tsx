@@ -56,6 +56,7 @@ export function AppShell({ title }: { title?: string }) {
   const activeTab = tabs.some((t) => t.id === tab) ? tab : "live";
 
   const locked = !spectator && authReady && !currentAdmin;
+  const isSuper = currentAdmin?.isSuper === true;
 
   return (
     <div className="min-h-screen pb-24">

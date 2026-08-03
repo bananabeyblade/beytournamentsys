@@ -118,7 +118,7 @@ const blankMatch = (round: number, index: number): Match => ({
  * Builds a full power-of-two main draw plus a preliminary ("預賽") round for the
  * surplus players, so odd entry counts never produce empty bye cards.
  */
-function buildBracket(players: Player[]): Match[] {
+export function buildBracket(players: Player[]): Match[] {
   if (players.length < 2) return [];
   const order = shuffle(players);
   const n = order.length;
@@ -245,7 +245,7 @@ interface Ctx extends TournamentState {
   roundName: (round: number) => string;
 }
 
-const TournamentContext = createContext<Ctx | null>(null);
+export const TournamentContext = createContext<Ctx | null>(null);
 
 export function TournamentProvider({
   children,

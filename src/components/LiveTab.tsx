@@ -31,7 +31,7 @@ function MatchCard({
     <div className={`panel p-3 ${mine ? "neon-edge bg-primary/5" : isLive ? "neon-edge" : ""}`}>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
         <p className="truncate text-xs tracking-widest text-muted-foreground">
-          {roundName(match.round)}
+          {match.kind === "third" ? "季軍賽 3RD" : roundName(match.round)}
           {match.table ? ` · 桌號 TABLE ${match.table}` : ""}
         </p>
         {isLive ? (

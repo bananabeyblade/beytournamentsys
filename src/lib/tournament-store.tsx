@@ -176,7 +176,21 @@ function buildBracket(players: Player[]): Match[] {
   }
   for (const m of first) if (m.p1 && m.p2) m.status = "ready";
 
-  return hasPrelim ? [...prelim, ...rounds.flat()] : rounds.flat();
+  // Bronze match: the two semi-final losers meet to settle 3rd / 4th place.
+  const third: Match[] = [];
+  if (rounds.length >= 2) {
+    const semis = rounds[rounds.length - 2];
+    const finalRound = rounds[rounds.length - 1][0].round;
+    const bronze = blankMatch(finalRound, 1);
+    bronze.kind = "third";
+    third.push(bronze);
+    semis.forEach((m, i) => {
+      m.loserNextMatchId = bronze.id;
+      m.loserNextSlot = i === 0 ? 1 : 2;
+    });
+  }
+
+  return [...(hasPrelim ? prelim : []), ...rounds.flat(), ...third];
 }
 
 

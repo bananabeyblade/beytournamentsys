@@ -56,6 +56,7 @@ export function AppShell({ title }: { title?: string }) {
   const activeTab = tabs.some((t) => t.id === tab) ? tab : "live";
 
   const locked = !spectator && authReady && !currentAdmin;
+  const isSuper = currentAdmin?.isSuper === true;
 
   return (
     <div className="min-h-screen pb-24">
@@ -72,7 +73,7 @@ export function AppShell({ title }: { title?: string }) {
               <h1 className="truncate font-display text-lg neon-text">
                 {title ?? "竹塹陀螺集會所"}
               </h1>
-              {joinedName ? (
+              {joinedName && !isSuper ? (
                 <p className="truncate text-xs text-primary">
                   參賽者 · <span className="font-semibold">{joinedName}</span>
                 </p>
@@ -85,18 +86,20 @@ export function AppShell({ title }: { title?: string }) {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <SyncStatusBadge />
-            <button
-              onClick={() => setRole(role === "admin" ? "player" : "admin")}
-              disabled={role === "player" && !currentAdmin}
-              className={`flex h-11 shrink-0 items-center gap-2 rounded-xl border px-3 text-xs font-bold disabled:opacity-50 ${
-                role === "admin"
-                  ? "neon-edge bg-accent/40 text-primary"
-                  : "border-border bg-secondary text-muted-foreground"
-              }`}
-            >
-              {role === "admin" ? <Shield className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              {role === "admin" ? "管理者" : "參賽者"}
-            </button>
+            {!isSuper && (
+              <button
+                onClick={() => setRole(role === "admin" ? "player" : "admin")}
+                disabled={role === "player" && !currentAdmin}
+                className={`flex h-11 shrink-0 items-center gap-2 rounded-xl border px-3 text-xs font-bold disabled:opacity-50 ${
+                  role === "admin"
+                    ? "neon-edge bg-accent/40 text-primary"
+                    : "border-border bg-secondary text-muted-foreground"
+                }`}
+              >
+                {role === "admin" ? <Shield className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {role === "admin" ? "管理者" : "參賽者"}
+              </button>
+            )}
           </div>
         </div>
 

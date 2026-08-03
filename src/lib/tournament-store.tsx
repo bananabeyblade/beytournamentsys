@@ -109,6 +109,9 @@ const blankMatch = (round: number, index: number): Match => ({
   events: [],
   nextMatchId: null,
   nextSlot: null,
+  kind: "main",
+  loserNextMatchId: null,
+  loserNextSlot: null,
 });
 
 /**

@@ -45,6 +45,11 @@ export interface Match {
   events: ScoreEvent[];
   nextMatchId: string | null;
   nextSlot: 1 | 2 | null;
+  /** "third" marks the 3rd/4th place play-off fed by the semi-final losers. */
+  kind?: "main" | "third";
+  /** Where the loser goes (used by the semi-finals to fill the bronze match). */
+  loserNextMatchId?: string | null;
+  loserNextSlot?: 1 | 2 | null;
   /** Bumped on every edit so concurrent referees merge instead of overwrite. */
   rev?: number;
   /** Epoch millis of the last edit — tie-breaker for equal revisions. */

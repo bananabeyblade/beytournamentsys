@@ -591,12 +591,12 @@ export function BracketTab() {
                 </div>
               ))}
 
-              <Column
+              <FinalColumn
                 label={layout.final.label}
-                cards={layout.final.cards}
-                ys={[layout.finalY]}
+                final={layout.final.cards}
+                bronze={bronze}
+                y={layout.finalY}
                 height={height}
-                align="center"
               />
 
               {layout.right.map((r, i) => {

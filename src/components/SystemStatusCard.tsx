@@ -67,7 +67,11 @@ function Row({
   );
 }
 
-/** Admin-only live health panel: superadmin seat, database, network, sync. */
+/**
+ * Superadmin-only live health panel: superadmin seat, database, network, sync.
+ * Gated again here (not just by the caller) in case this card is ever
+ * mounted somewhere a regular referee account can reach.
+ */
 export function SystemStatusCard() {
   const { role, spectator, currentAdmin, syncStatus, lastSyncedAt, retrySync } = useTournament();
   const { online, justReconnected } = useConnection();
@@ -77,7 +81,7 @@ export function SystemStatusCard() {
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const aliveRef = useRef(true);
 
-  const visible = !spectator && role === "admin" && !!currentAdmin;
+  const visible = !spectator && role === "admin" && !!currentAdmin?.isSuper;
 
   const check = useCallback(async () => {
     setBusy(true);

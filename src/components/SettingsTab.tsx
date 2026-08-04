@@ -135,7 +135,7 @@ export function SettingsTab() {
 
       {role === "admin" && <TournamentHistory />}
 
-      <SystemStatusCard />
+      {currentAdmin?.isSuper && <SystemStatusCard />}
 
       <AuditLogCard />
 

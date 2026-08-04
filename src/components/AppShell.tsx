@@ -29,7 +29,8 @@ function readTab(): TabId {
 
 export function AppShell({ title }: { title?: string }) {
   const [tab, setTab] = useState<TabId>("live");
-  const { role, setRole, currentAdmin, authReady, matches, spectator } = useTournament();
+  const { role, setRole, currentAdmin, authReady, matches, spectator, currentTournament } =
+    useTournament();
   const [showLogin, setShowLogin] = useState(false);
   // Spectators arrive via the QR flow; surface the name they registered with.
   const joinedName = useJoinedName();
@@ -65,9 +66,9 @@ export function AppShell({ title }: { title?: string }) {
         <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
             <img
-              src={logoAsset}
-              alt="竹塹陀螺集會所標誌"
-              className="h-9 w-9 shrink-0 object-contain"
+              src={currentTournament?.logo_url || logoAsset}
+              alt={currentTournament?.logo_url ? `${currentTournament.name} logo` : "竹塹陀螺集會所標誌"}
+              className="h-9 w-9 shrink-0 rounded-lg object-contain"
             />
             <div className="min-w-0">
               <h1 className="truncate font-display text-lg neon-text">

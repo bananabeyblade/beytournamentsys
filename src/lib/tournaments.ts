@@ -20,6 +20,7 @@ export interface TournamentRow {
   finished_at: string | null;
   live_state: LiveState | null;
   live_updated_at: string | null;
+  logo_url: string | null;
 }
 
 /** Snapshot of the running bracket, published so spectators can follow along. */
@@ -46,7 +47,8 @@ export async function publishLiveState(id: string, state: LiveState, stamp?: str
   if (error) throw new Error("同步賽況失敗");
 }
 
-const COLS = "id,code,name,status,results,created_at,finished_at,live_state,live_updated_at";
+const COLS =
+  "id,code,name,status,results,created_at,finished_at,live_state,live_updated_at,logo_url";
 
 function makeCode() {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -55,13 +57,40 @@ function makeCode() {
   return out;
 }
 
+const LOGO_BUCKET = "tournament-logos";
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Admin-only: uploads a host-picked logo image and returns its public URL.
+ * Called before `createTournament` so the URL can be saved on insert.
+ */
+export async function uploadTournamentLogo(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("logo 必須是圖片檔");
+  if (file.size > MAX_LOGO_BYTES) throw new Error("logo 檔案不能超過 5MB");
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error("請先登入管理者帳號");
+  const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+  const path = `${auth.user.id}/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from(LOGO_BUCKET).upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  });
+  if (error) throw new Error("上傳 logo 失敗");
+  return supabase.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
 /** Admin-only (enforced by row-level policies). Creates a fresh QR session. */
-export async function createTournament(name: string): Promise<TournamentRow> {
+export async function createTournament(name: string, logoUrl?: string | null): Promise<TournamentRow> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("請先登入管理者帳號");
   const { data, error } = await supabase
     .from("tournaments")
-    .insert({ name: name.trim(), code: makeCode(), created_by: auth.user.id })
+    .insert({
+      name: name.trim(),
+      code: makeCode(),
+      created_by: auth.user.id,
+      logo_url: logoUrl?.trim() || null,
+    })
     .select(COLS)
     .single();
   if (error) throw new Error("建立賽事失敗");

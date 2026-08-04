@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { QrCode, Copy, Check, Plus, Flag } from "lucide-react";
+import { QrCode, Copy, Check, Plus, Flag, Image as ImageIcon, X } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
+import { uploadTournamentLogo } from "@/lib/tournaments";
 
 export function QrRegisterCard() {
   const { currentTournament, startNewTournament, currentAdmin, forceFinishTournament } =
@@ -14,6 +15,9 @@ export function QrRegisterCard() {
   const [copied, setCopied] = useState(false);
   const [ending, setEnding] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState("");
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!currentTournament) {
@@ -33,10 +37,28 @@ export function QrRegisterCard() {
   const create = async () => {
     setBusy(true);
     setErr("");
-    const fail = await startNewTournament(name);
-    if (fail) setErr(fail);
-    else setName("");
-    setBusy(false);
+    try {
+      const logoUrl = logoFile ? await uploadTournamentLogo(logoFile) : null;
+      const fail = await startNewTournament(name, logoUrl);
+      if (fail) setErr(fail);
+      else {
+        setName("");
+        setLogoFile(null);
+        setLogoPreview("");
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "上傳 logo 失敗");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pickLogo = (file: File | null) => {
+    setLogoFile(file);
+    setLogoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return file ? URL.createObjectURL(file) : "";
+    });
   };
 
   const end = async () => {
@@ -56,10 +78,19 @@ export function QrRegisterCard() {
 
       {currentTournament && currentTournament.status === "open" ? (
         <>
-          <p className="text-sm">
-            <span className="text-primary">{currentTournament.name}</span> · 代碼{" "}
-            <span className="font-display">{currentTournament.code}</span>
-          </p>
+          <div className="flex items-center gap-2">
+            {currentTournament.logo_url && (
+              <img
+                src={currentTournament.logo_url}
+                alt={`${currentTournament.name} logo`}
+                className="h-8 w-8 shrink-0 rounded-lg object-cover"
+              />
+            )}
+            <p className="text-sm">
+              <span className="text-primary">{currentTournament.name}</span> · 代碼{" "}
+              <span className="font-display">{currentTournament.code}</span>
+            </p>
+          </div>
           {img && (
             <img
               src={img}
@@ -131,6 +162,40 @@ export function QrRegisterCard() {
             placeholder="新賽事名稱，例如：0729 週三戰"
             className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
           />
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => pickLogo(e.target.files?.[0] ?? null)}
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => logoInputRef.current?.click()}
+              className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-secondary text-sm text-muted-foreground"
+            >
+              <ImageIcon className="h-4 w-4" />
+              {logoPreview ? "更換 logo" : "上傳賽事 logo（選填）"}
+            </button>
+            {logoPreview && (
+              <>
+                <img
+                  src={logoPreview}
+                  alt="logo 預覽"
+                  className="h-12 w-12 shrink-0 rounded-xl border border-border object-cover"
+                />
+                <button
+                  type="button"
+                  aria-label="移除 logo"
+                  onClick={() => pickLogo(null)}
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-destructive/60 text-destructive"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </>
+            )}
+          </div>
           {err && <p className="text-xs text-destructive">{err}</p>}
           <button
             disabled={busy || !name.trim()}

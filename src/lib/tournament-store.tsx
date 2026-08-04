@@ -233,7 +233,7 @@ interface Ctx extends TournamentState {
   resetTournament: () => void;
   loadSample: () => void;
   currentTournament: TournamentRow | null;
-  startNewTournament: (name: string) => Promise<string | null>;
+  startNewTournament: (name: string, logoUrl?: string | null) => Promise<string | null>;
   resumeTournament: (code: string) => Promise<string | null>;
   forceFinishTournament: () => Promise<string | null>;
   results: TournamentResults | null;
@@ -785,11 +785,11 @@ export function TournamentProvider({
   }, []);
 
   const startNewTournament = useCallback(
-    async (name: string) => {
+    async (name: string, logoUrl?: string | null) => {
       const clean = name.trim();
       if (!clean) return "請輸入賽事名稱";
       try {
-        const row = await createTournament(clean);
+        const row = await createTournament(clean, logoUrl);
         setCurrentTournament(row);
         if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
         removedPlayers.current = {};

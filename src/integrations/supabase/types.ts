@@ -117,6 +117,7 @@ export type Database = {
           id: string
           live_state: Json | null
           live_updated_at: string | null
+          logo_url: string | null
           name: string
           results: Json | null
           status: string
@@ -129,6 +130,7 @@ export type Database = {
           id?: string
           live_state?: Json | null
           live_updated_at?: string | null
+          logo_url?: string | null
           name: string
           results?: Json | null
           status?: string
@@ -141,6 +143,7 @@ export type Database = {
           id?: string
           live_state?: Json | null
           live_updated_at?: string | null
+          logo_url?: string | null
           name?: string
           results?: Json | null
           status?: string

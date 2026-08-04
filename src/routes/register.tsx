@@ -156,9 +156,18 @@ function RegisterPage() {
           BEYBLADE X · PLAYER REGISTRATION
         </p>
         {tournament && (
-          <p className="mt-1 text-sm text-primary">
-            {tournament.name} · {tournament.code}
-          </p>
+          <div className="mt-1 flex items-center gap-2">
+            {tournament.logo_url && (
+              <img
+                src={tournament.logo_url}
+                alt={`${tournament.name} logo`}
+                className="h-8 w-8 shrink-0 rounded-lg object-cover"
+              />
+            )}
+            <p className="text-sm text-primary">
+              {tournament.name} · {tournament.code}
+            </p>
+          </div>
         )}
       </div>
 

@@ -49,7 +49,18 @@ function ResultsPage() {
       <div>
         <h1 className="font-display text-2xl neon-text">賽事成績</h1>
         <p className="text-[11px] tracking-widest text-muted-foreground">FINAL STANDINGS · TOP 4</p>
-        {row && <p className="mt-1 text-sm text-primary">{row.name}</p>}
+        {row && (
+          <div className="mt-1 flex items-center gap-2">
+            {row.logo_url && (
+              <img
+                src={row.logo_url}
+                alt={`${row.name} logo`}
+                className="h-8 w-8 shrink-0 rounded-lg object-cover"
+              />
+            )}
+            <p className="text-sm text-primary">{row.name}</p>
+          </div>
+        )}
       </div>
 
       {loading ? (

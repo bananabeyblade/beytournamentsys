@@ -9,21 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as WatchCodeRouteImport } from './routes/watch.$code'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ResultsCodeRouteImport } from './routes/results.$code'
+import { Route as WatchCodeRouteImport } from './routes/watch.$code'
 
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -31,19 +26,24 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WatchCodeRoute = WatchCodeRouteImport.update({
-  id: '/watch/$code',
-  path: '/watch/$code',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResultsCodeRoute = ResultsCodeRouteImport.update({
   id: '/results/$code',
   path: '/results/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WatchCodeRoute = WatchCodeRouteImport.update({
+  id: '/watch/$code',
+  path: '/watch/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -110,18 +110,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -131,18 +124,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/watch/$code': {
-      id: '/watch/$code'
-      path: '/watch/$code'
-      fullPath: '/watch/$code'
-      preLoaderRoute: typeof WatchCodeRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/results/$code': {
@@ -150,6 +143,13 @@ declare module '@tanstack/react-router' {
       path: '/results/$code'
       fullPath: '/results/$code'
       preLoaderRoute: typeof ResultsCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/watch/$code': {
+      id: '/watch/$code'
+      path: '/watch/$code'
+      fullPath: '/watch/$code'
+      preLoaderRoute: typeof WatchCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

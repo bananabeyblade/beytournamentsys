@@ -816,6 +816,8 @@ export function TournamentProvider({
             tournamentName: row.name,
           });
         }
+        // Server-confirmed state — safe to publish from now on.
+        hasSyncedOnce.current = true;
         return null;
       } catch (e) {
         return e instanceof Error ? e.message : "建立賽事失敗";
@@ -855,6 +857,8 @@ export function TournamentProvider({
       setMatches(nextMatches);
       setTableCount(nextTables);
 
+      // Server-confirmed state — safe to publish from now on.
+      hasSyncedOnce.current = true;
       return null;
     } catch {
       return "無法載入賽事";
@@ -941,6 +945,14 @@ export function TournamentProvider({
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   /** Latest cloud pull, exposed so the retry button can force a re-read. */
   const pullRef = useRef<(() => Promise<void>) | null>(null);
+  /**
+   * Belt-and-suspenders alongside the server-side roster merge in
+   * `publish_live_state`: don't let this device publish at all until it has
+   * pulled the real cloud state at least once (or just created/resumed a
+   * tournament, which is itself authoritative). A fresh device otherwise
+   * hydrates `players` from its own — possibly empty — localStorage first.
+   */
+  const hasSyncedOnce = useRef(false);
 
   // Mirrors of the live state so the follow loop can merge (and record the
   // merged payload) synchronously, without waiting for a re-render.
@@ -1042,6 +1054,7 @@ export function TournamentProvider({
         if (code) row = await fetchTournamentByCode(code).catch(() => null);
       }
       if (row) apply(row);
+      hasSyncedOnce.current = true;
     };
     pullRef.current = pull;
 
@@ -1120,6 +1133,10 @@ export function TournamentProvider({
     if (spectator || !hydrated || role !== "admin" || !currentTournament) return;
     // A closed event is read-only — never overwrite the archived snapshot.
     if (currentTournament.status !== "open") return;
+    // Don't publish this device's local snapshot until it has synced with the
+    // cloud at least once — belt-and-suspenders alongside the server-side
+    // roster merge (see `hasSyncedOnce` declaration above).
+    if (!hasSyncedOnce.current) return;
     // Nothing actually changed locally → don't write (avoids write/echo storms).
     const payload = JSON.stringify({ players, matches, tableCount });
     if (payload === lastPayload.current) return;

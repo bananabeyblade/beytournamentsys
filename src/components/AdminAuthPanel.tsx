@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { LogIn, LogOut } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+
 
 export function AdminAuthPanel() {
   const { currentAdmin, signIn, logout } = useTournament();
@@ -75,6 +77,13 @@ export function AdminAuthPanel() {
         >
           <LogIn className="h-4 w-4" /> 登入
         </button>
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-[11px] tracking-widest text-muted-foreground">OR</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        <GoogleSignInButton onError={setErr} />
+
         <p className="text-xs text-muted-foreground">
           帳號權限存放於雲端，核准與刪除報名皆由伺服器驗證身分。
         </p>

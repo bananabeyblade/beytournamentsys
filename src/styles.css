@@ -71,6 +71,32 @@
   --grid-line: oklch(0.24 0.02 245);
 }
 
+:root.light {
+  --background: oklch(0.97 0.008 240);
+  --foreground: oklch(0.22 0.02 245);
+  --card: oklch(0.995 0.004 240);
+  --card-foreground: oklch(0.22 0.02 245);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.02 245);
+  --primary: oklch(0.55 0.18 145);
+  --primary-foreground: oklch(0.99 0.005 145);
+  --secondary: oklch(0.91 0.012 245);
+  --secondary-foreground: oklch(0.24 0.02 245);
+  --muted: oklch(0.92 0.012 245);
+  --muted-foreground: oklch(0.46 0.025 245);
+  --accent: oklch(0.87 0.07 145);
+  --accent-foreground: oklch(0.24 0.04 145);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.99 0.005 20);
+  --border: oklch(0.79 0.018 245);
+  --input: oklch(0.95 0.01 245);
+  --ring: oklch(0.55 0.18 145);
+  --neon: oklch(0.48 0.16 145);
+  --neon-dim: oklch(0.5 0.12 145);
+  --danger: oklch(0.55 0.22 25);
+  --grid-line: oklch(0.87 0.014 245);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

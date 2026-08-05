@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Swords, GitBranch, Users, Settings, Shield, Eye, QrCode } from "lucide-react";
+import { Swords, GitBranch, Users, Settings, Shield, Eye, QrCode, Moon, Sun } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { LiveTab } from "@/components/LiveTab";
 import { BracketTab } from "@/components/BracketTab";
@@ -20,6 +20,9 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 const TAB_KEY = "beyx-active-tab";
+const THEME_KEY = "beyx-theme";
+
+type Theme = "dark" | "light";
 
 function readTab(): TabId {
   if (typeof window === "undefined") return "live";
@@ -27,8 +30,14 @@ function readTab(): TabId {
   return TABS.some((t) => t.id === saved) ? (saved as TabId) : "live";
 }
 
+function readTheme(): Theme {
+  if (typeof window === "undefined") return "dark";
+  return window.localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+}
+
 export function AppShell({ title }: { title?: string }) {
   const [tab, setTab] = useState<TabId>("live");
+  const [theme, setTheme] = useState<Theme>("dark");
   const { role, setRole, currentAdmin, authReady, matches, spectator, currentTournament } =
     useTournament();
   const [showLogin, setShowLogin] = useState(false);
@@ -39,6 +48,15 @@ export function AppShell({ title }: { title?: string }) {
   useEffect(() => {
     setTab(readTab());
   }, []);
+
+  useEffect(() => {
+    setTheme(readTheme());
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", theme === "light");
+    window.localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
 
   useEffect(() => {
     if (typeof window !== "undefined") window.localStorage.setItem(TAB_KEY, tab);
@@ -87,6 +105,14 @@ export function AppShell({ title }: { title?: string }) {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <SyncStatusBadge />
+            <button
+              onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+              className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-secondary text-foreground"
+              aria-label={theme === "dark" ? "切換為淺色模式" : "切換為深色模式"}
+              title={theme === "dark" ? "切換為淺色模式" : "切換為深色模式"}
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
             {!isSuper && (
               <button
                 onClick={() => setRole(role === "admin" ? "player" : "admin")}

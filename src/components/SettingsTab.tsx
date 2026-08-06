@@ -31,6 +31,7 @@ export function SettingsTab() {
   const [p, setP] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   if (!currentAdmin) {
     return (
@@ -201,11 +202,38 @@ export function SettingsTab() {
             載入 16 位示範選手
           </button>
           <button
-            onClick={resetTournament}
+            onClick={() => setConfirmReset(true)}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-destructive/60 text-destructive"
           >
             <RotateCcw className="h-4 w-4" /> 重置賽事
           </button>
+          {confirmReset && (
+            <div className="space-y-2 rounded-xl border border-destructive/60 bg-destructive/10 p-3">
+              <p className="text-sm text-destructive">
+                確定要重置賽事嗎？這會清除目前賽事的選手、賽程與比分，且無法復原。
+              </p>
+              <p className="text-xs text-muted-foreground">
+                請再次按下「確認重置」才會執行。
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setConfirmReset(false)}
+                  className="min-h-12 rounded-xl border border-border text-sm text-muted-foreground"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    setConfirmReset(false);
+                    resetTournament();
+                  }}
+                  className="min-h-12 rounded-xl bg-destructive font-display text-sm text-foreground"
+                >
+                  確認重置
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

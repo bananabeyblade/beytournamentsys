@@ -20,6 +20,7 @@ import {
 import { SAMPLE_NAMES } from "./sample-names";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { bootstrapSuperadminFn, getMyRoleFn, promoteGoogleOwnerFn } from "./admin.functions";
 import {
   createTournament,
@@ -451,11 +452,10 @@ export function TournamentProvider({
   );
 
   const signInWithGoogle = useCallback(async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
     });
-    return error?.message ?? null;
+    return result.error?.message ?? null;
   }, []);
 
   const signUp = useCallback(

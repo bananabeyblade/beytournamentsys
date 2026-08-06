@@ -55,8 +55,12 @@ const BracketMatchCard = memo(function BracketMatchCard({
       } ${mine ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""}`}
     >
       {m.status === "live" && (
-        <span className="live-pulse absolute top-0.5 right-1 text-[8px] tracking-widest text-danger">
-          LIVE·桌{m.table}
+        <span
+          title={`進行中 · 桌 ${m.table ?? "—"}`}
+          aria-label={`進行中 · 桌 ${m.table ?? "—"}`}
+          className="live-pulse absolute left-1 top-1/2 z-10 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-danger shadow-[0_0_6px_hsl(var(--danger))]"
+        >
+          <span className="sr-only">進行中</span>
         </span>
       )}
       {mine && (
@@ -72,7 +76,7 @@ const BracketMatchCard = memo(function BracketMatchCard({
         return (
           <div
             key={s}
-            className={`flex h-[22px] items-center gap-1 px-1 text-[11px] ${
+            className={`flex h-[22px] items-center gap-1 ${m.status === "live" ? "pl-4 pr-1" : "px-1"} text-[11px] ${
               s === 1 ? "border-b border-border/60" : ""
             } ${isWinner ? "font-bold text-primary" : ""} ${
               isMe ? "bg-primary/10 font-bold text-primary" : ""
@@ -82,7 +86,7 @@ const BracketMatchCard = memo(function BracketMatchCard({
               {seed ?? ""}
             </span>
             <span className="min-w-0 flex-1 truncate">{s === 1 ? name1 : name2}</span>
-            <span className="font-display shrink-0 text-[11px]">
+            <span className="font-display w-4 shrink-0 text-right text-[11px]">
               {s === 1 ? m.score1 : m.score2}
             </span>
           </div>

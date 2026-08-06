@@ -1236,14 +1236,26 @@ export function TournamentProvider({
   /** Guards against every online admin archiving the same event at once. */
   const archivedId = useRef<string>("");
 
-  // Once the final is decided, archive the podium so the results page exists.
+  // Archive only after every scheduled bout is settled.  The final can finish
+  // before the bronze match; closing at that point used to freeze a stale live
+  // snapshot with an in-progress semi-final or third-place card still visible.
   useEffect(() => {
     if (spectator || !results || !currentTournament || currentTournament.status !== "open") return;
+    if (matches.some((match) => match.status !== "done")) return;
     if (archivedId.current === currentTournament.id) return;
     archivedId.current = currentTournament.id;
     let alive = true;
     const code = currentTournament.code;
-    finishTournament(currentTournament.id, results)
+    const snapshot = { players, matches, tableCount };
+    const stamp = new Date().toISOString();
+    // Persist the fully-settled bracket first.  Once `status` becomes
+    // `finished`, normal publishing stops, so this prevents the results row
+    // from pointing at an older live_state snapshot.
+    lastPayload.current = JSON.stringify(snapshot);
+    lastPublishedStamp.current = stampOf(currentTournament.status, stamp);
+    lastAppliedStamp.current = lastPublishedStamp.current;
+    publishLiveState(currentTournament.id, snapshot, stamp)
+      .then(() => finishTournament(currentTournament.id, results))
       .then((row) => alive && setCurrentTournament(row))
       .catch(async () => {
         // Another admin may have archived the same event a moment earlier —
@@ -1259,7 +1271,7 @@ export function TournamentProvider({
     return () => {
       alive = false;
     };
-  }, [spectator, results, currentTournament]);
+  }, [spectator, results, currentTournament, matches, players, tableCount]);
 
   const scoringElsewhere = useCallback((match: Match) => {
     const edited = typeof match.updatedAt === "number" ? match.updatedAt : 0;

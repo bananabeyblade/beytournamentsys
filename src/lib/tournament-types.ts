@@ -66,6 +66,7 @@ export interface CloudAdmin {
   id: string;
   email: string;
   isSuper: boolean;
+  isGoogle: boolean;
 }
 
 export interface TournamentState {

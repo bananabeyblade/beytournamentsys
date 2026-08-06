@@ -17,6 +17,7 @@ export function SettingsTab() {
     setRole,
     currentAdmin,
     signIn,
+    signInWithGoogle,
     logout,
     tableCount,
     setTableCount,
@@ -39,6 +40,27 @@ export function SettingsTab() {
           <h2 className="text-sm tracking-widest text-muted-foreground">
             管理者登入 ADMIN LOGIN
           </h2>
+          <button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setErr("");
+              const fail = await signInWithGoogle();
+              if (fail) {
+                setErr(fail);
+                setBusy(false);
+              }
+            }}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card font-display text-foreground disabled:opacity-50"
+          >
+            <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-xs font-bold text-blue-600">G</span>
+            使用 Google 登入總管理者
+          </button>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
+            其他管理者可使用帳號密碼登入
+            <span className="h-px flex-1 bg-border" />
+          </div>
           <input
             value={u}
             onChange={(e) => setU(e.target.value)}

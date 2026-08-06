@@ -1,6 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { OWNER_EMAIL } from "./account-id";
+
+function isGoogleOwner(claims: unknown): boolean {
+  const data = claims as { email?: unknown; app_metadata?: { provider?: unknown } };
+  return (
+    String(data.email ?? "").trim().toLowerCase() === OWNER_EMAIL &&
+    data.app_metadata?.provider === "google"
+  );
+}
+
+function requireGoogleOwner(claims: unknown) {
+  if (!isGoogleOwner(claims)) throw new Error("Forbidden: Google owner account required");
+}
 
 const usernamePassword = z.object({
   username: z
@@ -26,6 +39,7 @@ export const getMyRoleFn = createServerFn({ method: "GET" })
 export const bootstrapSuperadminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    requireGoogleOwner(context.claims);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { count, error } = await supabaseAdmin
       .from("admin_roles")
@@ -40,6 +54,29 @@ export const bootstrapSuperadminFn = createServerFn({ method: "POST" })
     });
     if (insertError) throw new Error("設定總管理者失敗");
     return { ok: true };
+  });
+
+/** Assigns the verified Google owner the superadmin role and retires the legacy password role. */
+export const promoteGoogleOwnerFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    if (!isGoogleOwner(context.claims)) return { promoted: false };
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: removeError } = await supabaseAdmin
+      .from("admin_roles")
+      .delete()
+      .eq("email", OWNER_EMAIL)
+      .eq("role", "superadmin")
+      .neq("user_id", context.userId);
+    if (removeError) throw new Error("Unable to replace the legacy owner role");
+
+    const { error: grantError } = await supabaseAdmin.from("admin_roles").upsert(
+      { user_id: context.userId, email: OWNER_EMAIL, role: "superadmin" },
+      { onConflict: "user_id,role" },
+    );
+    if (grantError) throw new Error("Unable to grant the Google owner role");
+    return { promoted: true };
   });
 
 /** Superadmin only: list every admin account. */
@@ -194,7 +231,7 @@ export const createSuperadminFn = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
-    ownerOnly(context.claims.email);
+    requireGoogleOwner(context.claims);
     const { toLoginEmail } = await import("./account-id");
     const email = toLoginEmail(data.account).toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -235,7 +272,7 @@ export const removeSuperadminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ userId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
-    ownerOnly(context.claims.email);
+    requireGoogleOwner(context.claims);
     if (data.userId === context.userId) throw new Error("不可移除自己");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin

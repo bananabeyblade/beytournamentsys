@@ -23,7 +23,7 @@ function validate(email: string, password: string, confirm: string) {
  * Walks the referee through creating the very first 總管理者 account.
  */
 export function FirstTimeSetup() {
-  const { currentAdmin, signUp, claimSuperadmin } = useTournament();
+  const { currentAdmin, signUp, claimSuperadmin, signInWithGoogle } = useTournament();
   const [needed, setNeeded] = useState<boolean | null>(null);
   const [step, setStep] = useState(0); // 0 = intro, 1 = form, 2 = done
   const [email, setEmail] = useState("");
@@ -95,7 +95,15 @@ export function FirstTimeSetup() {
             請準備一組常用信箱與至少 8 碼的密碼，稍後可在「我的帳號」隨時修改。
           </p>
           <button
-            onClick={() => setStep(1)}
+            onClick={async () => {
+              setBusy(true);
+              setErr("");
+              const failed = await signInWithGoogle();
+              if (failed) {
+                setErr(failed);
+                setBusy(false);
+              }
+            }}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground"
           >
             開始設定 <ChevronRight className="h-4 w-4" />

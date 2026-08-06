@@ -20,7 +20,7 @@ import {
 import { SAMPLE_NAMES } from "./sample-names";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { bootstrapSuperadminFn, getMyRoleFn } from "./admin.functions";
+import { bootstrapSuperadminFn, getMyRoleFn, promoteGoogleOwnerFn } from "./admin.functions";
 import {
   createTournament,
   fetchTournamentByCode,
@@ -201,6 +201,7 @@ interface Ctx extends TournamentState {
   authReady: boolean;
   setRole: (r: Role) => void;
   signIn: (email: string, password: string) => Promise<string | null>;
+  signInWithGoogle: () => Promise<string | null>;
   signUp: (email: string, password: string) => Promise<string | null>;
   claimSuperadmin: () => Promise<string | null>;
   refreshRole: () => Promise<void>;
@@ -385,6 +386,7 @@ export function TournamentProvider({
       return;
     }
     try {
+      await promoteGoogleOwnerFn();
       const { role: cloudRole } = await getMyRoleFn();
       if (!cloudRole) {
         setCurrentAdmin(null);
@@ -395,6 +397,7 @@ export function TournamentProvider({
         id: user.id,
         email: displayAccount(user.email),
         isSuper: cloudRole === "superadmin",
+        isGoogle: user.app_metadata.provider === "google",
       });
       setRoleState("admin");
     } catch {
@@ -446,6 +449,14 @@ export function TournamentProvider({
     },
     [syncRole],
   );
+
+  const signInWithGoogle = useCallback(async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    return error?.message ?? null;
+  }, []);
 
   const signUp = useCallback(
     async (email: string, password: string) => {
@@ -1310,6 +1321,7 @@ export function TournamentProvider({
     authReady,
     setRole,
     signIn,
+    signInWithGoogle,
     signUp,
     claimSuperadmin,
     refreshRole: syncRole,

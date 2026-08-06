@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { QrCode, Copy, Check, Plus, Flag, Image as ImageIcon, X } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { uploadTournamentLogo } from "@/lib/tournaments";
+import { addRegistration } from "@/lib/registration";
 
 export function QrRegisterCard() {
   const { currentTournament, startNewTournament, currentAdmin, forceFinishTournament } =
@@ -15,6 +16,9 @@ export function QrRegisterCard() {
   const [copied, setCopied] = useState(false);
   const [ending, setEnding] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [confirmBatch, setConfirmBatch] = useState(false);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchResult, setBatchResult] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState("");
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -70,6 +74,32 @@ export function QrRegisterCard() {
     setConfirmEnd(false);
   };
 
+  const addBatchRegistrations = async () => {
+    if (!currentTournament) return;
+    setBatchBusy(true);
+    setBatchResult(null);
+    const batchId = Date.now().toString(36).toUpperCase();
+    let created = 0;
+    let failed = 0;
+
+    for (let index = 1; index <= 64; index += 1) {
+      const testName = `QR測試-${batchId}-${String(index).padStart(2, "0")}`;
+      try {
+        // Use the same public insert function as the QR registration page.
+        await addRegistration(currentTournament.id, testName);
+        created += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+
+    setBatchResult(
+      failed ? `已建立 ${created} 筆測試報名；${failed} 筆失敗。` : `已建立 64 筆測試報名。`,
+    );
+    setBatchBusy(false);
+    setConfirmBatch(false);
+  };
+
   return (
     <div className="panel space-y-3 p-3">
       <h2 className="flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
@@ -113,6 +143,38 @@ export function QrRegisterCard() {
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? "已複製連結" : "複製報名連結"}
           </button>
+          {currentAdmin?.isSuper &&
+            (confirmBatch ? (
+              <div className="space-y-2 rounded-xl border border-primary/50 bg-accent/20 p-3">
+                <p className="text-xs text-muted-foreground">
+                  將以 QR 報名相同的寫入流程，新增 64 筆唯一的測試報名資料。
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setConfirmBatch(false)}
+                    className="min-h-11 rounded-xl border border-border text-sm text-muted-foreground"
+                  >
+                    取消
+                  </button>
+                  <button
+                    disabled={batchBusy}
+                    onClick={() => void addBatchRegistrations()}
+                    className="min-h-11 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
+                  >
+                    {batchBusy ? "建立中…" : "建立 64 筆"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                disabled={batchBusy}
+                onClick={() => setConfirmBatch(true)}
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/30 text-primary disabled:opacity-40"
+              >
+                <Plus className="h-4 w-4" /> 批次建立 64 筆測試報名
+              </button>
+            ))}
+          {batchResult && <p className="text-xs text-primary">{batchResult}</p>}
           {currentAdmin?.isSuper &&
             (confirmEnd ? (
               <div className="space-y-2 rounded-xl border border-destructive/60 bg-destructive/10 p-3">

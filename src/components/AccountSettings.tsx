@@ -24,6 +24,7 @@ interface AdminRow {
 function MyAccount() {
   const { currentAdmin, refreshRole } = useTournament();
   const isSuper = !!currentAdmin?.isSuper;
+  const isGoogle = currentAdmin?.isGoogle === true;
   // Owner-created superadmins may log in with a custom username instead of a real email.
   const usesEmailLogin = isSuper && (currentAdmin?.email ?? "").includes("@");
   const [email, setEmail] = useState(currentAdmin?.email ?? "");
@@ -31,6 +32,18 @@ function MyAccount() {
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
   const [busy, setBusy] = useState(false);
+
+  if (isGoogle) {
+    return (
+      <div className="panel space-y-2 p-3">
+        <h2 className="flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
+          <KeyRound className="h-4 w-4" /> GOOGLE ACCOUNT
+        </h2>
+        <p className="text-sm">已透過 Google 登入：<span className="text-primary">{currentAdmin?.email}</span></p>
+        <p className="text-xs text-muted-foreground">此帳號的登入與密碼設定由 Google 管理。</p>
+      </div>
+    );
+  }
 
   const submit = async () => {
     if (password && password !== confirm) {

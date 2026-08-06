@@ -398,7 +398,9 @@ export function TournamentProvider({
         id: user.id,
         email: displayAccount(user.email),
         isSuper: cloudRole === "superadmin",
-        isGoogle: user.app_metadata.provider === "google",
+        isGoogle:
+          user.app_metadata.provider === "google" ||
+          user.identities?.some((identity) => identity.provider === "google") === true,
       });
       setRoleState("admin");
     } catch {

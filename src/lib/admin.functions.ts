@@ -2,17 +2,53 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { OWNER_EMAIL } from "./account-id";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 
-function isGoogleOwner(claims: unknown): boolean {
-  const data = claims as { email?: unknown; app_metadata?: { provider?: unknown } };
+type OwnerClaims = {
+  email?: unknown;
+  app_metadata?: { provider?: unknown; providers?: unknown };
+};
+
+/**
+ * Lovable OAuth sessions do not always copy `app_metadata.provider` into the
+ * access-token claims. Query the authenticated user as the source of truth,
+ * while retaining the claim check as a fast fallback.
+ */
+async function isGoogleOwner(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  claims: unknown,
+): Promise<boolean> {
+  const data = claims as OwnerClaims;
+  const email = String(data.email ?? "").trim().toLowerCase();
+  if (email !== OWNER_EMAIL) return false;
+
+  const claimProviders = data.app_metadata?.providers;
+  if (
+    data.app_metadata?.provider === "google" ||
+    (Array.isArray(claimProviders) && claimProviders.includes("google"))
+  ) {
+    return true;
+  }
+
+  const { data: auth } = await supabase.auth.getUser();
+  const user = auth.user;
   return (
-    String(data.email ?? "").trim().toLowerCase() === OWNER_EMAIL &&
-    data.app_metadata?.provider === "google"
+    user?.id === userId &&
+    user.email?.trim().toLowerCase() === OWNER_EMAIL &&
+    user.identities?.some((identity) => identity.provider === "google") === true
   );
 }
 
-function requireGoogleOwner(claims: unknown) {
-  if (!isGoogleOwner(claims)) throw new Error("Forbidden: Google owner account required");
+async function requireGoogleOwner(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  claims: unknown,
+) {
+  if (!(await isGoogleOwner(supabase, userId, claims))) {
+    throw new Error("Forbidden: Google owner account required");
+  }
 }
 
 const usernamePassword = z.object({
@@ -39,7 +75,7 @@ export const getMyRoleFn = createServerFn({ method: "GET" })
 export const bootstrapSuperadminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    requireGoogleOwner(context.claims);
+    await requireGoogleOwner(context.supabase, context.userId, context.claims);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { count, error } = await supabaseAdmin
       .from("admin_roles")
@@ -60,7 +96,9 @@ export const bootstrapSuperadminFn = createServerFn({ method: "POST" })
 export const promoteGoogleOwnerFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    if (!isGoogleOwner(context.claims)) return { promoted: false };
+    if (!(await isGoogleOwner(context.supabase, context.userId, context.claims))) {
+      return { promoted: false };
+    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error: removeError } = await supabaseAdmin
@@ -231,7 +269,7 @@ export const createSuperadminFn = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
-    requireGoogleOwner(context.claims);
+    await requireGoogleOwner(context.supabase, context.userId, context.claims);
     const { toLoginEmail } = await import("./account-id");
     const email = toLoginEmail(data.account).toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -272,7 +310,7 @@ export const removeSuperadminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ userId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
-    requireGoogleOwner(context.claims);
+    await requireGoogleOwner(context.supabase, context.userId, context.claims);
     if (data.userId === context.userId) throw new Error("不可移除自己");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin

@@ -8,6 +8,7 @@ import { AdminLoginQrCard } from "./AdminLoginQrCard";
 import { TournamentHistory } from "./TournamentHistory";
 import { AuditLogCard } from "./AuditLogCard";
 import { SystemStatusCard } from "./SystemStatusCard";
+import { AdminPlayerRegistration } from "./AdminPlayerRegistration";
 
 
 export function SettingsTab() {
@@ -151,6 +152,8 @@ export function SettingsTab() {
 
 
       <AccountSettings />
+
+      <AdminPlayerRegistration />
 
       {role === "admin" && <QrRegisterCard />}
 

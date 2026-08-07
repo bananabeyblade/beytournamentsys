@@ -90,7 +90,9 @@ export function MatchHistoryModal({ match, onClose }: { match: Match; onClose: (
             </ul>
           ) : (
             <p className="text-sm text-muted-foreground">
-              此場比賽沒有計分紀錄（輪空或直接晉級）。
+              {match.score1 > 0 || match.score2 > 0
+                ? "此場只有最終比分，逐局計分紀錄未保存。"
+                : "此場沒有計分紀錄（未出賽、輪空或直接晉級）。"}
             </p>
           )}
         </div>

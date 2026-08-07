@@ -6,12 +6,16 @@ import { fetchTournamentByCode, type TournamentRow } from "@/lib/tournaments";
 import { supabase } from "@/integrations/supabase/client";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
-import { JOINED_NAME_KEY, writeJoinedName } from "@/lib/joined-name";
+import {
+  JOINED_NAME_KEY,
+  JOINED_TOURNAMENT_KEY,
+  writeJoinedName,
+  writeJoinedTournamentCode,
+} from "@/lib/joined-name";
 
 /** Name this device registered with, used to detect a rejected sign-up. */
 const readJoined = () =>
   typeof window === "undefined" ? "" : (window.localStorage.getItem(JOINED_NAME_KEY) ?? "");
-
 
 export const Route = createFileRoute("/register")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -37,8 +41,6 @@ export const Route = createFileRoute("/register")({
   component: RegisterPage,
 });
 
-const JOINED_KEY = "beyx-joined";
-
 function RegisterPage() {
   const { t: code } = Route.useSearch();
   const navigate = useNavigate();
@@ -52,7 +54,7 @@ function RegisterPage() {
   // Remember the scanned event so a refresh keeps the waiting screen.
   useEffect(() => {
     if (!code || typeof window === "undefined") return;
-    if (window.localStorage.getItem(JOINED_KEY) === code) setDone(true);
+    if (window.localStorage.getItem(JOINED_TOURNAMENT_KEY) === code) setDone(true);
   }, [code]);
 
   // Once the referee starts the event, viewers jump straight to the live
@@ -76,7 +78,7 @@ function RegisterPage() {
       const stillPending = await isNameTaken(row.id, joined).catch(() => true);
       if (!alive || stillPending) return;
 
-      if (typeof window !== "undefined") window.localStorage.removeItem(JOINED_KEY);
+      if (typeof window !== "undefined") window.localStorage.removeItem(JOINED_TOURNAMENT_KEY);
       writeJoinedName("");
       setErr("報名未被裁判保留，請重新報名。");
       setDone(false);
@@ -100,7 +102,6 @@ function RegisterPage() {
       window.removeEventListener(RECONNECT_EVENT, onBack);
     };
   }, [done, code, navigate]);
-
 
   useEffect(() => {
     let alive = true;
@@ -128,9 +129,7 @@ function RegisterPage() {
       const joinedName = name.trim();
       await addRegistration(tournament.id, name);
       setName("");
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(JOINED_KEY, tournament.code);
-      }
+      writeJoinedTournamentCode(tournament.code);
       writeJoinedName(joinedName);
 
       setDone(true);

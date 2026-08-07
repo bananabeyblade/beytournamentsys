@@ -167,6 +167,10 @@ export type Database = {
         Args: { _stamp: string; _state: Json; _tournament_id: string }
         Returns: undefined
       }
+      reset_tournament_live_state: {
+        Args: { _stamp: string; _table_count: number; _tournament_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "superadmin"

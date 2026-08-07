@@ -47,6 +47,16 @@ export async function publishLiveState(id: string, state: LiveState, stamp?: str
   if (error) throw new Error("同步賽況失敗");
 }
 
+/** Superadmin-only: deliberately clears an open event through a dedicated RPC. */
+export async function resetTournamentLiveState(id: string, tableCount: number, stamp?: string) {
+  const { error } = await supabase.rpc("reset_tournament_live_state", {
+    _tournament_id: id,
+    _table_count: tableCount,
+    _stamp: stamp ?? new Date().toISOString(),
+  });
+  if (error) throw new Error("重置賽事同步失敗");
+}
+
 const COLS =
   "id,code,name,status,results,created_at,finished_at,live_state,live_updated_at,logo_url";
 
@@ -80,7 +90,10 @@ export async function uploadTournamentLogo(file: File): Promise<string> {
 }
 
 /** Admin-only (enforced by row-level policies). Creates a fresh QR session. */
-export async function createTournament(name: string, logoUrl?: string | null): Promise<TournamentRow> {
+export async function createTournament(
+  name: string,
+  logoUrl?: string | null,
+): Promise<TournamentRow> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("請先登入管理者帳號");
   const { data, error } = await supabase

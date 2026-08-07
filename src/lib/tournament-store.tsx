@@ -28,6 +28,7 @@ import {
   fetchLatestOpenTournament,
   finishTournament,
   publishLiveState,
+  resetTournamentLiveState,
   type TournamentResults,
   type TournamentRow,
 } from "./tournaments";
@@ -47,7 +48,6 @@ const SLOW_POLL_MS = 25000;
 const PUBLISH_TAIL_MS = 250;
 /** A held lock is only re-written (and re-synced) once it is this old. */
 const LOCK_RENEW_AFTER_MS = Math.round(LOCK_TTL_MS * 0.6);
-
 
 /** Cloud sync state of the live bracket, surfaced to admins as a badge. */
 export type SyncStatus = "idle" | "syncing" | "synced" | "error";
@@ -147,8 +147,7 @@ function buildBracket(players: Player[]): Match[] {
   // Seats reserved for prelim winners, spread evenly across both halves.
   const spread = seedOrder(first.length);
   const seats: { match: Match; slot: 1 | 2 }[] = [];
-  for (const slot of [1, 2] as const)
-    for (const i of spread) seats.push({ match: first[i], slot });
+  for (const slot of [1, 2] as const) for (const i of spread) seats.push({ match: first[i], slot });
   const reserved = seats.slice(0, playIn);
 
   const prelim: Match[] = reserved.map((seat, i) => {
@@ -194,8 +193,6 @@ function buildBracket(players: Player[]): Match[] {
   return [...(hasPrelim ? prelim : []), ...rounds.flat(), ...third];
 }
 
-
-
 interface Ctx extends TournamentState {
   role: Role;
   currentAdmin: CloudAdmin | null;
@@ -232,7 +229,7 @@ interface Ctx extends TournamentState {
   retrySync: () => void;
   /** True for the platform owner account (john410403123@gmail.com). */
   isOwner: boolean;
-  resetTournament: () => void;
+  resetTournament: () => Promise<string | null>;
   loadSample: () => void;
   currentTournament: TournamentRow | null;
   startNewTournament: (name: string, logoUrl?: string | null) => Promise<string | null>;
@@ -508,8 +505,6 @@ export function TournamentProvider({
     setCurrentTournament(null);
   }, []);
 
-
-
   // Audit trail: every roster/bracket/scoring change is recorded with the
   // acting account so the owner can trace who changed what, and when.
   const auditRef = useRef<{ admin: CloudAdmin | null; tour: TournamentRow | null }>({
@@ -578,24 +573,21 @@ export function TournamentProvider({
   const lockInfo = useCallback((match: Match) => activeLock(match), []);
 
   /** Applies a lock mutation to one match, bumping its revision so it syncs. */
-  const setLock = useCallback(
-    (matchId: string, lock: { by: string; name: string } | null) => {
-      markLocal(matchId);
-      setMatches((prev) =>
-        prev.map((m) =>
-          m.id === matchId
-            ? touchMatch({
-                ...m,
-                lockedBy: lock ? lock.by : null,
-                lockedByName: lock ? lock.name : null,
-                lockedAt: lock ? Date.now() : null,
-              })
-            : m,
-        ),
-      );
-    },
-    [],
-  );
+  const setLock = useCallback((matchId: string, lock: { by: string; name: string } | null) => {
+    markLocal(matchId);
+    setMatches((prev) =>
+      prev.map((m) =>
+        m.id === matchId
+          ? touchMatch({
+              ...m,
+              lockedBy: lock ? lock.by : null,
+              lockedByName: lock ? lock.name : null,
+              lockedAt: lock ? Date.now() : null,
+            })
+          : m,
+      ),
+    );
+  }, []);
 
   const acquireMatchLock = useCallback(
     (matchId: string) => {
@@ -641,7 +633,6 @@ export function TournamentProvider({
     },
     [setLock],
   );
-
 
   const forceUnlockMatch = useCallback(
     (matchId: string) => {
@@ -763,18 +754,20 @@ export function TournamentProvider({
     [log, matchupOf],
   );
 
-  const resetTournament = useCallback(() => {
-    // Publish the cleared state first, otherwise the other admins and the
-    // spectators keep mirroring the old roster / bracket forever.
+  const resetTournament = useCallback(async () => {
+    // A deliberate reset uses a dedicated superadmin-only RPC. Normal sync is
+    // never allowed to replace an existing bracket with an empty snapshot.
     const active = currentTournament;
     if (active) {
       const stamp = new Date().toISOString();
-      lastPayload.current = JSON.stringify({ players: [], matches: [], tableCount });
-      lastPublishedStamp.current = stampOf(active.status, stamp);
-      lastAppliedStamp.current = lastPublishedStamp.current;
-      void publishLiveState(active.id, { players: [], matches: [], tableCount }, stamp).catch(() =>
-        toast.error("同步失敗", { description: "清除結果尚未上傳，請確認網路。" }),
-      );
+      try {
+        await resetTournamentLiveState(active.id, tableCount, stamp);
+        lastPayload.current = JSON.stringify({ players: [], matches: [], tableCount });
+        lastPublishedStamp.current = stampOf(active.status, stamp);
+        lastAppliedStamp.current = lastPublishedStamp.current;
+      } catch (error) {
+        return error instanceof Error ? error.message : "重置賽事同步失敗";
+      }
     }
     log("tournament_reset", { count: playersRef.current.length });
     removedPlayers.current = {};
@@ -788,56 +781,52 @@ export function TournamentProvider({
     setPlayers([]);
     setMatches([]);
     setCurrentTournament(null);
-
+    return null;
   }, [currentTournament, tableCount, log]);
-
 
   const loadSample = useCallback(() => {
     setMatches([]);
     setPlayers(SAMPLE_NAMES.map((name, i) => ({ id: uid(), name, seed: i + 1 })));
   }, []);
 
-  const startNewTournament = useCallback(
-    async (name: string, logoUrl?: string | null) => {
-      const clean = name.trim();
-      if (!clean) return "請輸入賽事名稱";
-      try {
-        const row = await createTournament(clean, logoUrl);
-        setCurrentTournament(row);
-        if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
-        removedPlayers.current = {};
-        // Reset the echo guards so the fresh (empty) event is definitely
-        // published once — otherwise other devices keep the old snapshot.
-        followedId.current = row.id;
-        abandonedId.current = "";
-        lastPayload.current = "";
-        lastPublishedStamp.current = "";
-        lastAppliedStamp.current = "";
-        playersRef.current = [];
-        matchesRef.current = [];
-        setPlayers([]);
-        setMatches([]);
+  const startNewTournament = useCallback(async (name: string, logoUrl?: string | null) => {
+    const clean = name.trim();
+    if (!clean) return "請輸入賽事名稱";
+    try {
+      const row = await createTournament(clean, logoUrl);
+      setCurrentTournament(row);
+      if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      removedPlayers.current = {};
+      // Reset the echo guards so the fresh (empty) event is definitely
+      // published once — otherwise other devices keep the old snapshot.
+      followedId.current = row.id;
+      abandonedId.current = "";
+      lastPayload.current = "";
+      lastPublishedStamp.current = "";
+      lastAppliedStamp.current = "";
+      playersRef.current = [];
+      matchesRef.current = [];
+      setPlayers([]);
+      setMatches([]);
 
-        const admin = auditRef.current.admin;
-        if (admin) {
-          logAction({
-            actorUserId: admin.id,
-            actorEmail: admin.email,
-            action: "tournament_create",
-            detail: { name: row.name },
-            tournamentId: row.id,
-            tournamentName: row.name,
-          });
-        }
-        // Server-confirmed state — safe to publish from now on.
-        hasSyncedOnce.current = true;
-        return null;
-      } catch (e) {
-        return e instanceof Error ? e.message : "建立賽事失敗";
+      const admin = auditRef.current.admin;
+      if (admin) {
+        logAction({
+          actorUserId: admin.id,
+          actorEmail: admin.email,
+          action: "tournament_create",
+          detail: { name: row.name },
+          tournamentId: row.id,
+          tournamentName: row.name,
+        });
       }
-    },
-    [],
-  );
+      // Server-confirmed state — safe to publish from now on.
+      hasSyncedOnce.current = true;
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "建立賽事失敗";
+    }
+  }, []);
 
   /** Switch the admin view back to an existing (in-progress) tournament. */
   const resumeTournament = useCallback(async (code: string) => {
@@ -902,20 +891,16 @@ export function TournamentProvider({
         });
       });
 
-      setMatches(closed);
-      const row = await finishTournament(currentTournament.id, snapshot);
-      setCurrentTournament(row);
-      // Push the closed bracket immediately so spectators/other admins refresh.
+      // Persist the complete closed bracket before changing the status. Once a
+      // tournament is finished, the database rejects every later live write.
       const stamp = new Date().toISOString();
-      lastPublishedStamp.current = stampOf("finished", stamp);
-      lastAppliedStamp.current = lastPublishedStamp.current;
       lastPayload.current = JSON.stringify({ players, matches: closed, tableCount });
-
-      await publishLiveState(
-        currentTournament.id,
-        { players, matches: closed, tableCount },
-        stamp,
-      ).catch(() => undefined);
+      await publishLiveState(currentTournament.id, { players, matches: closed, tableCount }, stamp);
+      const row = await finishTournament(currentTournament.id, snapshot);
+      lastPublishedStamp.current = stampOf("finished", row.live_updated_at ?? stamp);
+      lastAppliedStamp.current = lastPublishedStamp.current;
+      setMatches(closed);
+      setCurrentTournament(row);
       log("tournament_force_finish", { count: players.length });
       return null;
     } catch (e) {
@@ -976,7 +961,6 @@ export function TournamentProvider({
   matchesRef.current = matches;
   tableCountRef.current = tableCount;
 
-
   // Timestamps come back from Postgres as `+00:00` while we send `Z`; compare
   // them as epoch millis so a device never re-applies its own publish (which
   // used to bounce state forever between pull → publish → realtime → pull).
@@ -1018,7 +1002,6 @@ export function TournamentProvider({
       if (stamp === lastPublishedStamp.current || stamp === lastAppliedStamp.current) return;
       lastAppliedStamp.current = stamp;
 
-
       const incoming = {
         players: (row.live_state.players ?? []) as Player[],
         matches: (row.live_state.matches ?? []) as Match[],
@@ -1026,7 +1009,6 @@ export function TournamentProvider({
           typeof row.live_state.tableCount === "number"
             ? row.live_state.tableCount
             : tableCountRef.current,
-
       };
       // Merge the roster by id so a player added here (or by the other admin a
       // moment ago) is never wiped by an older snapshot; deletions stay applied.
@@ -1070,7 +1052,6 @@ export function TournamentProvider({
       hasSyncedOnce.current = true;
     };
     pullRef.current = pull;
-
 
     // Coalesce bursts of realtime events into at most one fetch per window.
     let pullTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1184,7 +1165,6 @@ export function TournamentProvider({
         });
     };
 
-
     const sinceLast = Date.now() - lastPublishAt.current;
     const sinceApply = Date.now() - lastApplyAt.current;
     // Right after applying a cloud snapshot, always take the debounced path so
@@ -1230,8 +1210,6 @@ export function TournamentProvider({
         toast.error("同步失敗", { description: "請確認網路後再試一次。" });
       });
   }, [currentTournament, players, matches, tableCount]);
-
-
 
   const results = useMemo(() => computeTop4(matches, players), [matches, players]);
 
@@ -1316,7 +1294,6 @@ export function TournamentProvider({
     },
     [totalRounds, hasPrelim],
   );
-
 
   const value: Ctx = {
     players,

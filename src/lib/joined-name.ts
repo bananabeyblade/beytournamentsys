@@ -2,6 +2,19 @@ import { useEffect, useState } from "react";
 
 export const JOINED_NAME_KEY = "beyx-joined-name";
 export const JOINED_NAME_EVENT = "beyx-joined-name-change";
+export const JOINED_TOURNAMENT_KEY = "beyx-joined";
+
+export function readJoinedTournamentCode(): string {
+  if (typeof window === "undefined") return "";
+  return (window.localStorage.getItem(JOINED_TOURNAMENT_KEY) ?? "").trim().toUpperCase();
+}
+
+export function writeJoinedTournamentCode(code: string) {
+  if (typeof window === "undefined") return;
+  const clean = code.trim().toUpperCase();
+  if (clean) window.localStorage.setItem(JOINED_TOURNAMENT_KEY, clean);
+  else window.localStorage.removeItem(JOINED_TOURNAMENT_KEY);
+}
 
 function readJoinedName(): string {
   if (typeof window === "undefined") return "";

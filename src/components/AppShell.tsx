@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Swords, GitBranch, Users, Settings, Shield, Eye, QrCode, Moon, Sun } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { LiveTab } from "@/components/LiveTab";
@@ -7,7 +8,7 @@ import { PlayersTab } from "@/components/PlayersTab";
 import { SettingsTab } from "@/components/SettingsTab";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { SyncStatusBadge } from "@/components/SyncStatusBadge";
-import { useJoinedName } from "@/lib/joined-name";
+import { readJoinedTournamentCode, useJoinedName } from "@/lib/joined-name";
 import logoAsset from "@/assets/beyx-logo.png";
 
 const TABS = [
@@ -36,6 +37,7 @@ function readTheme(): Theme {
 }
 
 export function AppShell({ title }: { title?: string }) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<TabId>("live");
   const [theme, setTheme] = useState<Theme>("dark");
   const { role, setRole, currentAdmin, authReady, matches, spectator, currentTournament } =
@@ -43,6 +45,15 @@ export function AppShell({ title }: { title?: string }) {
   const [showLogin, setShowLogin] = useState(false);
   // Spectators arrive via the QR flow; surface the name they registered with.
   const joinedName = useJoinedName();
+
+  // If a participant is dropped back on the home page, restore the QR event
+  // they joined instead of leaving only their name with no bracket attached.
+  useEffect(() => {
+    if (spectator || !authReady || currentAdmin || !joinedName) return;
+    const code = readJoinedTournamentCode();
+    if (!code) return;
+    void navigate({ to: "/watch/$code", params: { code }, replace: true });
+  }, [authReady, currentAdmin, joinedName, navigate, spectator]);
 
   // Remember the last tab so a refresh returns to where the user was.
   useEffect(() => {
@@ -85,7 +96,11 @@ export function AppShell({ title }: { title?: string }) {
           <div className="flex min-w-0 items-center gap-2">
             <img
               src={currentTournament?.logo_url || logoAsset}
-              alt={currentTournament?.logo_url ? `${currentTournament.name} logo` : "竹塹陀螺集會所標誌"}
+              alt={
+                currentTournament?.logo_url
+                  ? `${currentTournament.name} logo`
+                  : "竹塹陀螺集會所標誌"
+              }
               className="h-9 w-9 shrink-0 rounded-lg object-contain"
             />
             <div className="min-w-0">
@@ -129,7 +144,6 @@ export function AppShell({ title }: { title?: string }) {
             )}
           </div>
         </div>
-
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-4">

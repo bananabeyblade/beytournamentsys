@@ -24,6 +24,7 @@ export function usePanZoom() {
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ dist: number; cx: number; cy: number } | null>(null);
   const moved = useRef(false);
+  const dragDistance = useRef(0);
   const lastTap = useRef(0);
   const [zoom, setZoom] = useState(1);
 
@@ -134,6 +135,7 @@ export function usePanZoom() {
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
       pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       moved.current = false;
+      dragDistance.current = 0;
       setBusy(true);
       if (pointers.current.size === 2) {
         const [a, b] = [...pointers.current.values()];
@@ -167,7 +169,10 @@ export function usePanZoom() {
 
       const dx = e.clientX - prev.x;
       const dy = e.clientY - prev.y;
-      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) moved.current = true;
+      dragDistance.current += Math.hypot(dx, dy);
+      // Fingers jitter by a few pixels during an ordinary tap. Only suppress
+      // the match-history click once the gesture is clearly a drag.
+      if (dragDistance.current > 8) moved.current = true;
       commit({ ...view.current, x: view.current.x + dx, y: view.current.y + dy });
     },
     [commit, zoomAt],

@@ -10,7 +10,6 @@ import { AuditLogCard } from "./AuditLogCard";
 import { SystemStatusCard } from "./SystemStatusCard";
 import { AdminPlayerRegistration } from "./AdminPlayerRegistration";
 
-
 export function SettingsTab() {
   const {
     role,
@@ -32,15 +31,15 @@ export function SettingsTab() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetError, setResetError] = useState("");
 
   if (!currentAdmin) {
     return (
       <div className="space-y-4">
         <FirstTimeSetup />
         <div className="panel space-y-3 p-3">
-          <h2 className="text-sm tracking-widest text-muted-foreground">
-            管理者登入 ADMIN LOGIN
-          </h2>
+          <h2 className="text-sm tracking-widest text-muted-foreground">管理者登入 ADMIN LOGIN</h2>
           <button
             disabled={busy}
             onClick={async () => {
@@ -54,7 +53,9 @@ export function SettingsTab() {
             }}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card font-display text-foreground disabled:opacity-50"
           >
-            <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-xs font-bold text-blue-600">G</span>
+            <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-xs font-bold text-blue-600">
+              G
+            </span>
             使用 Google 登入總管理者
           </button>
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
@@ -151,7 +152,6 @@ export function SettingsTab() {
         </button>
       </div>
 
-
       <AccountSettings />
 
       <AdminPlayerRegistration />
@@ -165,7 +165,6 @@ export function SettingsTab() {
       {currentAdmin?.isSuper && <SystemStatusCard />}
 
       <AuditLogCard />
-
 
       {currentAdmin?.isSuper && (
         <div className="panel space-y-3 p-3">
@@ -202,7 +201,10 @@ export function SettingsTab() {
             載入 16 位示範選手
           </button>
           <button
-            onClick={() => setConfirmReset(true)}
+            onClick={() => {
+              setResetError("");
+              setConfirmReset(true);
+            }}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-destructive/60 text-destructive"
           >
             <RotateCcw className="h-4 w-4" /> 重置賽事
@@ -212,26 +214,34 @@ export function SettingsTab() {
               <p className="text-sm text-destructive">
                 確定要重置賽事嗎？這會清除目前賽事的選手、賽程與比分，且無法復原。
               </p>
-              <p className="text-xs text-muted-foreground">
-                請再次按下「確認重置」才會執行。
-              </p>
+              <p className="text-xs text-muted-foreground">請再次按下「確認重置」才會執行。</p>
               <div className="grid grid-cols-2 gap-2">
                 <button
+                  disabled={resetBusy}
                   onClick={() => setConfirmReset(false)}
-                  className="min-h-12 rounded-xl border border-border text-sm text-muted-foreground"
+                  className="min-h-12 rounded-xl border border-border text-sm text-muted-foreground disabled:opacity-40"
                 >
                   取消
                 </button>
                 <button
-                  onClick={() => {
+                  disabled={resetBusy}
+                  onClick={async () => {
+                    setResetBusy(true);
+                    setResetError("");
+                    const failure = await resetTournament();
+                    setResetBusy(false);
+                    if (failure) {
+                      setResetError(failure);
+                      return;
+                    }
                     setConfirmReset(false);
-                    resetTournament();
                   }}
-                  className="min-h-12 rounded-xl bg-destructive font-display text-sm text-foreground"
+                  className="min-h-12 rounded-xl bg-destructive font-display text-sm text-foreground disabled:opacity-40"
                 >
-                  確認重置
+                  {resetBusy ? "重置中…" : "確認重置"}
                 </button>
               </div>
+              {resetError && <p className="text-xs text-destructive">{resetError}</p>}
             </div>
           )}
         </div>

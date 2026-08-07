@@ -238,6 +238,7 @@ interface Ctx extends TournamentState {
   results: TournamentResults | null;
   /** True once the event is archived — scoring and starting bouts are frozen. */
   locked: boolean;
+  rosterLocked: boolean;
   spectator: boolean;
 
   playerName: (id: string | null) => string;
@@ -535,6 +536,10 @@ export function TournamentProvider({
 
   const addPlayers = useCallback(
     (names: string[]) => {
+      if (matchesRef.current.length) {
+        toast.error("賽程已產生，請先重置賽事後再調整選手名單。");
+        return;
+      }
       const clean = names.map((n) => n.trim()).filter(Boolean);
       if (!clean.length) return;
       setPlayers((prev) => [
@@ -548,6 +553,10 @@ export function TournamentProvider({
 
   const removePlayer = useCallback(
     (id: string) => {
+      if (matchesRef.current.length) {
+        toast.error("賽程已產生，請先重置賽事後再調整選手名單。");
+        return;
+      }
       // Tombstone the id so an older cloud snapshot can't resurrect the player.
       removedPlayers.current[id] = Date.now();
       const gone = playersRef.current.find((p) => p.id === id)?.name;
@@ -558,6 +567,10 @@ export function TournamentProvider({
   );
 
   const generateBracket = useCallback(() => {
+    if (matchesRef.current.length) {
+      toast.error("賽程已產生，請先重置賽事後才能重新抽籤。");
+      return;
+    }
     setMatches(buildBracket(players));
     log("bracket_generate", { count: players.length });
   }, [players, log]);
@@ -785,6 +798,10 @@ export function TournamentProvider({
   }, [currentTournament, tableCount, log]);
 
   const loadSample = useCallback(() => {
+    if (matchesRef.current.length) {
+      toast.error("賽程已產生，請先重置賽事後才能載入示範選手。");
+      return;
+    }
     setMatches([]);
     setPlayers(SAMPLE_NAMES.map((name, i) => ({ id: uid(), name, seed: i + 1 })));
   }, []);
@@ -1303,6 +1320,7 @@ export function TournamentProvider({
     forceFinishTournament,
     results,
     locked: !!currentTournament && currentTournament.status !== "open",
+    rosterLocked: matches.length > 0,
 
     matches,
     tableCount,

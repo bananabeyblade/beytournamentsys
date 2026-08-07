@@ -17,7 +17,7 @@ const APPROVE_BATCH = 25;
 
 
 export function PlayersTab() {
-  const { players, addPlayers, removePlayer, role, currentAdmin, currentTournament } =
+  const { players, addPlayers, removePlayer, role, currentAdmin, currentTournament, rosterLocked } =
     useTournament();
   const [single, setSingle] = useState("");
   const [bulk, setBulk] = useState("");
@@ -87,7 +87,7 @@ export function PlayersTab() {
   // of letting the next sync resurrect it and double-add the player.
   const resolve = async (id: string, accept: boolean) => {
     const item = pending.find((r) => r.id === id);
-    if (!currentAdmin || !item || busy) return;
+    if (!currentAdmin || !item || busy || rosterLocked) return;
     setBusy(true);
     try {
       await deleteRegistration(id);
@@ -102,7 +102,7 @@ export function PlayersTab() {
 
   /** One roster update + one cloud publish for the whole waiting list. */
   const approveAll = async () => {
-    if (!currentAdmin || busy || !pending.length) return;
+    if (!currentAdmin || busy || !pending.length || rosterLocked) return;
     setBusy(true);
     const list = [...pending];
     const accepted: string[] = [];
@@ -134,11 +134,13 @@ export function PlayersTab() {
           <div className="flex gap-2">
             <input
               value={single}
+              disabled={rosterLocked}
               onChange={(e) => setSingle(e.target.value)}
               placeholder="選手名稱"
               className="min-h-12 min-w-0 flex-1 rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
             />
             <button
+              disabled={rosterLocked}
               onClick={() => {
                 addPlayers(newNames([single]));
                 setSingle("");
@@ -150,12 +152,14 @@ export function PlayersTab() {
           </div>
           <textarea
             value={bulk}
+            disabled={rosterLocked}
             onChange={(e) => setBulk(e.target.value)}
             rows={4}
             placeholder={"批次新增：一行一位選手\n例如：\n阿翔\n小凱"}
             className="w-full rounded-xl border border-input bg-input/40 p-3 text-sm outline-none focus:border-primary"
           />
           <button
+            disabled={rosterLocked}
             onClick={() => {
               addPlayers(newNames(bulk.split("\n")));
               setBulk("");
@@ -174,7 +178,7 @@ export function PlayersTab() {
           </h2>
           <button
             onClick={approveAll}
-            disabled={busy}
+            disabled={busy || rosterLocked}
             className="mb-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
           >
             <CheckCheck className="h-5 w-5" />
@@ -189,7 +193,7 @@ export function PlayersTab() {
                 <span className="truncate">{r.name}</span>
                 <button
                   aria-label={`加入 ${r.name}`}
-                  disabled={busy}
+                  disabled={busy || rosterLocked}
                   onClick={() => resolve(r.id, true)}
                   className="grid h-10 w-10 place-items-center rounded-lg border border-primary/60 text-primary disabled:opacity-40"
                 >
@@ -197,7 +201,7 @@ export function PlayersTab() {
                 </button>
                 <button
                   aria-label={`拒絕 ${r.name}`}
-                  disabled={busy}
+                  disabled={busy || rosterLocked}
                   onClick={() => resolve(r.id, false)}
                   className="grid h-10 w-10 place-items-center rounded-lg text-destructive disabled:opacity-40"
                 >
@@ -228,6 +232,7 @@ export function PlayersTab() {
                 {role === "admin" && (
                   <button
                     aria-label={`移除 ${p.name}`}
+                    disabled={rosterLocked}
                     onClick={() => removePlayer(p.id)}
                     className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-destructive"
                   >
@@ -241,6 +246,11 @@ export function PlayersTab() {
           <p className="text-sm text-muted-foreground">尚未有選手報名。</p>
         )}
       </div>
+      {role === "admin" && rosterLocked && (
+        <p className="rounded-xl border border-primary/50 bg-accent/20 p-3 text-xs text-primary">
+          賽程已產生，選手名單與待審核報名已鎖定；如需修改，請由總管理者重置賽事後再操作。
+        </p>
+      )}
     </div>
   );
 }

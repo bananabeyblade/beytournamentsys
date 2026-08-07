@@ -24,6 +24,7 @@ export function SettingsTab() {
     resetTournament,
     loadSample,
     players,
+    rosterLocked,
   } = useTournament();
 
   const [u, setU] = useState("");
@@ -188,13 +189,14 @@ export function SettingsTab() {
             </div>
           </div>
           <button
-            disabled={players.length < 2}
+            disabled={players.length < 2 || rosterLocked}
             onClick={generateBracket}
             className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
           >
             <Shuffle className="h-5 w-5" /> 隨機產生賽程 RANDOM BRACKET
           </button>
           <button
+            disabled={rosterLocked}
             onClick={loadSample}
             className="min-h-12 w-full rounded-xl border border-primary/50 bg-accent/30 text-primary"
           >

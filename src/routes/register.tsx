@@ -184,7 +184,7 @@ function RegisterPage() {
             onClick={() => {
               setName("");
               if (typeof window !== "undefined") {
-                window.localStorage.removeItem(JOINED_KEY);
+                window.localStorage.removeItem(JOINED_NAME_KEY);
               }
               writeJoinedName("");
 

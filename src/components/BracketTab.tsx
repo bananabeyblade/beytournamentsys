@@ -63,11 +63,6 @@ const BracketMatchCard = memo(function BracketMatchCard({
           <span className="sr-only">進行中</span>
         </span>
       )}
-      {mine && (
-        <span className="absolute top-0.5 right-1 grid h-3 w-3 place-items-center rounded-full bg-primary text-primary-foreground">
-          <User className="h-2 w-2" />
-        </span>
-      )}
       {([1, 2] as const).map((s) => {
         const pid = s === 1 ? m.p1 : m.p2;
         const isWinner = m.winner != null && m.winner === pid;
@@ -86,6 +81,15 @@ const BracketMatchCard = memo(function BracketMatchCard({
               {seed ?? ""}
             </span>
             <span className="min-w-0 flex-1 truncate">{s === 1 ? name1 : name2}</span>
+            {isMe && (
+              <span
+                title="我的參賽位置"
+                aria-label="我的參賽位置"
+                className="grid h-3 w-3 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground"
+              >
+                <User className="h-2 w-2" />
+              </span>
+            )}
             <span className="font-display w-4 shrink-0 text-right text-[11px]">
               {s === 1 ? m.score1 : m.score2}
             </span>

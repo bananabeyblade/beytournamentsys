@@ -7,15 +7,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import {
-  JOINED_NAME_KEY,
-  JOINED_TOURNAMENT_KEY,
+  clearJoinedRegistration,
+  readJoinedNameForTournament,
   writeJoinedName,
   writeJoinedTournamentCode,
 } from "@/lib/joined-name";
 
 /** Name this device registered with, used to detect a rejected sign-up. */
-const readJoined = () =>
-  typeof window === "undefined" ? "" : (window.localStorage.getItem(JOINED_NAME_KEY) ?? "");
+const readJoined = (code: string) => readJoinedNameForTournament(code);
 
 export const Route = createFileRoute("/register")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -53,8 +52,8 @@ function RegisterPage() {
 
   // Remember the scanned event so a refresh keeps the waiting screen.
   useEffect(() => {
-    if (!code || typeof window === "undefined") return;
-    if (window.localStorage.getItem(JOINED_TOURNAMENT_KEY) === code) setDone(true);
+    if (!code) return;
+    if (readJoined(code)) setDone(true);
   }, [code]);
 
   // Once the referee starts the event, viewers jump straight to the live
@@ -73,13 +72,12 @@ function RegisterPage() {
       }
       // Nothing published yet: if the sign-up row is gone, it was rejected
       // (an approved player would already appear in a published roster).
-      const joined = readJoined();
+      const joined = readJoined(code);
       if (!joined) return;
       const stillPending = await isNameTaken(row.id, joined).catch(() => true);
       if (!alive || stillPending) return;
 
-      if (typeof window !== "undefined") window.localStorage.removeItem(JOINED_TOURNAMENT_KEY);
-      writeJoinedName("");
+      clearJoinedRegistration();
       setErr("報名未被裁判保留，請重新報名。");
       setDone(false);
     };
@@ -183,10 +181,7 @@ function RegisterPage() {
           <button
             onClick={() => {
               setName("");
-              if (typeof window !== "undefined") {
-                window.localStorage.removeItem(JOINED_NAME_KEY);
-              }
-              writeJoinedName("");
+              clearJoinedRegistration();
 
               setDone(false);
             }}

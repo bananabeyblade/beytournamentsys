@@ -346,8 +346,8 @@ function PrelimLinks({
 
 
 export function BracketTab() {
-  const { matches, players, playerName, roundName } = useTournament();
-  const joinedName = useJoinedName();
+  const { matches, players, playerName, roundName, currentTournament } = useTournament();
+  const joinedName = useJoinedName(currentTournament?.code);
   const [openId, setOpenId] = useState<string | null>(null);
   const { viewportRef, contentRef, zoom, zoomBy, reset, fit, didMove, handlers } = usePanZoom();
 

@@ -96,7 +96,7 @@ function MatchCard({
 export function LiveTab() {
   const { matches, tableCount, startMatch, role, results, currentTournament, locked, playerName } =
     useTournament();
-  const joinedName = useJoinedName();
+  const joinedName = useJoinedName(currentTournament?.code);
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [startId, setStartId] = useState<string | null>(null);

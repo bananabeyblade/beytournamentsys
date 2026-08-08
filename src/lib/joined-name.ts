@@ -29,12 +29,26 @@ export function writeJoinedName(name: string) {
   window.dispatchEvent(new Event(JOINED_NAME_EVENT));
 }
 
-/** Name the spectator registered with, kept in sync across tabs and updates. */
-export function useJoinedName(): string {
+/** Remove the QR identity stored for this browser. */
+export function clearJoinedRegistration() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(JOINED_TOURNAMENT_KEY);
+  writeJoinedName("");
+}
+
+/** A participant name is only meaningful inside its exact QR tournament. */
+export function readJoinedNameForTournament(tournamentCode?: string): string {
+  if (!tournamentCode) return "";
+  const expected = tournamentCode.trim().toUpperCase();
+  return readJoinedTournamentCode() === expected ? readJoinedName().trim() : "";
+}
+
+/** Name this browser registered with for the displayed QR tournament. */
+export function useJoinedName(tournamentCode?: string): string {
   const [name, setName] = useState("");
 
   useEffect(() => {
-    const sync = () => setName(readJoinedName());
+    const sync = () => setName(readJoinedNameForTournament(tournamentCode));
     sync();
     window.addEventListener(JOINED_NAME_EVENT, sync);
     window.addEventListener("storage", sync);
@@ -44,7 +58,7 @@ export function useJoinedName(): string {
       window.removeEventListener("storage", sync);
       window.removeEventListener("focus", sync);
     };
-  }, []);
+  }, [tournamentCode]);
 
   return name;
 }

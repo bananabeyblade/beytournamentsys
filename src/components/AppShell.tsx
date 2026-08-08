@@ -8,7 +8,12 @@ import { PlayersTab } from "@/components/PlayersTab";
 import { SettingsTab } from "@/components/SettingsTab";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { SyncStatusBadge } from "@/components/SyncStatusBadge";
-import { readJoinedTournamentCode, useJoinedName } from "@/lib/joined-name";
+import {
+  clearJoinedRegistration,
+  isSameName,
+  readJoinedTournamentCode,
+  useJoinedName,
+} from "@/lib/joined-name";
 import logoAsset from "@/assets/beyx-logo.png";
 
 const TABS = [
@@ -44,16 +49,28 @@ export function AppShell({ title }: { title?: string }) {
     useTournament();
   const [showLogin, setShowLogin] = useState(false);
   // Spectators arrive via the QR flow; surface the name they registered with.
-  const joinedName = useJoinedName();
+  const joinedName = useJoinedName(currentTournament?.code);
 
   // If a participant is dropped back on the home page, restore the QR event
   // they joined instead of leaving only their name with no bracket attached.
   useEffect(() => {
-    if (spectator || !authReady || currentAdmin || !joinedName) return;
+    if (spectator || !authReady || currentAdmin) return;
     const code = readJoinedTournamentCode();
     if (!code) return;
     void navigate({ to: "/watch/$code", params: { code }, replace: true });
-  }, [authReady, currentAdmin, joinedName, navigate, spectator]);
+  }, [authReady, currentAdmin, navigate, spectator]);
+
+  // Clear a browser's old QR identity when the event has started and that
+  // name is not in its published roster. This prevents a stale label from
+  // surviving an old test event indefinitely.
+  useEffect(() => {
+    if (!spectator || !currentTournament?.live_state || !joinedName) return;
+    const exists = currentTournament.live_state.players.some((player) => {
+      const value = player as { name?: unknown };
+      return typeof value.name === "string" && isSameName(value.name, joinedName);
+    });
+    if (!exists) clearJoinedRegistration();
+  }, [currentTournament, joinedName, spectator]);
 
   // Remember the last tab so a refresh returns to where the user was.
   useEffect(() => {

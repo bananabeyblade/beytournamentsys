@@ -12,8 +12,10 @@ import {
   clearJoinedRegistration,
   isSameName,
   readJoinedTournamentCode,
+  readJoinedNameForTournament,
   useJoinedName,
 } from "@/lib/joined-name";
+import { fetchTournamentByCode } from "@/lib/tournaments";
 import logoAsset from "@/assets/beyx-logo.png";
 
 const TABS = [
@@ -51,13 +53,37 @@ export function AppShell({ title }: { title?: string }) {
   // Spectators arrive via the QR flow; surface the name they registered with.
   const joinedName = useJoinedName(currentTournament?.code);
 
-  // If a participant is dropped back on the home page, restore the QR event
-  // they joined instead of leaving only their name with no bracket attached.
+  // Restore a participant only when the saved QR identity still exists in the
+  // event's live roster. A lone old code must never trap the browser in
+  // spectator mode and hide the administrator login.
   useEffect(() => {
     if (spectator || !authReady || currentAdmin) return;
     const code = readJoinedTournamentCode();
+    const name = readJoinedNameForTournament(code);
     if (!code) return;
-    void navigate({ to: "/watch/$code", params: { code }, replace: true });
+    if (!name) {
+      clearJoinedRegistration();
+      return;
+    }
+
+    let alive = true;
+    void fetchTournamentByCode(code)
+      .then((event) => {
+        if (!alive) return;
+        const exists = event?.live_state?.players.some((player) => {
+          const value = player as { name?: unknown };
+          return typeof value.name === "string" && isSameName(value.name, name);
+        });
+        if (exists) {
+          void navigate({ to: "/watch/$code", params: { code }, replace: true });
+        } else {
+          clearJoinedRegistration();
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
   }, [authReady, currentAdmin, navigate, spectator]);
 
   // Clear a browser's old QR identity when the event has started and that

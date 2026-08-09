@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, Trash2, Users, QrCode, Check, CheckCheck } from "lucide-react";
+import { Plus, Trash2, Users, QrCode, Check, CheckCheck, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { useTournament } from "@/lib/tournament-store";
 import {
   fetchRegistrations,
   deleteRegistration,
   deleteRegistrations,
+  fetchParticipantRecoveryCodes,
   type Registration,
+  type ParticipantRecoveryCode,
 } from "@/lib/registration";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -21,6 +23,8 @@ export function PlayersTab() {
   const [single, setSingle] = useState("");
   const [bulk, setBulk] = useState("");
   const [pending, setPending] = useState<Registration[]>([]);
+  const [recoveryCodes, setRecoveryCodes] = useState<ParticipantRecoveryCode[]>([]);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const tournamentId = currentTournament?.id ?? null;
   const playersRef = useRef(players);
@@ -34,8 +38,12 @@ export function PlayersTab() {
     let alive = true;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const sync = () => {
-      fetchRegistrations(tournamentId)
-        .then((list) => alive && setPending(list))
+      Promise.all([fetchRegistrations(tournamentId), fetchParticipantRecoveryCodes(tournamentId)])
+        .then(([registrations, codes]) => {
+          if (!alive) return;
+          setPending(registrations);
+          setRecoveryCodes(codes);
+        })
         .catch(() => undefined);
     };
     // Merge rapid realtime events into a single refetch.
@@ -89,8 +97,11 @@ export function PlayersTab() {
     if (!currentAdmin || !item || busy || rosterLocked) return;
     setBusy(true);
     try {
-      await deleteRegistration(id);
+      await deleteRegistration(id, accept);
       setPending((prev) => prev.filter((r) => r.id !== id));
+      if (!accept) {
+        setRecoveryCodes((prev) => prev.filter((code) => code.name !== item.name));
+      }
       if (accept) addPlayers(newNames([item.name]));
     } catch {
       toast.error("處理失敗，請確認網路後再試一次");
@@ -98,6 +109,13 @@ export function PlayersTab() {
       setBusy(false);
     }
   };
+
+  const selectedPlayer = players.find((player) => player.id === selectedPlayerId) ?? null;
+  const selectedRecoveryCode = selectedPlayer
+    ? recoveryCodes.find(
+        (item) => item.name.trim().toLowerCase() === selectedPlayer.name.trim().toLowerCase(),
+      )
+    : null;
 
   /** One roster update + one cloud publish for the whole waiting list. */
   const approveAll = async () => {
@@ -224,7 +242,15 @@ export function PlayersTab() {
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-primary/40 font-display text-xs text-primary">
                   {p.seed}
                 </span>
-                <span className="truncate">{p.name}</span>
+                <button
+                  type="button"
+                  onClick={() => role === "admin" && setSelectedPlayerId(p.id)}
+                  className="min-w-0 truncate text-left disabled:cursor-default"
+                  disabled={role !== "admin"}
+                  title={role === "admin" ? `查看 ${p.name} 的驗證碼` : undefined}
+                >
+                  {p.name}
+                </button>
                 {role === "admin" && (
                   <button
                     aria-label={`移除 ${p.name}`}
@@ -242,6 +268,22 @@ export function PlayersTab() {
           <p className="text-sm text-muted-foreground">尚未有選手報名。</p>
         )}
       </div>
+      {role === "admin" && selectedPlayer && (
+        <div className="panel space-y-2 border-primary/50 p-3" role="status">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <KeyRound className="h-4 w-4 text-primary" /> {selectedPlayer.name} 的參賽者驗證碼
+          </p>
+          {selectedRecoveryCode ? (
+            <p className="font-display text-2xl tracking-[0.35em] text-primary">
+              {selectedRecoveryCode.code}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              此選手沒有可用驗證碼（手動新增或舊賽事資料）。
+            </p>
+          )}
+        </div>
+      )}
       {role === "admin" && rosterLocked && (
         <p className="rounded-xl border border-primary/50 bg-accent/20 p-3 text-xs text-primary">
           賽程已產生，選手名單與待審核報名已鎖定；如需修改，請由總管理者重置賽事後再操作。

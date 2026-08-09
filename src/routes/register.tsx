@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { UserPlus, Check, AlertTriangle } from "lucide-react";
-import { addRegistration, isNameTaken } from "@/lib/registration";
+import { UserPlus, Check, AlertTriangle, KeyRound } from "lucide-react";
+import { addRegistration, claimParticipantRecoveryCode, isNameTaken } from "@/lib/registration";
 import { fetchTournamentByCode, type TournamentRow } from "@/lib/tournaments";
 import { supabase } from "@/integrations/supabase/client";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
@@ -46,6 +46,8 @@ function RegisterPage() {
   const [tournament, setTournament] = useState<TournamentRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [showRecovery, setShowRecovery] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -125,8 +127,9 @@ function RegisterPage() {
         return;
       }
       const joinedName = name.trim();
-      await addRegistration(tournament.id, name);
+      const generatedCode = await addRegistration(tournament.id, name);
       setName("");
+      setRecoveryCode(generatedCode);
       writeJoinedTournamentCode(tournament.code);
       writeJoinedName(joinedName);
 
@@ -137,6 +140,27 @@ function RegisterPage() {
           ? "這個名稱在本場賽事已經報名過了，請換一個名稱。"
           : "送出失敗，請確認網路後再試一次。",
       );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const recover = async () => {
+    if (!tournament) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const recovered = await claimParticipantRecoveryCode(tournament.id, name, recoveryCode);
+      if (!recovered) {
+        setErr("參賽名稱或 8 碼驗證碼不正確。");
+        return;
+      }
+      writeJoinedTournamentCode(tournament.code);
+      writeJoinedName(name.trim());
+      setRecoveryCode("");
+      setDone(true);
+    } catch {
+      setErr("無法找回參賽身分，請確認網路後再試一次。");
     } finally {
       setBusy(false);
     }
@@ -178,6 +202,19 @@ function RegisterPage() {
             請等待裁判於現場確認加入選手名單，比賽開始後會自動進入賽事畫面。
           </p>
           <p className="text-xs text-primary">等待比賽開始中…</p>
+          {recoveryCode && (
+            <div className="rounded-xl border border-primary/60 bg-accent/30 p-3">
+              <p className="flex items-center justify-center gap-2 text-sm text-primary">
+                <KeyRound className="h-4 w-4" /> 你的參賽者驗證碼
+              </p>
+              <p className="mt-1 font-display text-3xl tracking-[0.32em] text-primary">
+                {recoveryCode}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                請立即截圖保存。若重新整理、換瀏覽器或失去連線，可用此碼找回參賽身分。
+              </p>
+            </div>
+          )}
           <button
             onClick={() => {
               setName("");
@@ -202,6 +239,17 @@ function RegisterPage() {
         </div>
       ) : (
         <div className="panel space-y-3 p-4">
+          <button
+            type="button"
+            onClick={() => {
+              setShowRecovery((value) => !value);
+              setErr(null);
+              setRecoveryCode("");
+            }}
+            className="min-h-11 w-full rounded-xl border border-primary/60 bg-accent/20 text-sm text-primary"
+          >
+            {showRecovery ? "我要新報名" : "已有驗證碼？找回我的參賽身分"}
+          </button>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -216,10 +264,22 @@ function RegisterPage() {
             placeholder="選手名稱 / 暱稱"
             className="min-h-14 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
           />
+          {showRecovery && (
+            <input
+              value={recoveryCode}
+              onChange={(e) => setRecoveryCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={8}
+              autoComplete="one-time-code"
+              placeholder="輸入 8 碼驗證碼"
+              className="min-h-14 w-full rounded-xl border border-input bg-input/40 px-3 font-display tracking-[0.2em] outline-none focus:border-primary"
+            />
+          )}
           {err && <p className="text-sm text-destructive">{err}</p>}
           <button
-            disabled={!name.trim() || busy}
-            onClick={submit}
+            disabled={!name.trim() || busy || (showRecovery && recoveryCode.length !== 8)}
+            onClick={() => void (showRecovery ? recover() : submit())}
             className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
           >
             <UserPlus className="h-5 w-5" /> {busy ? "送出中…" : "送出報名"}

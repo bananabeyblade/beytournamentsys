@@ -102,6 +102,38 @@ export type Database = {
           },
         ];
       };
+      participant_recovery_codes: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+          recovery_code: string;
+          tournament_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+          recovery_code: string;
+          tournament_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+          recovery_code?: string;
+          tournament_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "participant_recovery_codes_tournament_id_fkey";
+            columns: ["tournament_id"];
+            isOneToOne: false;
+            referencedRelation: "tournaments";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tournaments: {
         Row: {
           code: string;
@@ -113,6 +145,7 @@ export type Database = {
           live_updated_at: string | null;
           logo_url: string | null;
           name: string;
+          recovery_code_prefix: string;
           results: Json | null;
           status: string;
         };
@@ -126,6 +159,7 @@ export type Database = {
           live_updated_at?: string | null;
           logo_url?: string | null;
           name: string;
+          recovery_code_prefix?: string;
           results?: Json | null;
           status?: string;
         };
@@ -139,6 +173,7 @@ export type Database = {
           live_updated_at?: string | null;
           logo_url?: string | null;
           name?: string;
+          recovery_code_prefix?: string;
           results?: Json | null;
           status?: string;
         };
@@ -157,6 +192,14 @@ export type Database = {
         Returns: boolean;
       };
       is_any_admin: { Args: { _user_id: string }; Returns: boolean };
+      claim_participant_recovery_code: {
+        Args: { _name: string; _recovery_code: string; _tournament_id: string };
+        Returns: boolean;
+      };
+      create_registration_with_recovery_code: {
+        Args: { _name: string; _tournament_id: string };
+        Returns: string;
+      };
       publish_live_state: {
         Args: { _stamp: string; _state: Json; _tournament_id: string };
         Returns: undefined;

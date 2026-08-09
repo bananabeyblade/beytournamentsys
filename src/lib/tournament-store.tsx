@@ -197,6 +197,8 @@ interface Ctx extends TournamentState {
   role: Role;
   currentAdmin: CloudAdmin | null;
   authReady: boolean;
+  /** Explains why a signed-in account could not enter the admin console. */
+  authIssue: string | null;
   setRole: (r: Role) => void;
   signIn: (email: string, password: string) => Promise<string | null>;
   signInWithGoogle: () => Promise<string | null>;
@@ -375,14 +377,22 @@ export function TournamentProvider({
   const [role, setRoleState] = useState<Role>("player");
   const [currentAdmin, setCurrentAdmin] = useState<CloudAdmin | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [authIssue, setAuthIssue] = useState<string | null>(null);
 
   const syncRole = useCallback(async () => {
-    const { data } = await supabase.auth.getUser();
+    const { data, error: userError } = await supabase.auth.getUser();
     const user = data.user;
+    if (userError) {
+      setCurrentAdmin(null);
+      setRoleState("player");
+      setAuthIssue("無法讀取登入狀態，請重新登入後再試一次。");
+      return "error" as const;
+    }
     if (!user) {
       setCurrentAdmin(null);
       setRoleState("player");
-      return;
+      setAuthIssue(null);
+      return "signed_out" as const;
     }
     try {
       await promoteGoogleOwnerFn();
@@ -390,7 +400,8 @@ export function TournamentProvider({
       if (!cloudRole) {
         setCurrentAdmin(null);
         setRoleState("player");
-        return;
+        setAuthIssue("此帳號已登入，但尚未取得管理者權限。請使用核准的管理者帳號登入。");
+        return "not_authorized" as const;
       }
       setCurrentAdmin({
         id: user.id,
@@ -401,9 +412,17 @@ export function TournamentProvider({
           user.identities?.some((identity) => identity.provider === "google") === true,
       });
       setRoleState("admin");
-    } catch {
+      setAuthIssue(null);
+      return "admin" as const;
+    } catch (error) {
       setCurrentAdmin(null);
       setRoleState("player");
+      setAuthIssue(
+        error instanceof Error && error.message
+          ? `管理者權限驗證失敗：${error.message}`
+          : "管理者權限驗證失敗，請重新登入後再試一次。",
+      );
+      return "error" as const;
     }
   }, []);
 
@@ -445,8 +464,8 @@ export function TournamentProvider({
         }
       }
       if (failed) return "帳號或密碼錯誤";
-      await syncRole();
-      return null;
+      const result = await syncRole();
+      return result === "admin" ? null : "登入成功，但此帳號沒有管理者權限。";
     },
     [syncRole],
   );
@@ -455,7 +474,8 @@ export function TournamentProvider({
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: window.location.origin,
     });
-    return result.error?.message ?? null;
+    if (result.error) return result.error.message;
+    return result.redirected ? null : "Google 登入未能啟動，請重新嘗試。";
   }, []);
 
   const signUp = useCallback(
@@ -1328,12 +1348,15 @@ export function TournamentProvider({
     currentAdmin: spectator ? null : currentAdmin,
 
     authReady,
+    authIssue: spectator ? null : authIssue,
     setRole,
     signIn,
     signInWithGoogle,
     signUp,
     claimSuperadmin,
-    refreshRole: syncRole,
+    refreshRole: async () => {
+      await syncRole();
+    },
     logout,
 
     addPlayers,

@@ -15,6 +15,7 @@ export function SettingsTab() {
     role,
     setRole,
     currentAdmin,
+    authIssue,
     signIn,
     signInWithGoogle,
     logout,
@@ -82,7 +83,7 @@ export function SettingsTab() {
             autoComplete="current-password"
             className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
           />
-          {err && <p className="text-xs text-destructive">{err}</p>}
+          {(err || authIssue) && <p className="text-xs text-destructive">{err || authIssue}</p>}
           <button
             disabled={busy}
             onClick={async () => {

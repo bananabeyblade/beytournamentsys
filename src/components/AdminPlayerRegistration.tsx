@@ -70,7 +70,10 @@ export function AdminPlayerRegistration() {
     } catch (error) {
       setMessage({
         ok: false,
-        text: error instanceof Error && error.message === "DUPLICATE" ? "這個名稱已在本場賽事報名。" : "報名失敗，請再試一次。",
+        text:
+          error instanceof Error && error.message === "DUPLICATE"
+            ? "這個名稱已在本場賽事報名。"
+            : "報名失敗，請再試一次。",
       });
     } finally {
       setBusy(false);
@@ -93,7 +96,11 @@ export function AdminPlayerRegistration() {
         placeholder="例如：John"
         className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
       />
-      {message && <p className={`text-xs ${message.ok ? "text-primary" : "text-destructive"}`}>{message.text}</p>}
+      {message && (
+        <p className={`text-xs ${message.ok ? "text-primary" : "text-destructive"}`}>
+          {message.text}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"

@@ -138,7 +138,13 @@ export function SystemStatusCard() {
       : `異常 ${status.errorCode ?? ""}`.trim()
     : "檢查中";
 
-  const superTone: Tone = !status ? "warn" : !status.dbOk ? "bad" : status.superadminExists ? "ok" : "warn";
+  const superTone: Tone = !status
+    ? "warn"
+    : !status.dbOk
+      ? "bad"
+      : status.superadminExists
+        ? "ok"
+        : "warn";
   const superValue = !status
     ? "檢查中"
     : !status.dbOk
@@ -150,8 +156,7 @@ export function SystemStatusCard() {
   const netTone: Tone = !online ? "bad" : justReconnected ? "warn" : "ok";
   const netValue = !online ? "離線" : justReconnected ? "剛恢復" : "已連線";
 
-  const syncTone: Tone =
-    syncStatus === "error" ? "bad" : syncStatus === "syncing" ? "warn" : "ok";
+  const syncTone: Tone = syncStatus === "error" ? "bad" : syncStatus === "syncing" ? "warn" : "ok";
   const syncValue =
     syncStatus === "error"
       ? "同步失敗"

@@ -3,7 +3,6 @@ import { LogIn, LogOut } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
-
 export function AdminAuthPanel() {
   const { currentAdmin, signIn, logout } = useTournament();
 
@@ -34,9 +33,7 @@ export function AdminAuthPanel() {
   return (
     <div className="space-y-4">
       <div className="panel space-y-3 p-3">
-        <h2 className="text-sm tracking-widest text-muted-foreground">
-          管理者登入 ADMIN LOGIN
-        </h2>
+        <h2 className="text-sm tracking-widest text-muted-foreground">管理者登入 ADMIN LOGIN</h2>
         <input
           value={u}
           onChange={(e) => setU(e.target.value)}

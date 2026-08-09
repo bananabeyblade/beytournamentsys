@@ -17,7 +17,6 @@ function roundLabel(round: number, total: number, hasPrelim: boolean) {
   return `第 ${hasPrelim ? round : round + 1} 輪`;
 }
 
-
 const ORDINAL = ["1st", "2nd", "3rd", "4th"];
 
 /** Builds a shareable plain-text record of a tournament (podium, roster, per-point log). */

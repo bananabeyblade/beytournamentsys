@@ -84,10 +84,6 @@ In the Referee Scoring Modal (Admin Only):
 
 - Fully interactive in-memory state (useState / Context) so everything works out-of-the-box in preview mode.
 
-
-
-
-
 備注：
 
 1.
@@ -100,27 +96,15 @@ In the Referee Scoring Modal (Admin Only):
 
 迴轉勝利 (Spin Finish)：得 1分。對手陀螺先停止旋轉。
 
-
-
 2. 參賽者賽程亂數產生
-
-
 
 3. 限制隨機賽程按鈕僅在管理者模式顯示，參賽者模式改為唯讀。
 
-
-
 4. 要有即時賽況在賽程表介面，如：比賽中、得分情況…
-
-
 
 5. 賽事生成介面要有桌數數量設定，不同桌號的管理者可以點選尚未完成的比賽
 
-
-
 6. 不同桌的管理者點選比賽開始才會顯示比賽中
-
-
 
 7.管理者需要帳號密碼登入，可自行設定帳號密碼，設置一個總管理者，只能由總管理者新增減少管理者
 

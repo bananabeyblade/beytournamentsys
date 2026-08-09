@@ -6,7 +6,6 @@ import {
 } from "./registrations.functions";
 import { nameTakenFn } from "./registration-check.functions";
 
-
 export interface Registration {
   id: string;
   name: string;
@@ -52,4 +51,3 @@ export async function deleteRegistrations(ids: string[]) {
   if (!ids.length) return;
   await deleteRegistrationsFn({ data: { ids } });
 }
-

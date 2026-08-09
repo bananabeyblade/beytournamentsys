@@ -19,4 +19,3 @@ export const superadminExistsFn = createServerFn({ method: "GET" }).handler(asyn
   }
   return { exists: (data?.length ?? 0) > 0 };
 });
-

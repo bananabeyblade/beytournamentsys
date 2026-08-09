@@ -6,7 +6,7 @@ import { z } from "zod";
  * Returns a boolean only — no registration data is exposed.
  */
 export const nameTakenFn = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z
       .object({ tournamentId: z.string().uuid(), name: z.string().trim().min(1).max(40) })
       .parse(data),

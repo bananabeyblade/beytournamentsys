@@ -3,7 +3,6 @@ import { RotateCcw, X, Trophy, Lock, Unlock } from "lucide-react";
 import { FINISHES, WIN_TARGET, type Match } from "@/lib/tournament-types";
 import { useTournament } from "@/lib/tournament-store";
 
-
 const toneClass: Record<string, string> = {
   spin: "bg-spin/20 border-spin text-spin",
   over: "bg-over/20 border-over text-over",
@@ -74,7 +73,6 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   const frozen = reached || locked || heldByOther;
   const winnerName = match.score1 >= WIN_TARGET ? playerName(match.p1) : playerName(match.p2);
 
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/85 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="panel neon-edge max-h-[94vh] w-full overflow-y-auto rounded-b-none p-4 sm:max-w-lg sm:rounded-2xl">
@@ -143,9 +141,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
             <p className="flex items-center gap-2 font-semibold text-destructive">
               <Lock className="h-4 w-4" /> {held?.name} 正在計分，此局暫為唯讀
             </p>
-            <p className="mt-1 text-muted-foreground">
-              對方關閉計分視窗或斷線 30 秒後會自動解鎖。
-            </p>
+            <p className="mt-1 text-muted-foreground">對方關閉計分視窗或斷線 30 秒後會自動解鎖。</p>
             {isOwner && (
               <button
                 onClick={() => forceUnlockMatch(match.id)}
@@ -162,7 +158,6 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
         )}
 
         {reached && !locked && !heldByOther && (
-
           <div className="mt-4 rounded-xl border-2 border-primary bg-accent/40 p-4 text-center neon-edge">
             <Trophy className="mx-auto h-8 w-8 text-primary" />
             <p className="mt-2 font-display text-lg neon-text">{winnerName} Wins!</p>

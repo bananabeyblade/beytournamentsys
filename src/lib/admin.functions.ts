@@ -21,7 +21,9 @@ async function isGoogleOwner(
   claims: unknown,
 ): Promise<boolean> {
   const data = claims as OwnerClaims;
-  const email = String(data.email ?? "").trim().toLowerCase();
+  const email = String(data.email ?? "")
+    .trim()
+    .toLowerCase();
   if (email !== OWNER_EMAIL) return false;
 
   const claimProviders = data.app_metadata?.providers;
@@ -109,10 +111,12 @@ export const promoteGoogleOwnerFn = createServerFn({ method: "POST" })
       .neq("user_id", context.userId);
     if (removeError) throw new Error("Unable to replace the legacy owner role");
 
-    const { error: grantError } = await supabaseAdmin.from("admin_roles").upsert(
-      { user_id: context.userId, email: OWNER_EMAIL, role: "superadmin" },
-      { onConflict: "user_id,role" },
-    );
+    const { error: grantError } = await supabaseAdmin
+      .from("admin_roles")
+      .upsert(
+        { user_id: context.userId, email: OWNER_EMAIL, role: "superadmin" },
+        { onConflict: "user_id,role" },
+      );
     if (grantError) throw new Error("Unable to grant the Google owner role");
     return { promoted: true };
   });
@@ -135,7 +139,7 @@ export const listAdminsFn = createServerFn({ method: "GET" })
 /** Superadmin only: create a cloud admin account. */
 export const createAdminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => usernamePassword.parse(data))
+  .validator((data: unknown) => usernamePassword.parse(data))
   .handler(async ({ data, context }) => {
     const { requireAdmin, friendlyAuthError } = await import("./admin.server");
     await requireAdmin(context.supabase, context.userId, true);
@@ -160,7 +164,10 @@ export const createAdminFn = createServerFn({ method: "POST" })
         .eq("user_id", existing.id);
       const held = (roles.data ?? []).map((r) => String(r.role));
       if (held.includes("superadmin")) {
-        return { ok: false as const, message: "此帳號已存在（目前為總管理者），請改用其他帳號名稱" };
+        return {
+          ok: false as const,
+          message: "此帳號已存在（目前為總管理者），請改用其他帳號名稱",
+        };
       }
       if (held.includes("admin")) {
         return {
@@ -195,14 +202,12 @@ export const createAdminFn = createServerFn({ method: "POST" })
     });
     if (error) return { ok: false as const, message: "授予管理者權限失敗" };
     return { ok: true as const };
-
   });
-
 
 /** Superadmin only: reset another admin's password. */
 export const setAdminPasswordFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z
       .object({
         userId: z.string().uuid(),
@@ -225,7 +230,7 @@ export const setAdminPasswordFn = createServerFn({ method: "POST" })
 /** Superadmin only: revoke an admin (superadmins cannot be revoked here). */
 export const removeAdminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ userId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ userId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
     const { requireAdmin } = await import("./admin.server");
     await requireAdmin(context.supabase, context.userId, true);
@@ -250,7 +255,7 @@ const ownerOnly = (email: unknown) => {
 /** Owner only: create another superadmin (email or custom username login). */
 export const createSuperadminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z
       .object({
         account: z
@@ -308,7 +313,7 @@ export const createSuperadminFn = createServerFn({ method: "POST" })
 /** Owner only: revoke a superadmin (the owner cannot be revoked). */
 export const removeSuperadminFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ userId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ userId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
     await requireGoogleOwner(context.supabase, context.userId, context.claims);
     if (data.userId === context.userId) throw new Error("不可移除自己");

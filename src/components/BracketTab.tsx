@@ -343,8 +343,6 @@ function PrelimLinks({
   );
 }
 
-
-
 export function BracketTab() {
   const { matches, players, playerName, roundName, currentTournament } = useTournament();
   const joinedName = useJoinedName(currentTournament?.code);
@@ -455,7 +453,9 @@ export function BracketTab() {
         const gi = body[0].cards.findIndex((c) => c.match.id === targetId);
         if (gi < 0) continue;
         const isLeft = gi < split;
-        const targetY = isLeft ? (leftYs[0]?.[gi] ?? height / 2) : (rightYs[0]?.[gi - split] ?? height / 2);
+        const targetY = isLeft
+          ? (leftYs[0]?.[gi] ?? height / 2)
+          : (rightYs[0]?.[gi - split] ?? height / 2);
         list.forEach((card, k) => {
           const y = targetY + (k - (list.length - 1) / 2) * PITCH;
           (isLeft ? prelimLeft : prelimRight).push({ card, y, targetY });
@@ -477,7 +477,7 @@ export function BracketTab() {
       prelimLeft,
       prelimRight,
     };
-  }, [rounds, prelimRound]);
+  }, [rounds, prelimRound, bronze]);
 
   const flatHeight = PITCH * Math.max(1, rounds[0]?.cards.length ?? 1);
   const flatYs = useMemo(
@@ -488,7 +488,6 @@ export function BracketTab() {
       ),
     [rounds, flatHeight],
   );
-
 
   // Fit the whole tree into the viewport whenever its shape changes.
   useEffect(() => {
@@ -572,7 +571,6 @@ export function BracketTab() {
                 </div>
               )}
               {layout.left.map((r, i) => (
-
                 <div key={`l${r.round}`} className="flex">
                   <Column
                     label={r.label}
@@ -653,7 +651,6 @@ export function BracketTab() {
                 </div>
               )}
             </>
-
           ) : (
             rounds.map((r, i) => (
               <Column

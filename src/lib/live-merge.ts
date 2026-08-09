@@ -22,8 +22,7 @@ export function mergePlayers(
   const seeded = out.map((p, i) => (p.seed === i + 1 ? p : { ...p, seed: i + 1 }));
   // Nothing actually changed → hand back the local array so React (and the
   // publish loop) sees a stable identity instead of a fake edit.
-  const same =
-    seeded.length === local.length && seeded.every((p, i) => p === local[i]);
+  const same = seeded.length === local.length && seeded.every((p, i) => p === local[i]);
   return same ? local : seeded;
 }
 

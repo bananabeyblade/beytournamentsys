@@ -39,7 +39,9 @@ function MyAccount() {
         <h2 className="flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
           <KeyRound className="h-4 w-4" /> GOOGLE ACCOUNT
         </h2>
-        <p className="text-sm">已透過 Google 登入：<span className="text-primary">{currentAdmin?.email}</span></p>
+        <p className="text-sm">
+          已透過 Google 登入：<span className="text-primary">{currentAdmin?.email}</span>
+        </p>
         <p className="text-xs text-muted-foreground">此帳號的登入與密碼設定由 Google 管理。</p>
       </div>
     );
@@ -165,9 +167,7 @@ function ManageAdmins() {
       return;
     }
     // Catch duplicates before hitting the server so the user gets a clear hint.
-    const clash = rows.find(
-      (r) => displayAccount(r.email).toLowerCase() === account.toLowerCase(),
-    );
+    const clash = rows.find((r) => displayAccount(r.email).toLowerCase() === account.toLowerCase());
     if (clash) {
       setMsg({
         ok: false,
@@ -193,7 +193,6 @@ function ManageAdmins() {
       setMsg({ ok: false, text: e instanceof Error ? e.message : "建立失敗" });
     }
     setBusy(false);
-
   };
 
   const resetPassword = async (userId: string) => {

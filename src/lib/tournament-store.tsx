@@ -939,7 +939,7 @@ export function TournamentProvider({
     return () => {
       alive = false;
     };
-  }, []);
+  }, [spectator]);
 
   // Every signed-in admin (not just the creator) follows the current event:
   // pick up the newest open tournament and mirror its published bracket.

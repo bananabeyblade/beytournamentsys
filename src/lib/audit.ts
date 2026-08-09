@@ -73,14 +73,14 @@ export function describeEntry(e: AuditEntry): string {
   const label = AUDIT_LABELS[e.action as AuditAction] ?? e.action;
   const d = (e.detail ?? {}) as Record<string, unknown>;
   const bits: string[] = [];
-  if (typeof d['name'] === "string") bits.push(String(d['name']));
-  if (Array.isArray(d['names'])) bits.push((d['names'] as unknown[]).join("、"));
-  if (typeof d['count'] === "number") bits.push(`${d['count']} 人`);
-  if (typeof d['round'] === "string") bits.push(String(d['round']));
-  if (typeof d['table'] === "number") bits.push(`桌 ${d['table']}`);
-  if (typeof d['matchup'] === "string") bits.push(String(d['matchup']));
-  if (typeof d['finish'] === "string") bits.push(String(d['finish']));
-  if (typeof d['score'] === "string") bits.push(String(d['score']));
-  if (typeof d['winner'] === "string") bits.push(`勝者 ${d['winner']}`);
+  if (typeof d["name"] === "string") bits.push(String(d["name"]));
+  if (Array.isArray(d["names"])) bits.push((d["names"] as unknown[]).join("、"));
+  if (typeof d["count"] === "number") bits.push(`${d["count"]} 人`);
+  if (typeof d["round"] === "string") bits.push(String(d["round"]));
+  if (typeof d["table"] === "number") bits.push(`桌 ${d["table"]}`);
+  if (typeof d["matchup"] === "string") bits.push(String(d["matchup"]));
+  if (typeof d["finish"] === "string") bits.push(String(d["finish"]));
+  if (typeof d["score"] === "string") bits.push(String(d["score"]));
+  if (typeof d["winner"] === "string") bits.push(`勝者 ${d["winner"]}`);
   return bits.length ? `${label} · ${bits.join(" · ")}` : label;
 }

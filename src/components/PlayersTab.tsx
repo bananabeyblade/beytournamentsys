@@ -15,7 +15,6 @@ const REFRESH_THROTTLE_MS = 1000;
 /** Sign-ups cleared per request when approving the whole waiting list. */
 const APPROVE_BATCH = 25;
 
-
 export function PlayersTab() {
   const { players, addPlayers, removePlayer, role, currentAdmin, currentTournament, rosterLocked } =
     useTournament();
@@ -124,8 +123,6 @@ export function PlayersTab() {
     setBusy(false);
   };
 
-
-
   return (
     <div className="space-y-4">
       {role === "admin" && (
@@ -207,7 +204,6 @@ export function PlayersTab() {
                 >
                   <Trash2 className="h-5 w-5" />
                 </button>
-
               </li>
             ))}
           </ul>

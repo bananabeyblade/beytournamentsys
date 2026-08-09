@@ -5,7 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 /** Admins only: list pending QR sign-ups for one tournament. */
 export const listRegistrationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ tournamentId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ tournamentId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
     const { requireAdmin } = await import("./admin.server");
     await requireAdmin(context.supabase, context.userId);
@@ -21,7 +21,7 @@ export const listRegistrationsFn = createServerFn({ method: "POST" })
 /** Admins only: approve (after adding the player) or reject a sign-up. */
 export const deleteRegistrationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
+  .validator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
     const { requireAdmin } = await import("./admin.server");
     await requireAdmin(context.supabase, context.userId);
@@ -34,7 +34,7 @@ export const deleteRegistrationFn = createServerFn({ method: "POST" })
 /** Admins only: clear a whole batch of sign-ups in one round trip. */
 export const deleteRegistrationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) =>
+  .validator((data: unknown) =>
     z.object({ ids: z.array(z.string().uuid()).min(1).max(200) }).parse(data),
   )
   .handler(async ({ data, context }) => {
@@ -45,4 +45,3 @@ export const deleteRegistrationsFn = createServerFn({ method: "POST" })
     if (error) throw new Error("刪除失敗");
     return { ok: true, count: data.ids.length };
   });
-

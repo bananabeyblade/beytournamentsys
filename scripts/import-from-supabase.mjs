@@ -4,24 +4,64 @@ import { createClient } from "@supabase/supabase-js";
 const apply = process.argv.includes("--apply");
 const sourceUrl = process.env.SOURCE_SUPABASE_URL;
 const sourceKey = process.env.SOURCE_SUPABASE_SERVICE_ROLE_KEY;
+const sourceExportUrl = process.env.SOURCE_EXPORT_URL;
+const sourceExportSecret = process.env.SOURCE_EXPORT_SECRET;
 const databaseUrl = process.env.DATABASE_URL;
 
-if (!sourceUrl || !sourceKey || !databaseUrl) {
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is required.");
+}
+
+const useExportEndpoint = Boolean(sourceExportUrl || sourceExportSecret);
+if (useExportEndpoint && (!sourceExportUrl || !sourceExportSecret)) {
+  throw new Error("SOURCE_EXPORT_URL and SOURCE_EXPORT_SECRET must be set together.");
+}
+
+if (!useExportEndpoint && (!sourceUrl || !sourceKey)) {
   throw new Error(
-    "SOURCE_SUPABASE_URL, SOURCE_SUPABASE_SERVICE_ROLE_KEY, and DATABASE_URL are required.",
+    "Configure either SOURCE_EXPORT_URL + SOURCE_EXPORT_SECRET, or SOURCE_SUPABASE_URL + SOURCE_SUPABASE_SERVICE_ROLE_KEY.",
   );
 }
 
-const source = createClient(sourceUrl, sourceKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
 const target = new pg.Client({ connectionString: databaseUrl });
+let source;
+
+function sourceClient() {
+  if (!source) {
+    source = createClient(sourceUrl, sourceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return source;
+}
+
+async function readFromExportEndpoint() {
+  const response = await fetch(sourceExportUrl, {
+    headers: {
+      Authorization: `Bearer ${sourceExportSecret}`,
+      Accept: "application/json",
+    },
+  });
+  if (!response.ok) throw new Error(`Source export endpoint returned ${response.status}.`);
+  const payload = await response.json();
+  if (!payload || typeof payload !== "object")
+    throw new Error("Source export returned invalid JSON.");
+  const { tournaments, registrations, recoveryCodes } = payload;
+  if (
+    !Array.isArray(tournaments) ||
+    !Array.isArray(registrations) ||
+    !Array.isArray(recoveryCodes)
+  ) {
+    throw new Error("Source export response is missing one or more data sets.");
+  }
+  return { tournaments, registrations, recoveryCodes };
+}
 
 async function readAll(table, columns) {
   const pageSize = 1000;
   const rows = [];
   for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await source
+    const { data, error } = await sourceClient()
       .from(table)
       .select(columns)
       .range(offset, offset + pageSize - 1);
@@ -31,19 +71,25 @@ async function readAll(table, columns) {
   }
 }
 
-const [tournaments, registrations, recoveryCodes] = await Promise.all([
-  readAll(
-    "tournaments",
-    "id,code,name,status,results,live_state,live_updated_at,logo_url,created_at,finished_at,recovery_code_prefix",
-  ),
-  readAll("registrations", "id,tournament_id,name,created_at"),
-  readAll("participant_recovery_codes", "id,tournament_id,name,recovery_code,created_at"),
-]);
+const { tournaments, registrations, recoveryCodes } = useExportEndpoint
+  ? await readFromExportEndpoint()
+  : {
+      tournaments: await readAll(
+        "tournaments",
+        "id,code,name,status,results,live_state,live_updated_at,logo_url,created_at,finished_at,recovery_code_prefix",
+      ),
+      registrations: await readAll("registrations", "id,tournament_id,name,created_at"),
+      recoveryCodes: await readAll(
+        "participant_recovery_codes",
+        "id,tournament_id,name,recovery_code,created_at",
+      ),
+    };
 
 console.log(
   JSON.stringify(
     {
       mode: apply ? "apply" : "dry-run",
+      sourceMethod: useExportEndpoint ? "protected-export-endpoint" : "supabase-service-key",
       source: {
         tournaments: tournaments.length,
         registrations: registrations.length,

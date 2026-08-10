@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "vite dev",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && vite build",
+    "build": "vite build && npm run typecheck",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:migrate": "node scripts/migrate-postgres.mjs",
+    "db:check": "node scripts/check-postgres.mjs"
   },
   "dependencies": {
     "@lovable.dev/cloud-auth-js": "^1.1.2",
@@ -23,6 +25,7 @@
     "@types/qrcode": "^1.5.6",
     "clsx": "^2.1.1",
     "lucide-react": "^0.575.0",
+    "pg": "^8.16.3",
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -37,6 +40,7 @@
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "2.9.1",
     "@types/node": "^22.16.5",
+    "@types/pg": "^8.15.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",

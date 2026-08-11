@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { railwayApi, railwayAuthEnabled } from "./railway-api";
 
 export interface Top4Entry {
   rank: number;
@@ -38,6 +39,13 @@ export interface LiveState {
  * two referees scoring different tables at once never overwrite each other.
  */
 export async function publishLiveState(id: string, state: LiveState, stamp?: string) {
+  if (railwayAuthEnabled) {
+    await railwayApi("/api/admin/publish", {
+      method: "POST",
+      body: JSON.stringify({ id, state, stamp }),
+    });
+    return;
+  }
   const { error } = await supabase.rpc("publish_live_state", {
     _tournament_id: id,
     _state: JSON.parse(JSON.stringify(state)),
@@ -49,6 +57,13 @@ export async function publishLiveState(id: string, state: LiveState, stamp?: str
 
 /** Superadmin-only: deliberately clears an open event through a dedicated RPC. */
 export async function resetTournamentLiveState(id: string, tableCount: number, stamp?: string) {
+  if (railwayAuthEnabled) {
+    await railwayApi("/api/admin/reset", {
+      method: "POST",
+      body: JSON.stringify({ id, tableCount, stamp }),
+    });
+    return;
+  }
   const { error } = await supabase.rpc("reset_tournament_live_state", {
     _tournament_id: id,
     _table_count: tableCount,
@@ -75,6 +90,20 @@ const MAX_LOGO_BYTES = 5 * 1024 * 1024;
  * Called before `createTournament` so the URL can be saved on insert.
  */
 export async function uploadTournamentLogo(file: File): Promise<string> {
+  if (railwayAuthEnabled) {
+    if (!file.type.startsWith("image/") || file.size > MAX_LOGO_BYTES)
+      throw new Error("LOGO_INVALID");
+    const form = new FormData();
+    form.set("file", file);
+    const response = await fetch("/api/admin/logo", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+    });
+    const result = (await response.json()) as { url?: string; error?: string };
+    if (!response.ok || !result.url) throw new Error(result.error || "LOGO_UPLOAD_FAILED");
+    return result.url;
+  }
   if (!file.type.startsWith("image/")) throw new Error("logo 必須是圖片檔");
   if (file.size > MAX_LOGO_BYTES) throw new Error("logo 檔案不能超過 5MB");
   const { data: auth } = await supabase.auth.getUser();
@@ -94,6 +123,13 @@ export async function createTournament(
   name: string,
   logoUrl?: string | null,
 ): Promise<TournamentRow> {
+  if (railwayAuthEnabled) {
+    const result = await railwayApi<{ tournament: TournamentRow }>("/api/admin/create-tournament", {
+      method: "POST",
+      body: JSON.stringify({ name, logoUrl }),
+    });
+    return result.tournament;
+  }
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("請先登入管理者帳號");
   const { data, error } = await supabase
@@ -112,6 +148,13 @@ export async function createTournament(
 
 /** Admin-only: closes the tournament and stores the final top-4 board. */
 export async function finishTournament(id: string, results: TournamentResults) {
+  if (railwayAuthEnabled) {
+    const result = await railwayApi<{ tournament: TournamentRow }>("/api/admin/finish", {
+      method: "POST",
+      body: JSON.stringify({ id, results }),
+    });
+    return result.tournament;
+  }
   const { data, error } = await supabase
     .from("tournaments")
     .update({
@@ -129,6 +172,12 @@ export async function finishTournament(id: string, results: TournamentResults) {
 
 /** Public: used by the QR sign-up page and the results page. */
 export async function fetchTournamentByCode(code: string): Promise<TournamentRow | null> {
+  if (railwayAuthEnabled) {
+    const result = await railwayApi<{ tournaments: TournamentRow[] }>(
+      `/api/tournaments?code=${encodeURIComponent(code)}`,
+    );
+    return result.tournaments[0] ?? null;
+  }
   const { data, error } = await supabase
     .from("tournaments")
     .select(COLS)
@@ -140,6 +189,10 @@ export async function fetchTournamentByCode(code: string): Promise<TournamentRow
 
 /** History list — visible to signed-in admins in the settings tab. */
 export async function listTournaments(): Promise<TournamentRow[]> {
+  if (railwayAuthEnabled) {
+    return (await railwayApi<{ tournaments: TournamentRow[] }>("/api/admin/tournaments"))
+      .tournaments;
+  }
   const { data, error } = await supabase
     .from("tournaments")
     .select(COLS)
@@ -151,6 +204,12 @@ export async function listTournaments(): Promise<TournamentRow[]> {
 
 /** Latest still-open tournament — lets any admin join the event in progress. */
 export async function fetchLatestOpenTournament(): Promise<TournamentRow | null> {
+  if (railwayAuthEnabled) {
+    const result = await railwayApi<{ tournaments: TournamentRow[] }>(
+      "/api/admin/tournaments?latest=open",
+    );
+    return result.tournaments[0] ?? null;
+  }
   const { data, error } = await supabase
     .from("tournaments")
     .select(COLS)
@@ -164,6 +223,13 @@ export async function fetchLatestOpenTournament(): Promise<TournamentRow | null>
 
 /** Superadmin-only (enforced by row-level policies). Removes a tournament and its registrations. */
 export async function deleteTournament(id: string) {
+  if (railwayAuthEnabled) {
+    await railwayApi("/api/admin/delete-tournament", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    });
+    return;
+  }
   const { error } = await supabase.from("tournaments").delete().eq("id", id);
   if (error) throw new Error("刪除賽事失敗（需要總管理者權限）");
 }

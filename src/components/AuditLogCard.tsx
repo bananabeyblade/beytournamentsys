@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClipboardList, Download, RefreshCw } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
-import { listAuditLogFn } from "@/lib/audit.functions";
+import { listAuditLogFn } from "@/lib/audit-client";
 import { AUDIT_LABELS, describeEntry, type AuditEntry } from "@/lib/audit";
 
 function stamp(iso: string) {

@@ -234,6 +234,18 @@ export async function readRailwaySession(request: Request): Promise<RailwaySessi
     : null;
 }
 
+export async function requireRailwayAdmin(
+  request: Request,
+  superadminOnly = false,
+): Promise<RailwaySessionUser> {
+  const user = await readRailwaySession(request);
+  if (!user) throw Object.assign(new Error("AUTH_REQUIRED"), { status: 401 });
+  if (!user.role || (superadminOnly && user.role !== "superadmin")) {
+    throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
+  }
+  return user;
+}
+
 export async function logoutRailwaySession(request: Request): Promise<Response> {
   const token = cookieValue(request, SESSION_COOKIE);
   if (token) await queryPostgres("DELETE FROM app_sessions WHERE token_hash = $1", [sha256(token)]);

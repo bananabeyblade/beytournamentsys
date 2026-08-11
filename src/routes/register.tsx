@@ -4,6 +4,7 @@ import { UserPlus, Check, AlertTriangle, KeyRound } from "lucide-react";
 import { addRegistration, claimParticipantRecoveryCode, isNameTaken } from "@/lib/registration";
 import { fetchTournamentByCode, type TournamentRow } from "@/lib/tournaments";
 import { supabase } from "@/integrations/supabase/client";
+import { railwayAuthEnabled } from "@/lib/railway-api";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import {
@@ -85,20 +86,22 @@ function RegisterPage() {
     };
     void check();
     const timer = setInterval(check, 20000);
-    const channel = supabase
-      .channel(`register-${code}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "tournaments", filter: `code=eq.${code}` },
-        () => void check(),
-      )
-      .subscribe();
+    const channel = railwayAuthEnabled
+      ? null
+      : supabase
+          .channel(`register-${code}`)
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "tournaments", filter: `code=eq.${code}` },
+            () => void check(),
+          )
+          .subscribe();
     const onBack = () => void check();
     window.addEventListener(RECONNECT_EVENT, onBack);
     return () => {
       alive = false;
       clearInterval(timer);
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
       window.removeEventListener(RECONNECT_EVENT, onBack);
     };
   }, [done, code, navigate]);

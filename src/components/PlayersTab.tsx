@@ -11,6 +11,7 @@ import {
   type ParticipantRecoveryCode,
 } from "@/lib/registration";
 import { supabase } from "@/integrations/supabase/client";
+import { railwayAuthEnabled } from "@/lib/railway-api";
 
 /** Coalescing window for bursts of sign-ups (e.g. 64 phones scanning at once). */
 const REFRESH_THROTTLE_MS = 1000;
@@ -55,25 +56,27 @@ export function PlayersTab() {
       }, REFRESH_THROTTLE_MS);
     };
     sync();
-    const channel = supabase
-      .channel(`registrations-${tournamentId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "registrations",
-          filter: `tournament_id=eq.${tournamentId}`,
-        },
-        throttledSync,
-      )
-      .subscribe();
+    const channel = railwayAuthEnabled
+      ? null
+      : supabase
+          .channel(`registrations-${tournamentId}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "registrations",
+              filter: `tournament_id=eq.${tournamentId}`,
+            },
+            throttledSync,
+          )
+          .subscribe();
     const timer = window.setInterval(sync, 10000);
     return () => {
       alive = false;
       if (timeout) clearTimeout(timeout);
       window.clearInterval(timer);
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
   }, [currentAdmin, tournamentId]);
 

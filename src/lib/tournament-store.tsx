@@ -21,7 +21,7 @@ import { SAMPLE_NAMES } from "./sample-names";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { bootstrapSuperadminFn, getMyRoleFn, promoteGoogleOwnerFn } from "./admin.functions";
+import { bootstrapSuperadminFn, getMyRoleFn, promoteGoogleOwnerFn } from "./admin-client";
 import {
   fetchRailwaySession,
   logoutRailway,
@@ -337,24 +337,26 @@ export function TournamentProvider({
     };
     startTimer();
 
-    const channel = supabase
-      .channel(`tournament-${spectatorCode}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "tournaments",
-          filter: `code=eq.${spectatorCode}`,
-        },
-        (payload) => {
-          const row = payload.new as TournamentRow | undefined;
-          // Use the pushed row when it is complete; otherwise fall back.
-          if (row && row.id && "live_updated_at" in row) apply(row);
-          else void pull();
-        },
-      )
-      .subscribe();
+    const channel = railwayAuthEnabled
+      ? null
+      : supabase
+          .channel(`tournament-${spectatorCode}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "tournaments",
+              filter: `code=eq.${spectatorCode}`,
+            },
+            (payload) => {
+              const row = payload.new as TournamentRow | undefined;
+              // Use the pushed row when it is complete; otherwise fall back.
+              if (row && row.id && "live_updated_at" in row) apply(row);
+              else void pull();
+            },
+          )
+          .subscribe();
 
     const onBack = () => void pull();
     const onVisible = () => {
@@ -372,7 +374,7 @@ export function TournamentProvider({
     return () => {
       alive = false;
       stopTimer();
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
       if (typeof window !== "undefined") {
         window.removeEventListener(RECONNECT_EVENT, onBack);
         document.removeEventListener("visibilitychange", onVisible);
@@ -558,7 +560,7 @@ export function TournamentProvider({
 
   const logout = useCallback(async () => {
     if (railwayAuthEnabled) await logoutRailway();
-    await supabase.auth.signOut().catch(() => undefined);
+    else await supabase.auth.signOut().catch(() => undefined);
     setCurrentAdmin(null);
     setRoleState("player");
     // Wipe every trace of the event on this device: the next admin to sign in
@@ -1169,22 +1171,28 @@ export function TournamentProvider({
     };
     startTimer();
 
-    const channel = supabase
-      .channel("admin-tournament-follow")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, (payload) => {
-        const row = payload.new as TournamentRow | undefined;
-        // The pushed row is enough when it is the event we already follow.
-        if (row && row.id && row.id === followedId.current && "live_updated_at" in row) {
-          apply(row);
-          return;
-        }
-        // Another (already closed) event changed — irrelevant to this device.
-        if (row && row.id && followedId.current && row.id !== followedId.current) {
-          if (row.status && row.status !== "open") return;
-        }
-        queuePull();
-      })
-      .subscribe();
+    const channel = railwayAuthEnabled
+      ? null
+      : supabase
+          .channel("admin-tournament-follow")
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "tournaments" },
+            (payload) => {
+              const row = payload.new as TournamentRow | undefined;
+              // The pushed row is enough when it is the event we already follow.
+              if (row && row.id && row.id === followedId.current && "live_updated_at" in row) {
+                apply(row);
+                return;
+              }
+              // Another (already closed) event changed — irrelevant to this device.
+              if (row && row.id && followedId.current && row.id !== followedId.current) {
+                if (row.status && row.status !== "open") return;
+              }
+              queuePull();
+            },
+          )
+          .subscribe();
 
     const onBack = () => void pull();
     const onVisible = () => {
@@ -1203,7 +1211,7 @@ export function TournamentProvider({
       alive = false;
       stopTimer();
       if (pullTimer) clearTimeout(pullTimer);
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
       if (typeof window !== "undefined") {
         window.removeEventListener(RECONNECT_EVENT, onBack);
         document.removeEventListener("visibilitychange", onVisible);

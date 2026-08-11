@@ -3,6 +3,9 @@ import { Save, UserPlus } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { addRegistration, isNameTaken } from "@/lib/registration";
 import { supabase } from "@/integrations/supabase/client";
+import { railwayAuthEnabled } from "@/lib/railway-api";
+
+const RAILWAY_PLAYER_NAME = "beyx_admin_player_name";
 
 /** Lets a referee keep a player display name and enter the active event normally. */
 export function AdminPlayerRegistration() {
@@ -13,6 +16,12 @@ export function AdminPlayerRegistration() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (railwayAuthEnabled) {
+      const saved = localStorage.getItem(RAILWAY_PLAYER_NAME) ?? "";
+      setName(saved);
+      setSavedName(saved);
+      return;
+    }
     let mounted = true;
     void supabase.auth.getUser().then(({ data }) => {
       const saved = data.user?.user_metadata?.player_name;
@@ -35,6 +44,14 @@ export function AdminPlayerRegistration() {
       return false;
     }
     setBusy(true);
+    if (railwayAuthEnabled) {
+      localStorage.setItem(RAILWAY_PLAYER_NAME, clean);
+      setBusy(false);
+      setName(clean);
+      setSavedName(clean);
+      setMessage({ ok: true, text: "參賽名稱已儲存" });
+      return true;
+    }
     const { error } = await supabase.auth.updateUser({ data: { player_name: clean } });
     setBusy(false);
     if (error) {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, ChevronRight, Loader2, ShieldCheck } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
-import { superadminExistsFn } from "@/lib/setup.functions";
+import { superadminExistsFn } from "@/lib/system-client";
 
 type Field = "email" | "password" | "confirm";
 

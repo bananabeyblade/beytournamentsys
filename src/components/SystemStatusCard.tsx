@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { useConnection, useOnReconnect } from "@/hooks/use-connection";
-import { systemStatusFn, type SystemStatus } from "@/lib/system-status.functions";
+import { systemStatusFn, type SystemStatus } from "@/lib/system-client";
 
 const POLL_MS = 20_000;
 

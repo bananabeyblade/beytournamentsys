@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { railwayApi, railwayAuthEnabled } from "./railway-api";
 
 /** Action kinds recorded in the admin audit trail. */
 export type AuditAction =
@@ -53,6 +54,18 @@ export interface LogActionInput {
  * Never throws: losing a log line must not interrupt scoring in the venue.
  */
 export function logAction(input: LogActionInput): void {
+  if (railwayAuthEnabled) {
+    void railwayApi("/api/admin/record-audit", {
+      method: "POST",
+      body: JSON.stringify({
+        action: input.action,
+        detail: input.detail ?? {},
+        tournamentId: input.tournamentId ?? null,
+        tournamentName: input.tournamentName ?? null,
+      }),
+    }).catch((error) => console.warn("[audit] log failed", error));
+    return;
+  }
   void supabase
     .from("admin_actions")
     .insert({

@@ -9,8 +9,9 @@ import {
   removeSuperadminFn,
   removeAdminFn,
   setAdminPasswordFn,
-} from "@/lib/admin.functions";
+} from "@/lib/admin-client";
 import { USERNAME_RE, displayAccount, isOwnerEmail } from "@/lib/account-id";
+import { railwayAuthEnabled } from "@/lib/railway-api";
 
 type Msg = { ok: boolean; text: string } | null;
 
@@ -158,11 +159,13 @@ function ManageAdmins() {
 
   const create = async () => {
     const account = email.trim();
-    if (!USERNAME_RE.test(account)) {
+    if (
+      railwayAuthEnabled ? !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(account) : !USERNAME_RE.test(account)
+    ) {
       setMsg({ ok: false, text: "帳號僅能使用英數字、底線、點與連字號（3-30 字）" });
       return;
     }
-    if (password.length < 4) {
+    if (!railwayAuthEnabled && password.length < 4) {
       setMsg({ ok: false, text: "密碼至少需 4 碼" });
       return;
     }
@@ -238,12 +241,14 @@ function ManageAdmins() {
           <li key={a.id} className="rounded-lg border border-border bg-secondary/40 p-3">
             <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
               <span className="truncate text-sm">{displayAccount(a.email) || a.user_id}</span>
-              <button
-                onClick={() => setEditId(editId === a.user_id ? null : a.user_id)}
-                className="min-h-10 shrink-0 rounded-lg px-2 text-xs text-primary"
-              >
-                {editId === a.user_id ? "收合" : "重設密碼"}
-              </button>
+              {!railwayAuthEnabled && (
+                <button
+                  onClick={() => setEditId(editId === a.user_id ? null : a.user_id)}
+                  className="min-h-10 shrink-0 rounded-lg px-2 text-xs text-primary"
+                >
+                  {editId === a.user_id ? "收合" : "重設密碼"}
+                </button>
+              )}
               <button
                 aria-label={`移除 ${a.email ?? a.user_id}`}
                 onClick={() => remove(a.user_id)}
@@ -252,7 +257,7 @@ function ManageAdmins() {
                 <Trash2 className="h-5 w-5" />
               </button>
             </div>
-            {editId === a.user_id && (
+            {!railwayAuthEnabled && editId === a.user_id && (
               <div className="mt-3 space-y-2 border-t border-border pt-3">
                 <input
                   value={newPass}
@@ -277,19 +282,23 @@ function ManageAdmins() {
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="新管理者帳號（英數字，免信箱）"
+          placeholder={
+            railwayAuthEnabled ? "新管理者 Google 信箱" : "新管理者帳號（英數字，免信箱）"
+          }
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
           className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
         />
-        <input
-          value={password}
-          type="password"
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="新管理者密碼（至少 4 碼）"
-          className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-        />
+        {!railwayAuthEnabled && (
+          <input
+            value={password}
+            type="password"
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="新管理者密碼（至少 4 碼）"
+            className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+          />
+        )}
         {msg && (
           <p className={`text-xs ${msg.ok ? "text-primary" : "text-destructive"}`}>{msg.text}</p>
         )}
@@ -323,14 +332,16 @@ function ManageSuperadmins() {
 
   const create = async () => {
     const account = email.trim();
-    const valid = account.includes("@")
+    const valid = railwayAuthEnabled
       ? /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(account)
-      : USERNAME_RE.test(account);
+      : account.includes("@")
+        ? /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(account)
+        : USERNAME_RE.test(account);
     if (!valid) {
       setMsg({ ok: false, text: "請輸入有效的信箱或帳號（英數字 3-30 字）" });
       return;
     }
-    if (password.length < 8) {
+    if (!railwayAuthEnabled && password.length < 8) {
       setMsg({ ok: false, text: "密碼至少需 8 碼" });
       return;
     }
@@ -396,19 +407,21 @@ function ManageSuperadmins() {
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="新總管理者帳號或信箱"
+          placeholder={railwayAuthEnabled ? "新總管理者 Google 信箱" : "新總管理者帳號或信箱"}
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
           className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
         />
-        <input
-          value={password}
-          type="password"
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="密碼（至少 8 碼）"
-          className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-        />
+        {!railwayAuthEnabled && (
+          <input
+            value={password}
+            type="password"
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="密碼（至少 8 碼）"
+            className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+          />
+        )}
         {msg && (
           <p className={`text-xs ${msg.ok ? "text-primary" : "text-destructive"}`}>{msg.text}</p>
         )}

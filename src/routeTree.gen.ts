@@ -15,6 +15,10 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchCodeRouteImport } from './routes/watch.$code'
 import { Route as ResultsCodeRouteImport } from './routes/results.$code'
+import { Route as HealthDatabaseRouteImport } from './routes/health.database'
+import { Route as ApiTournamentsRouteImport } from './routes/api.tournaments'
+import { Route as ApiRegistrationsRouteImport } from './routes/api.registrations'
+import { Route as ApiRecoveryRouteImport } from './routes/api.recovery'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -46,12 +50,36 @@ const ResultsCodeRoute = ResultsCodeRouteImport.update({
   path: '/results/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HealthDatabaseRoute = HealthDatabaseRouteImport.update({
+  id: '/health/database',
+  path: '/health/database',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTournamentsRoute = ApiTournamentsRouteImport.update({
+  id: '/api/tournaments',
+  path: '/api/tournaments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRegistrationsRoute = ApiRegistrationsRouteImport.update({
+  id: '/api/registrations',
+  path: '/api/registrations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRecoveryRoute = ApiRecoveryRouteImport.update({
+  id: '/api/recovery',
+  path: '/api/recovery',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/recovery': typeof ApiRecoveryRoute
+  '/api/registrations': typeof ApiRegistrationsRoute
+  '/api/tournaments': typeof ApiTournamentsRoute
+  '/health/database': typeof HealthDatabaseRoute
   '/results/$code': typeof ResultsCodeRoute
   '/watch/$code': typeof WatchCodeRoute
 }
@@ -60,6 +88,10 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/recovery': typeof ApiRecoveryRoute
+  '/api/registrations': typeof ApiRegistrationsRoute
+  '/api/tournaments': typeof ApiTournamentsRoute
+  '/health/database': typeof HealthDatabaseRoute
   '/results/$code': typeof ResultsCodeRoute
   '/watch/$code': typeof WatchCodeRoute
 }
@@ -69,6 +101,10 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/recovery': typeof ApiRecoveryRoute
+  '/api/registrations': typeof ApiRegistrationsRoute
+  '/api/tournaments': typeof ApiTournamentsRoute
+  '/health/database': typeof HealthDatabaseRoute
   '/results/$code': typeof ResultsCodeRoute
   '/watch/$code': typeof WatchCodeRoute
 }
@@ -79,6 +115,10 @@ export interface FileRouteTypes {
     | '/admin'
     | '/register'
     | '/sitemap.xml'
+    | '/api/recovery'
+    | '/api/registrations'
+    | '/api/tournaments'
+    | '/health/database'
     | '/results/$code'
     | '/watch/$code'
   fileRoutesByTo: FileRoutesByTo
@@ -87,6 +127,10 @@ export interface FileRouteTypes {
     | '/admin'
     | '/register'
     | '/sitemap.xml'
+    | '/api/recovery'
+    | '/api/registrations'
+    | '/api/tournaments'
+    | '/health/database'
     | '/results/$code'
     | '/watch/$code'
   id:
@@ -95,6 +139,10 @@ export interface FileRouteTypes {
     | '/admin'
     | '/register'
     | '/sitemap.xml'
+    | '/api/recovery'
+    | '/api/registrations'
+    | '/api/tournaments'
+    | '/health/database'
     | '/results/$code'
     | '/watch/$code'
   fileRoutesById: FileRoutesById
@@ -104,6 +152,10 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   RegisterRoute: typeof RegisterRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiRecoveryRoute: typeof ApiRecoveryRoute
+  ApiRegistrationsRoute: typeof ApiRegistrationsRoute
+  ApiTournamentsRoute: typeof ApiTournamentsRoute
+  HealthDatabaseRoute: typeof HealthDatabaseRoute
   ResultsCodeRoute: typeof ResultsCodeRoute
   WatchCodeRoute: typeof WatchCodeRoute
 }
@@ -152,6 +204,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResultsCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/health/database': {
+      id: '/health/database'
+      path: '/health/database'
+      fullPath: '/health/database'
+      preLoaderRoute: typeof HealthDatabaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tournaments': {
+      id: '/api/tournaments'
+      path: '/api/tournaments'
+      fullPath: '/api/tournaments'
+      preLoaderRoute: typeof ApiTournamentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/registrations': {
+      id: '/api/registrations'
+      path: '/api/registrations'
+      fullPath: '/api/registrations'
+      preLoaderRoute: typeof ApiRegistrationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/recovery': {
+      id: '/api/recovery'
+      path: '/api/recovery'
+      fullPath: '/api/recovery'
+      preLoaderRoute: typeof ApiRecoveryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -160,6 +240,10 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   RegisterRoute: RegisterRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiRecoveryRoute: ApiRecoveryRoute,
+  ApiRegistrationsRoute: ApiRegistrationsRoute,
+  ApiTournamentsRoute: ApiTournamentsRoute,
+  HealthDatabaseRoute: HealthDatabaseRoute,
   ResultsCodeRoute: ResultsCodeRoute,
   WatchCodeRoute: WatchCodeRoute,
 }

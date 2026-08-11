@@ -1,106 +1,34 @@
-# 複製本 App 的完整建置 Prompt
+# 診斷報告：migration-export 回傳失敗（僅診斷，未做任何修改）
 
-下面整段可直接複製，貼到新的 Lovable（或其他 AI 建置工具）專案作為第一個指令，即可重建一模一樣的系統。
+## 結論
+這個函式**沒有真的丟出 500**。它有成功啟動、有進入 request handler，並回傳了 `404 {"error":"NOT_FOUND"}`。
+函式面板的「Success rate 0%」是把非 2xx（此處為 404）算成失敗；Railway 端的匯入腳本收到非 200 後自己拋錯，才在 Railway 顯示成 500。
 
----
+## 逐項確認
 
-## 專案：竹塹陀螺集會所 — Beyblade X 賽事管理系統
+1. **SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 是否可取得**
+   兩者都已存在於此專案的函式環境（平台自動注入，值未顯示）。若缺少，函式會走 `EXPORT_FAILED` 並在 Logs 印出 `Migration export is missing its Supabase service configuration.` — Logs 中沒有這行，代表不是金鑰問題。
 
-建立一個行動優先（mobile-first）的 Beyblade X 單淘汰賽事管理 Web App，並啟用雲端後端（資料庫 + 帳號登入 + 儲存空間 + 即時同步）。
+2. **是否進入 request handler**
+   是。實測以無 Authorization 及錯誤 Bearer 各呼叫一次，都得到 `404 {"error":"NOT_FOUND"}`（21 bytes），這是函式程式碼裡 `denied()` 的輸出，代表 handler 有執行。
+   `booted` / `shutdown` 之外沒有其他 log，是因為 `denied()` 這條路徑本來就不寫 log。
 
-### 1. 視覺風格
+3. **哪一個查詢失敗**
+   都沒有執行到查詢。`tournaments`、`registrations`、`participant_recovery_codes` 三個資料表目前**都是 0 筆**，欄位（含 `recovery_code_prefix`、各表 `created_at`）齊全，即使真的執行匯出也只會回傳空陣列，不會失敗。
 
-- 深色 Cyberpunk / Sci-Fi 風格：深灰黑底、霓虹綠與霓虹紅為主要強調色。
-- 高對比、大字級、大觸控按鈕（裁判單手在手機上就能計分）。
-- 所有顏色、漸層、陰影都定義成語意化 design token 寫在全域 CSS，元件內不可寫死顏色。
-- 圖示使用 lucide-react；提示訊息使用 toast。
-- 頁面標題列左側顯示賽事 logo 圖片 + 文字「竹塹陀螺集會所」。
+4. **逾時 / 回應大小 / 啟動錯誤**
+   都沒有。啟動 23ms 正常、回應 21 bytes、無任何 timeout 或 CPU/記憶體錯誤記錄。
 
-### 2. 角色與權限
+## 真正的失敗原因（二者之一，皆在 handler 最前面的守門檢查）
+函式在以下任一條件不成立時就回 404：
+- `MIGRATION_EXPORT_ENABLED` 不等於字串 `"true"`（大小寫、空白都會導致不符）
+- 呼叫端帶的 Bearer 與 `MIGRATION_EXPORT_SECRET` 不一致（多換行、多空白、被 shell 轉義都算不一致）
+- 或請求不是 `GET`（例如 Railway 用了 POST、或被重導向改成其他方法）
 
-三種身分：
+同時提醒：即使守門通過，來源資料庫目前是空的，匯入也不會搬到任何資料。
 
-- **總管理者（superadmin）**：建立／強制結束賽事、設定桌數、生成賽程、新增與刪除管理者、刪除過往賽事、檢視操作紀錄。
-- **管理者（裁判 admin）**：手動新增參賽者、核准報名、開始比賽、計分、可自行更改自己的密碼。
-- **參賽者／觀眾（player）**：唯讀。只能透過報名 QR code 進入，看即時賽況與賽程樹。
-
-權限規則：
-
-- 管理者帳號用「帳號＋密碼」登入；總管理者用 Email 登入，其他管理者用自訂帳號（不需 email，系統內部合成 `帳號@內部網域` 對應）。
-- 密碼最低長度 4 碼（後端有 6 碼下限時，在寫入前做安全補位處理）。
-- 只有主帳號（設定成常數的 owner email）可以新增／刪除總管理者。
-- 角色一律存在獨立的 `admin_roles` 表（絕不存在使用者或 profile 表），並用 `security definer` 函式 `has_admin_role(user_id, role)` 搭配資料列權限（RLS）驗證。
-- 核准報名、刪除報名、建立賽事等敏感動作必須在伺服器端函式中驗證身分，不可只靠前端隱藏按鈕。
-- 首次啟用時，設定頁提供「首次建立總管理者」三步驟精靈（含欄位檢查）。
-
-### 3. 導覽（手機底部四個頁籤）
-
-1. **對戰進行中 LIVE**：顯示各桌進行中的比賽（桌號、雙方姓名、即時比分）。管理者點擊開啟計分視窗；未開賽的比賽由該桌管理者按「開始比賽」才變成「比賽中」。觀眾自己的比賽要置頂並高亮。
-2. **賽程樹狀圖 BRACKET**：響應式單淘汰樹狀圖，可縮放拖曳（手機拖曳不可有殘影）。人數 > 32 時採左右鏡像對稱佈局，決賽置中；決賽下方另外顯示季軍賽。顯示每場即時狀態（比賽中／已完成／比分）。勝者連線高亮，觀眾自己的比賽加霓虹外框與「(Me)」標記。點擊已完成的比賽可看完整比賽歷程。
-3. **選手名單 PLAYERS**：管理者可單筆或大量貼上新增（一行一名，人數不限），顯示種子序號；報名 QR code 進來的申請要能核准／全部核准／刪除。
-4. **設定 SETTINGS**：登入／登出、帳號管理、賽事設定（桌數、生成賽程，僅總管理者）、報名 QR code、管理者登入用固定 QR code、過往賽事紀錄、系統狀態面板、操作紀錄（僅主帳號可見）。
-
-### 4. Beyblade X 計分規則（關鍵）
-
-計分視窗（僅管理者）：
-
-- 先達 **4 分** 者勝。
-- 快速計分按鈕：迴轉勝利 Spin Finish **+1**（藍）、擊飛勝利 Over Finish **+2**（綠）、爆裂勝利 Burst Finish **+2**（橘）、極限勝利 Xtreme Finish **+3**（紅）。
-- 「復原上一步 Undo」可修正誤觸。
-- 顯示雙方即時總分（例：3 - 2）。
-- 任一方達 4 分即彈出「[選手名稱] Wins!」確認框；確認後該場標記完成，勝者自動晉級到下一輪對應位置。
-- 每一次得分事件都要記錄（誰、什麼結束方式、幾分），供比賽歷程檢視與匯出。
-
-### 5. 賽程生成
-
-- 參賽者順序隨機打亂後產生單淘汰賽程（「隨機生成賽程」按鈕僅總管理者可見）。
-- 人數非 2 的次方時，多出來的人只在**第一輪打預賽（PRELIM Round 0 / play-in）**，其餘直接進入正賽，不可出現多輪輪空。
-- 第一輪配對用 bit-reversal 排列，讓比賽在鏡像樹左右平均分布。
-- 四強兩位敗者自動配對成**季軍賽（3rd/4th 決定戰）**，名次計算與匯出都以季軍賽結果為準。
-- 生成賽程時可設定桌數，比賽自動分配桌號；不同桌管理者只需點自己那桌未完成的比賽。
-
-### 6. QR code 與參賽者流程
-
-- 每一場賽事有唯一 6 碼代碼與對應報名 QR code（每次新賽事都會換新）。
-- 掃碼 → 輸入名稱 → 送出前檢查同一賽事下是否重複名稱；表單要關閉瀏覽器自動填入，送出後清空，避免帶入上一位資料。
-- 送出後停在等待畫面；賽程一產生就**自動跳轉**到觀賽頁（不需重新整理）。
-- 觀眾標題列顯示自己報名的名稱（總管理者不顯示，也不需要切換參賽者的按鈕）。
-- 設定頁另有一個固定的「管理者登入 QR code」，掃碼直達只有帳密登入表單的登入頁。
-- 賽事結束後，報名 QR code 不再顯示。
-
-### 7. 多裁判同時計分（併發正確性）
-
-- 賽事即時狀態以一份 JSON 快照存在資料庫（`live_state` + `live_updated_at`）。
-- 寫入必須透過資料庫函式 `publish_live_state(tournament_id, state, stamp)`：逐場比賽依 `rev` 與 `updatedAt` 比較取新者合併；選手名單依 id 合併並支援 `removedPlayers` 墓碑刪除後重新編號種子。避免兩位裁判互相覆蓋或新增選手時名單消失。
-- 每場比賽有編輯鎖（lockedBy / lockedByName / lockedAt，30 秒心跳 TTL），別人正在計分時顯示警告。
-- 前端用即時訂閱 + 可見頁面才輪詢（背景不輪詢）+ debounce，並顯示同步狀態徽章與斷線提示 / 自動重連橫幅。
-- 需能承受 64 人賽事的同步壓力。
-
-### 8. 賽後與紀錄
-
-- 比賽全部完成（或總管理者按「強制結束賽事」）後自動產生前四名結果頁，可用賽事代碼開啟。
-- 總管理者／管理者可查看過往賽事清單，並可「進入賽事」回到進行中的賽事。
-- 過往賽事可匯出成 .txt（名次、參賽者名單、完整賽程與每局得分紀錄）。
-- 總管理者可手動刪除過往賽事紀錄。
-- 所有管理者操作寫入 `admin_actions` 稽核表，僅主帳號可在設定頁檢視。
-- 重新整理或關閉重開後，仍恢復目前賽事狀態並回到上一次所在的頁籤。
-
-### 9. 資料表（public schema，全部要 RLS + GRANT）
-
-- `tournaments`：id、code（唯一 6 碼）、name、status（open/finished）、results jsonb、live_state jsonb、live_updated_at、logo_url、created_by、created_at、finished_at。
-- `registrations`：id、tournament_id、name、approved、created_at（同賽事名稱唯一）。
-- `admin_roles`：id、user_id、role（enum `app_role`）、唯一 (user_id, role)。
-- `admin_actions`：id、actor、action、detail、created_at。
-- 儲存空間：公開 bucket `tournament-logos` 供上傳賽事 logo（限圖片、5MB 以內）。
-- 每個 `CREATE TABLE` 之後都要立刻加對應的 `GRANT`，再啟用 RLS 並建立政策。
-
-### 10. 技術要求
-
-- React + Tailwind + TypeScript，lucide-react 圖示，qrcode 產生 QR 圖，zod 做輸入驗證。
-- 全域賽事狀態放在一個 Context store（含賽程生成、計分、同步、鎖、登入狀態）。
-- 每個頁面都要有自己的 SEO 標題與描述（繁體中文）。
-- 介面文字以繁體中文為主，搭配英文小標（LIVE / BRACKET / PLAYERS / SETTINGS）。
-
----
-
-若要在非 Lovable 平台重建，額外說明：後端以 Supabase 實作（Auth、Postgres + RLS、Realtime、Storage），伺服器端敏感邏輯放在具身分驗證的伺服器函式中，不可只用匿名金鑰從前端執行。
+## 建議的下一步（需你同意才執行，我不會自行修改任何東西）
+1. 確認 Railway 這邊 `SOURCE_EXPORT_URL` 是 `https://<專案>.supabase.co/functions/v1/migration-export`，且用 `GET`。
+2. 確認 `MIGRATION_EXPORT_ENABLED` 的值精確為 `true`。
+3. 確認兩邊的 `MIGRATION_EXPORT_SECRET` 完全一致（無換行/空白）。
+4. 若你希望更好診斷，可另行授權我在 `denied()` 分支加入不含機密的原因標記（例如 `reason: disabled | bad_auth | bad_method`）——目前尚未修改。

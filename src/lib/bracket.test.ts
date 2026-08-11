@@ -10,7 +10,7 @@ const players = (count: number): Player[] =>
   }));
 
 describe("buildBracket", () => {
-  for (let count = 2; count <= 64; count += 1) {
+  for (let count = 2; count <= 128; count += 1) {
     it(`keeps all ${count} entrants`, () => {
       const bracket = buildBracket(players(count), () => 0.5);
       const placed = bracket.flatMap(({ p1, p2 }) => [p1, p2]).filter(Boolean);

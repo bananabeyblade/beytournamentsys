@@ -163,6 +163,8 @@ function ManageAdmins() {
   const [busy, setBusy] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [newPass, setNewPass] = useState("");
+  const [revealed, setRevealed] = useState<Record<string, string>>({});
+  const [revealingId, setRevealingId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     listAdminsFn()
@@ -174,14 +176,15 @@ function ManageAdmins() {
 
   const create = async () => {
     const account = email.trim();
-    if (
-      railwayAuthEnabled ? !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(account) : !USERNAME_RE.test(account)
-    ) {
-      setMsg({ ok: false, text: "帳號僅能使用英數字、底線、點與連字號（3-30 字）" });
+    const valid = account.includes("@")
+      ? /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(account)
+      : USERNAME_RE.test(account);
+    if (!valid) {
+      setMsg({ ok: false, text: "請輸入有效的帳號（3-30 字）或信箱" });
       return;
     }
-    if (!railwayAuthEnabled && password.length < 4) {
-      setMsg({ ok: false, text: "密碼至少需 4 碼" });
+    if (password.length < (railwayAuthEnabled ? 8 : 4)) {
+      setMsg({ ok: false, text: railwayAuthEnabled ? "密碼至少需 8 碼" : "密碼至少需 4 碼" });
       return;
     }
     // Catch duplicates before hitting the server so the user gets a clear hint.
@@ -214,8 +217,8 @@ function ManageAdmins() {
   };
 
   const resetPassword = async (userId: string) => {
-    if (newPass.length < 4) {
-      setMsg({ ok: false, text: "密碼至少需 4 碼" });
+    if (newPass.length < (railwayAuthEnabled ? 8 : 4)) {
+      setMsg({ ok: false, text: railwayAuthEnabled ? "密碼至少需 8 碼" : "密碼至少需 4 碼" });
       return;
     }
     try {
@@ -226,9 +229,38 @@ function ManageAdmins() {
       }
       setNewPass("");
       setEditId(null);
+      setRevealed((current) => {
+        const next = { ...current };
+        delete next[userId];
+        return next;
+      });
       setMsg({ ok: true, text: "已更新該管理者密碼" });
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : "更新失敗" });
+    }
+  };
+
+  const togglePassword = async (userId: string) => {
+    if (revealed[userId]) {
+      setRevealed((current) => {
+        const next = { ...current };
+        delete next[userId];
+        return next;
+      });
+      return;
+    }
+    setRevealingId(userId);
+    try {
+      const result = await revealAdminPasswordFn({ data: { userId } });
+      if (!result.password) {
+        setMsg({ ok: false, text: "此帳號尚未設定可查看的密碼，請使用重設密碼功能。" });
+      } else {
+        setRevealed((current) => ({ ...current, [userId]: result.password! }));
+      }
+    } catch (error) {
+      setMsg({ ok: false, text: error instanceof Error ? error.message : "讀取密碼失敗" });
+    } finally {
+      setRevealingId(null);
     }
   };
 
@@ -254,16 +286,29 @@ function ManageAdmins() {
       <ul className="space-y-2">
         {admins.map((a) => (
           <li key={a.id} className="rounded-lg border border-border bg-secondary/40 p-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-2">
               <span className="truncate text-sm">{displayAccount(a.email) || a.user_id}</span>
-              {!railwayAuthEnabled && (
+              {railwayAuthEnabled && (
                 <button
-                  onClick={() => setEditId(editId === a.user_id ? null : a.user_id)}
-                  className="min-h-10 shrink-0 rounded-lg px-2 text-xs text-primary"
+                  type="button"
+                  disabled={revealingId === a.user_id}
+                  aria-label={revealed[a.user_id] ? "隱藏密碼" : "查看密碼"}
+                  onClick={() => void togglePassword(a.user_id)}
+                  className="grid h-10 w-10 place-items-center rounded-lg text-primary disabled:opacity-50"
                 >
-                  {editId === a.user_id ? "收合" : "重設密碼"}
+                  {revealed[a.user_id] ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
                 </button>
               )}
+              <button
+                onClick={() => setEditId(editId === a.user_id ? null : a.user_id)}
+                className="min-h-10 shrink-0 rounded-lg px-2 text-xs text-primary"
+              >
+                {editId === a.user_id ? "收合" : "重設密碼"}
+              </button>
               <button
                 aria-label={`移除 ${a.email ?? a.user_id}`}
                 onClick={() => remove(a.user_id)}
@@ -272,13 +317,18 @@ function ManageAdmins() {
                 <Trash2 className="h-5 w-5" />
               </button>
             </div>
-            {!railwayAuthEnabled && editId === a.user_id && (
+            {revealed[a.user_id] && (
+              <div className="mt-2 rounded-lg border border-primary/30 bg-background/70 px-3 py-2 font-mono text-sm">
+                密碼：{revealed[a.user_id]}
+              </div>
+            )}
+            {editId === a.user_id && (
               <div className="mt-3 space-y-2 border-t border-border pt-3">
                 <input
                   value={newPass}
                   type="password"
                   onChange={(e) => setNewPass(e.target.value)}
-                  placeholder="新密碼（至少 4 碼）"
+                  placeholder={railwayAuthEnabled ? "新密碼（至少 8 碼）" : "新密碼（至少 4 碼）"}
                   className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
                 />
                 <button
@@ -297,23 +347,22 @@ function ManageAdmins() {
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder={
-            railwayAuthEnabled ? "新管理者 Google 信箱" : "新管理者帳號（英數字，免信箱）"
-          }
+          placeholder="新管理者帳號或信箱"
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
           className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
         />
-        {!railwayAuthEnabled && (
-          <input
-            value={password}
-            type="password"
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="新管理者密碼（至少 4 碼）"
-            className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-          />
-        )}
+        <input
+          value={password}
+          type="password"
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder={
+            railwayAuthEnabled ? "新管理者密碼（至少 8 碼）" : "新管理者密碼（至少 4 碼）"
+          }
+          autoComplete="new-password"
+          className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+        />
         {msg && (
           <p className={`text-xs ${msg.ok ? "text-primary" : "text-destructive"}`}>{msg.text}</p>
         )}

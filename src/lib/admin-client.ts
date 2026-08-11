@@ -31,9 +31,9 @@ export async function createAdminFn({ data }: { data: { username: string; passwo
   if (!railwayAuthEnabled) return legacyCreateAdmin({ data });
   await railwayApi("/api/admin/create-admin", {
     method: "POST",
-    body: JSON.stringify({ email: data.username, role: "admin" }),
+    body: JSON.stringify({ account: data.username, password: data.password, role: "admin" }),
   });
-  return { ok: true, message: "Railway 管理者請使用 Google 帳號登入" };
+  return { ok: true, message: "管理者帳號已建立" };
 }
 export async function createSuperadminFn({
   data,
@@ -63,5 +63,9 @@ export async function removeSuperadminFn({ data }: { data: { userId: string } })
 }
 export async function setAdminPasswordFn({ data }: { data: { userId: string; password: string } }) {
   if (!railwayAuthEnabled) return legacySetPassword({ data });
-  return { ok: false, message: "Railway 模式使用 Google 登入，不提供本機密碼" };
+  await railwayApi("/api/admin/set-admin-password", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return { ok: true, message: "密碼已更新" };
 }

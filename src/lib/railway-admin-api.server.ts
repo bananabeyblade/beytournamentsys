@@ -53,10 +53,10 @@ async function audit(
 }
 
 export async function railwayAdminGet(request: Request, action: string) {
-  const user =
-    action === "admin-password"
-      ? await requireRailwayOwner(request)
-      : await requireRailwayAdmin(request, action === "admins" || action === "audit");
+  const user = await requireRailwayAdmin(
+    request,
+    action === "admins" || action === "audit" || action === "admin-password",
+  );
   const url = new URL(request.url);
   if (action === "role") return { role: user.role, user };
   if (action === "tournaments") {
@@ -92,17 +92,23 @@ export async function railwayAdminGet(request: Request, action: string) {
   }
   if (action === "admin-password") {
     const userId = uuid(url.searchParams.get("userId"), "USER_ID");
-    const result = await queryPostgres<{ password_ciphertext: string | null; email: string }>(
-      `SELECT u.password_ciphertext,u.email FROM app_users u
+    const result = await queryPostgres<{
+      password_ciphertext: string | null;
+      email: string;
+      is_superadmin: boolean;
+    }>(
+      `SELECT u.password_ciphertext,u.email,bool_or(r.role='superadmin') AS is_superadmin
+       FROM app_users u
        JOIN admin_roles r ON r.user_id=u.id
-       WHERE u.id=$1 AND r.role='superadmin' LIMIT 1`,
+       WHERE u.id=$1 GROUP BY u.id,u.password_ciphertext,u.email`,
       [userId],
     );
     if (!result.rows[0]) throw new AdminApiError(404, "ADMIN_NOT_FOUND");
+    if (result.rows[0].is_superadmin) await requireRailwayOwner(request);
     const password = result.rows[0].password_ciphertext
       ? decryptAdminPassword(result.rows[0].password_ciphertext)
       : null;
-    await audit(user, "reveal_superadmin_password", { userId, email: result.rows[0].email });
+    await audit(user, "reveal_admin_password", { userId, email: result.rows[0].email });
     return { password };
   }
   if (action === "audit") {
@@ -121,7 +127,13 @@ export async function railwayAdminGet(request: Request, action: string) {
 }
 
 export async function railwayAdminPost(request: Request, action: string, body: Body) {
-  const superadminActions = new Set(["reset", "delete-tournament", "create-admin", "remove-admin"]);
+  const superadminActions = new Set([
+    "reset",
+    "delete-tournament",
+    "create-admin",
+    "remove-admin",
+    "set-admin-password",
+  ]);
   const user = await requireRailwayAdmin(request, superadminActions.has(action));
   if (action === "record-audit") {
     const auditAction = text(body.action, "ACTION", 60);
@@ -233,20 +245,17 @@ export async function railwayAdminPost(request: Request, action: string, body: B
         : !/^[a-z0-9_.-]{3,30}$/.test(rawAccount)
     )
       throw new AdminApiError(400, "ACCOUNT_INVALID");
-    let passwordHash: string | null = null;
-    let passwordCiphertext: string | null = null;
-    if (role === "superadmin") {
-      await requireRailwayOwner(request);
-      if (email === "john410403123@gmail.com") throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
-      const password = text(body.password, "PASSWORD", 200);
-      if (password.length < 8) throw new AdminApiError(400, "PASSWORD_TOO_SHORT");
-      passwordCiphertext = encryptAdminPassword(password);
-      const hashed = await queryPostgres<{ value: string }>(
-        "SELECT crypt($1, gen_salt('bf', 12)) AS value",
-        [password],
-      );
-      passwordHash = hashed.rows[0].value;
-    }
+    if (role === "superadmin") await requireRailwayOwner(request);
+    if (role === "superadmin" && email === "john410403123@gmail.com")
+      throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
+    const password = text(body.password, "PASSWORD", 200);
+    if (password.length < 8) throw new AdminApiError(400, "PASSWORD_TOO_SHORT");
+    const passwordCiphertext = encryptAdminPassword(password);
+    const hashed = await queryPostgres<{ value: string }>(
+      "SELECT crypt($1, gen_salt('bf', 12)) AS value",
+      [password],
+    );
+    const passwordHash = hashed.rows[0].value;
     const result = await withPostgresTransaction(async (client) => {
       const upserted = await client.query<{ id: string }>(
         `INSERT INTO app_users(email,display_name,password_hash,password_ciphertext) VALUES($1,$2,$3,$4)
@@ -270,6 +279,29 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     });
     await audit(user, "create_admin", { email, role });
     return { ok: true, userId: result.id };
+  }
+  if (action === "set-admin-password") {
+    const userId = uuid(body.userId, "USER_ID");
+    const password = text(body.password, "PASSWORD", 200);
+    if (password.length < 8) throw new AdminApiError(400, "PASSWORD_TOO_SHORT");
+    const target = await queryPostgres<{ email: string; is_superadmin: boolean }>(
+      `SELECT u.email,bool_or(r.role='superadmin') AS is_superadmin
+       FROM app_users u JOIN admin_roles r ON r.user_id=u.id
+       WHERE u.id=$1 GROUP BY u.id,u.email`,
+      [userId],
+    );
+    if (!target.rows[0]) throw new AdminApiError(404, "ADMIN_NOT_FOUND");
+    if (target.rows[0].email.toLowerCase() === "john410403123@gmail.com")
+      throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
+    if (target.rows[0].is_superadmin) await requireRailwayOwner(request);
+    const passwordCiphertext = encryptAdminPassword(password);
+    await queryPostgres(
+      `UPDATE app_users SET password_hash=crypt($2,gen_salt('bf',12)),password_ciphertext=$3
+       WHERE id=$1`,
+      [userId, password, passwordCiphertext],
+    );
+    await audit(user, "set_admin_password", { userId, email: target.rows[0].email });
+    return { ok: true };
   }
   if (action === "remove-admin") {
     const userId = uuid(body.userId, "USER_ID");

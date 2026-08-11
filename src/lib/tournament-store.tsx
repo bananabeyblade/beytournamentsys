@@ -45,14 +45,16 @@ import { displayAccount, isOwnerEmail, toLoginEmail } from "./account-id";
 import { isUsernameAccount, padAdminPassword } from "./admin-password";
 import { logAction, type AuditAction } from "./audit";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
+import { buildBracket } from "./bracket";
 
 const ACTIVE_KEY = "beyx-active-tournament";
 const STATE_KEY = "beyx-live-state";
 
 /** Realtime carries the updates; polling is only a slow safety net. */
 const SLOW_POLL_MS = 25000;
-/** Railway has no Supabase realtime channel, so viewers need a short poll. */
-const RAILWAY_POLL_MS = 2500;
+/** Railway has no Supabase realtime channel, so each role uses a short poll. */
+const RAILWAY_ADMIN_POLL_MS = 2500;
+const RAILWAY_PLAYER_POLL_MS = 3000;
 /** Coalescing window for rapid scoring taps (first write goes out at once). */
 const PUBLISH_TAIL_MS = 250;
 /** A held lock is only re-written (and re-synced) once it is this old. */
@@ -82,125 +84,7 @@ function readPersisted(): PersistedState | null {
   }
 }
 
-const uid = () => Math.random().toString(36).slice(2, 10);
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-/** Bit-reversal permutation of 0..count-1 — the standard seed-spread order. */
-function seedOrder(count: number): number[] {
-  const bits = Math.max(0, Math.round(Math.log2(Math.max(1, count))));
-  return Array.from({ length: count }, (_, i) => {
-    let rev = 0;
-    for (let b = 0; b < bits; b++) if (i & (1 << b)) rev |= 1 << (bits - 1 - b);
-    return { i, rev };
-  })
-    .sort((a, b) => a.rev - b.rev)
-    .map((x) => x.i);
-}
-
-const blankMatch = (round: number, index: number): Match => ({
-  id: uid(),
-  round,
-  index,
-  p1: null,
-  p2: null,
-  score1: 0,
-  score2: 0,
-  status: "waiting",
-  table: null,
-  winner: null,
-  events: [],
-  nextMatchId: null,
-  nextSlot: null,
-  kind: "main",
-  loserNextMatchId: null,
-  loserNextSlot: null,
-});
-
-/**
- * Builds a full power-of-two main draw plus a preliminary ("預賽") round for the
- * surplus players, so odd entry counts never produce empty bye cards.
- */
-function buildBracket(players: Player[]): Match[] {
-  if (players.length < 2) return [];
-  const order = shuffle(players);
-  const n = order.length;
-  // Largest power of two that fits — everyone above it plays a prelim bout.
-  let main = 1;
-  while (main * 2 <= n) main *= 2;
-  const playIn = n - main;
-  const hasPrelim = playIn > 0;
-  const offset = hasPrelim ? 1 : 0;
-
-  // Main draw rounds (index 0 = first main round, `main / 2` bouts).
-  const rounds: Match[][] = [];
-  for (let r = 0; r < Math.log2(main); r++) {
-    const count = main / 2 ** (r + 1);
-    rounds.push(Array.from({ length: count }, (_, i) => blankMatch(r + offset, i)));
-  }
-  for (let r = 0; r < rounds.length - 1; r++) {
-    rounds[r].forEach((m, i) => {
-      m.nextMatchId = rounds[r + 1][Math.floor(i / 2)].id;
-      m.nextSlot = i % 2 === 0 ? 1 : 2;
-    });
-  }
-
-  const first = rounds[0];
-  // Seats reserved for prelim winners, spread evenly across both halves.
-  const spread = seedOrder(first.length);
-  const seats: { match: Match; slot: 1 | 2 }[] = [];
-  for (const slot of [1, 2] as const) for (const i of spread) seats.push({ match: first[i], slot });
-  const reserved = seats.slice(0, playIn);
-
-  const prelim: Match[] = reserved.map((seat, i) => {
-    const m = blankMatch(0, i);
-    m.nextMatchId = seat.match.id;
-    m.nextSlot = seat.slot;
-    return m;
-  });
-
-  // Players: prelim bouts first (two each), then the direct entrants.
-  let next = 0;
-  for (const m of prelim) {
-    m.p1 = order[next++]?.id ?? null;
-    m.p2 = order[next++]?.id ?? null;
-    m.status = m.p1 && m.p2 ? "ready" : "waiting";
-  }
-  const reservedKey = new Set(reserved.map((s) => `${s.match.id}:${s.slot}`));
-  for (const i of spread) {
-    const m = first[i];
-    for (const slot of [1, 2] as const) {
-      if (reservedKey.has(`${m.id}:${slot}`)) continue;
-      const pid = order[next++]?.id ?? null;
-      if (slot === 1) m.p1 = pid;
-      else m.p2 = pid;
-    }
-  }
-  for (const m of first) if (m.p1 && m.p2) m.status = "ready";
-
-  // Bronze match: the two semi-final losers meet to settle 3rd / 4th place.
-  const third: Match[] = [];
-  if (rounds.length >= 2) {
-    const semis = rounds[rounds.length - 2];
-    const finalRound = rounds[rounds.length - 1][0].round;
-    const bronze = blankMatch(finalRound, 1);
-    bronze.kind = "third";
-    third.push(bronze);
-    semis.forEach((m, i) => {
-      m.loserNextMatchId = bronze.id;
-      m.loserNextSlot = i === 0 ? 1 : 2;
-    });
-  }
-
-  return [...(hasPrelim ? prelim : []), ...rounds.flat(), ...third];
-}
+const uid = () => crypto.randomUUID();
 
 interface Ctx extends TournamentState {
   role: Role;
@@ -334,7 +218,7 @@ export function TournamentProvider({
         () => {
           if (isVisible()) void pull();
         },
-        railwayAuthEnabled ? RAILWAY_POLL_MS : SLOW_POLL_MS,
+        railwayAuthEnabled ? RAILWAY_PLAYER_POLL_MS : SLOW_POLL_MS,
       );
     };
     const stopTimer = () => {
@@ -1196,7 +1080,7 @@ export function TournamentProvider({
         () => {
           if (isVisible()) void pull();
         },
-        railwayAuthEnabled ? RAILWAY_POLL_MS : SLOW_POLL_MS,
+        railwayAuthEnabled ? RAILWAY_ADMIN_POLL_MS : SLOW_POLL_MS,
       );
     };
     const stopTimer = () => {

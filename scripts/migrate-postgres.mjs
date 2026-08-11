@@ -20,6 +20,8 @@ const client = new Client({ connectionString: databaseUrl });
 await client.connect();
 
 try {
+  // Prevent two overlapping Railway deployments from applying the same file.
+  await client.query("SELECT pg_advisory_lock(hashtext('beytournamentsys:migrations')::bigint)");
   await client.query(`
     CREATE TABLE IF NOT EXISTS app_migrations (
       name text PRIMARY KEY,
@@ -46,5 +48,8 @@ try {
     }
   }
 } finally {
+  await client
+    .query("SELECT pg_advisory_unlock(hashtext('beytournamentsys:migrations')::bigint)")
+    .catch(() => undefined);
   await client.end();
 }

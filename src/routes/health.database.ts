@@ -6,9 +6,9 @@ export const Route = createFileRoute("/health/database")({
     handlers: {
       GET: async () => {
         try {
-          const { postgresHealthcheck } = await import("@/integrations/postgres/client.server");
-          await postgresHealthcheck();
-          return Response.json({ ok: true, database: "postgres" });
+          const { postgresReadinessCheck } = await import("@/integrations/postgres/client.server");
+          await postgresReadinessCheck();
+          return Response.json({ ok: true, database: "postgres", schema: "ready" });
         } catch (error) {
           console.error("[health/database] PostgreSQL check failed", error);
           return Response.json({ ok: false, database: "postgres" }, { status: 503 });

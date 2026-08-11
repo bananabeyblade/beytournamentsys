@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { PoolClient } from "pg";
 import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/client.server";
+import { enforceRateLimit } from "./rate-limit.server";
 
 const SESSION_COOKIE = "beyx_session";
 const OAUTH_STATE_COOKIE = "beyx_oauth_state";
@@ -8,7 +9,6 @@ const OAUTH_VERIFIER_COOKIE = "beyx_oauth_verifier";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 const OAUTH_SECONDS = 60 * 10;
 const OWNER_EMAIL = "john410403123@gmail.com";
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
 type AppRole = "admin" | "superadmin";
 
@@ -44,18 +44,6 @@ function safeEqual(left: string | null, right: string | null): boolean {
   const a = Buffer.from(left);
   const b = Buffer.from(right);
   return a.length === b.length && timingSafeEqual(a, b);
-}
-
-function loginRateLimit(request: Request) {
-  const now = Date.now();
-  const key = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const current = loginAttempts.get(key);
-  if (!current || current.resetAt <= now) {
-    loginAttempts.set(key, { count: 1, resetAt: now + 15 * 60_000 });
-    return;
-  }
-  if (current.count >= 10) throw Object.assign(new Error("TOO_MANY_ATTEMPTS"), { status: 429 });
-  current.count += 1;
 }
 
 function normalizeLoginAccount(value: string): string | null {
@@ -226,7 +214,7 @@ export async function finishGoogleOAuth(request: Request): Promise<Response> {
 
 export async function loginRailwayWithPassword(request: Request): Promise<Response> {
   try {
-    loginRateLimit(request);
+    await enforceRateLimit(request, "admin-login", 10, 15 * 60);
     const body = (await request.json().catch(() => null)) as {
       account?: unknown;
       password?: unknown;

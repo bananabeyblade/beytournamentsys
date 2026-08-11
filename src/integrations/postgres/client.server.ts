@@ -32,6 +32,27 @@ export async function postgresHealthcheck(): Promise<void> {
   await getPostgresPool().query("SELECT 1");
 }
 
+/** Readiness checks the schema the running application actually requires. */
+export async function postgresReadinessCheck(): Promise<void> {
+  const result = await getPostgresPool().query<{ ready: boolean }>(`
+    SELECT
+      to_regclass('public.app_users') IS NOT NULL
+      AND to_regclass('public.app_sessions') IS NOT NULL
+      AND to_regclass('public.admin_roles') IS NOT NULL
+      AND to_regclass('public.tournaments') IS NOT NULL
+      AND to_regclass('public.registrations') IS NOT NULL
+      AND to_regclass('public.participant_recovery_codes') IS NOT NULL
+      AND to_regclass('public.request_rate_limits') IS NOT NULL
+      AND to_regprocedure('public.merge_tournament_live_state(uuid,jsonb,timestamptz)') IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='app_users'
+          AND column_name='password_ciphertext'
+      ) AS ready
+  `);
+  if (result.rows[0]?.ready !== true) throw new Error("DATABASE_SCHEMA_NOT_READY");
+}
+
 export async function queryPostgres<Row extends QueryResultRow>(
   text: string,
   values: readonly unknown[] = [],

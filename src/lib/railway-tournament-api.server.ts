@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/client.server";
+import { generateRecoveryCode } from "./recovery-code.server";
 
 export type PublicTournament = {
   id: string;
@@ -17,7 +18,6 @@ export type PublicTournament = {
 const tournamentColumns = `
   id, code, name, status, results, live_state, live_updated_at, logo_url, created_at, finished_at
 `;
-
 function cleanName(value: unknown): string {
   if (typeof value !== "string") throw new ApiError(400, "NAME_REQUIRED");
   const name = value.trim();
@@ -46,14 +46,11 @@ export class ApiError extends Error {
 
 export async function listPublicTournaments(code?: string): Promise<PublicTournament[]> {
   const normalizedCode = code?.trim().toUpperCase();
-  const result = normalizedCode
-    ? await queryPostgres<PublicTournament>(
-        `SELECT ${tournamentColumns} FROM tournaments WHERE code = $1 LIMIT 1`,
-        [normalizedCode],
-      )
-    : await queryPostgres<PublicTournament>(
-        `SELECT ${tournamentColumns} FROM tournaments ORDER BY created_at DESC LIMIT 50`,
-      );
+  if (!normalizedCode) throw new ApiError(400, "TOURNAMENT_CODE_REQUIRED");
+  const result = await queryPostgres<PublicTournament>(
+    `SELECT ${tournamentColumns} FROM tournaments WHERE code = $1 LIMIT 1`,
+    [normalizedCode],
+  );
   return result.rows;
 }
 
@@ -82,20 +79,37 @@ export async function createPublicRegistration(tournamentIdInput: unknown, nameI
   const name = cleanName(nameInput);
 
   return withPostgresTransaction(async (client) => {
-    const tournament = await client.query<{ recovery_code_prefix: string }>(
-      "SELECT recovery_code_prefix FROM tournaments WHERE id = $1 AND status = 'open' FOR UPDATE",
+    const tournament = await client.query<{
+      recovery_code_prefix: string;
+      roster_count: number;
+      match_count: number;
+    }>(
+      `SELECT recovery_code_prefix,
+         jsonb_array_length(COALESCE(live_state->'players','[]'::jsonb))::int AS roster_count,
+         jsonb_array_length(COALESCE(live_state->'matches','[]'::jsonb))::int AS match_count
+       FROM tournaments WHERE id = $1 AND status = 'open' FOR UPDATE`,
       [tournamentId],
     );
-    const prefix = tournament.rows[0]?.recovery_code_prefix;
+    const row = tournament.rows[0];
+    const prefix = row?.recovery_code_prefix;
     if (!prefix) throw new ApiError(404, "OPEN_TOURNAMENT_NOT_FOUND");
+    if (row.match_count > 0) throw new ApiError(409, "REGISTRATION_CLOSED");
+    const pending = await client.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM registrations WHERE tournament_id=$1",
+      [tournamentId],
+    );
+    const configuredMax = Number(process.env.MAX_TOURNAMENT_REGISTRATIONS ?? 128);
+    const maxRegistrations = Math.min(
+      Math.max(Number.isFinite(configuredMax) ? configuredMax : 128, 16),
+      1024,
+    );
+    if (row.roster_count + (pending.rows[0]?.count ?? 0) >= maxRegistrations)
+      throw new ApiError(409, "TOURNAMENT_FULL");
     if (await nameTaken(client, tournamentId, name)) throw new ApiError(409, "DUPLICATE");
 
     let recoveryCode: string | undefined;
     for (let attempts = 0; attempts < 20; attempts += 1) {
-      const suffix = Math.floor(Math.random() * 10_000)
-        .toString()
-        .padStart(4, "0");
-      const candidate = `${prefix}${suffix}`;
+      const candidate = generateRecoveryCode(prefix);
       const inserted = await client.query(
         `INSERT INTO participant_recovery_codes (tournament_id, name, recovery_code)
          VALUES ($1, $2, $3)

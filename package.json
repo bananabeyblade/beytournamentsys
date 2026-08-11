@@ -6,11 +6,15 @@
   "scripts": {
     "dev": "vite dev",
     "typecheck": "tsc --noEmit",
-    "build": "vite build && npm run typecheck",
+    "build": "vite build && bun run typecheck",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "ci": "bun run lint && bun run typecheck && bun run test && bun run build",
     "db:migrate": "node scripts/migrate-postgres.mjs",
     "db:check": "node scripts/check-postgres.mjs",
     "db:import:dry-run": "node scripts/import-from-supabase.mjs",
@@ -56,6 +60,7 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^3.2.4"
   }
 }

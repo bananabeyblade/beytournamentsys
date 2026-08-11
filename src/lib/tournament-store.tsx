@@ -23,6 +23,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { bootstrapSuperadminFn, getMyRoleFn, promoteGoogleOwnerFn } from "./admin.functions";
 import {
+  fetchRailwaySession,
+  logoutRailway,
+  railwayAuthEnabled,
+  startRailwayGoogleLogin,
+} from "./railway-auth";
+import {
   createTournament,
   fetchTournamentByCode,
   fetchLatestOpenTournament,
@@ -380,36 +386,71 @@ export function TournamentProvider({
   const [authIssue, setAuthIssue] = useState<string | null>(null);
 
   const syncRole = useCallback(async () => {
-    const { data, error: userError } = await supabase.auth.getUser();
-    const user = data.user;
-    if (userError) {
-      setCurrentAdmin(null);
-      setRoleState("player");
-      setAuthIssue("無法讀取登入狀態，請重新登入後再試一次。");
-      return "error" as const;
-    }
-    if (!user) {
-      setCurrentAdmin(null);
-      setRoleState("player");
-      setAuthIssue(null);
-      return "signed_out" as const;
-    }
-    try {
-      await promoteGoogleOwnerFn();
-      const { role: cloudRole } = await getMyRoleFn();
-      if (!cloudRole) {
+    if (!railwayAuthEnabled) {
+      const { data, error: userError } = await supabase.auth.getUser();
+      const user = data.user;
+      if (userError) {
         setCurrentAdmin(null);
         setRoleState("player");
-        setAuthIssue("此帳號已登入，但尚未取得管理者權限。請使用核准的管理者帳號登入。");
+        setAuthIssue("無法讀取登入狀態，請重新登入後再試一次。");
+        return "error" as const;
+      }
+      if (!user) {
+        setCurrentAdmin(null);
+        setRoleState("player");
+        setAuthIssue(null);
+        return "signed_out" as const;
+      }
+      try {
+        await promoteGoogleOwnerFn();
+        const { role: cloudRole } = await getMyRoleFn();
+        if (!cloudRole) {
+          setCurrentAdmin(null);
+          setRoleState("player");
+          setAuthIssue("此帳號已登入，但尚未取得管理者權限。請使用核准的管理者帳號登入。");
+          return "not_authorized" as const;
+        }
+        setCurrentAdmin({
+          id: user.id,
+          email: displayAccount(user.email),
+          isSuper: cloudRole === "superadmin",
+          isGoogle:
+            user.app_metadata.provider === "google" ||
+            user.identities?.some((identity) => identity.provider === "google") === true,
+        });
+        setRoleState("admin");
+        setAuthIssue(null);
+        return "admin" as const;
+      } catch (error) {
+        setCurrentAdmin(null);
+        setRoleState("player");
+        setAuthIssue(
+          error instanceof Error && error.message
+            ? `管理者權限驗證失敗：${error.message}`
+            : "管理者權限驗證失敗，請重新登入後再試一次。",
+        );
+        return "error" as const;
+      }
+    }
+    try {
+      const user = await fetchRailwaySession();
+      if (!user) {
+        setCurrentAdmin(null);
+        setRoleState("player");
+        setAuthIssue(null);
+        return "signed_out" as const;
+      }
+      if (!user.role) {
+        setCurrentAdmin(null);
+        setRoleState("player");
+        setAuthIssue("此 Google 帳號尚未取得管理者權限。");
         return "not_authorized" as const;
       }
       setCurrentAdmin({
         id: user.id,
         email: displayAccount(user.email),
-        isSuper: cloudRole === "superadmin",
-        isGoogle:
-          user.app_metadata.provider === "google" ||
-          user.identities?.some((identity) => identity.provider === "google") === true,
+        isSuper: user.role === "superadmin",
+        isGoogle: user.isGoogle,
       });
       setRoleState("admin");
       setAuthIssue(null);
@@ -419,8 +460,8 @@ export function TournamentProvider({
       setRoleState("player");
       setAuthIssue(
         error instanceof Error && error.message
-          ? `管理者權限驗證失敗：${error.message}`
-          : "管理者權限驗證失敗，請重新登入後再試一次。",
+          ? `登入狀態讀取失敗：${error.message}`
+          : "登入狀態讀取失敗，請重新整理後再試。",
       );
       return "error" as const;
     }
@@ -429,6 +470,14 @@ export function TournamentProvider({
   useEffect(() => {
     let alive = true;
     void syncRole().finally(() => alive && setAuthReady(true));
+    if (railwayAuthEnabled) {
+      const refresh = () => void syncRole();
+      window.addEventListener("focus", refresh);
+      return () => {
+        alive = false;
+        window.removeEventListener("focus", refresh);
+      };
+    }
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
         void syncRole();
@@ -451,26 +500,28 @@ export function TournamentProvider({
 
   const signIn = useCallback(
     async (account: string, password: string) => {
+      if (railwayAuthEnabled) return "密碼無法從舊系統安全搬移，請先使用 Google 登入。";
       const email = toLoginEmail(account);
       const attempts = isUsernameAccount(account)
         ? [padAdminPassword(password), password]
         : [password];
-      let failed = true;
       for (const pw of attempts) {
         const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
         if (!error) {
-          failed = false;
-          break;
+          const result = await syncRole();
+          return result === "admin" ? null : "登入成功，但此帳號沒有管理者權限。";
         }
       }
-      if (failed) return "帳號或密碼錯誤";
-      const result = await syncRole();
-      return result === "admin" ? null : "登入成功，但此帳號沒有管理者權限。";
+      return "帳號或密碼錯誤";
     },
     [syncRole],
   );
 
   const signInWithGoogle = useCallback(async () => {
+    if (railwayAuthEnabled) {
+      startRailwayGoogleLogin();
+      return null;
+    }
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: window.location.origin,
     });
@@ -480,6 +531,7 @@ export function TournamentProvider({
 
   const signUp = useCallback(
     async (email: string, password: string) => {
+      if (railwayAuthEnabled) return "新帳號請先使用 Google 登入，再由總管理者授權。";
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -494,17 +546,19 @@ export function TournamentProvider({
   );
 
   const claimSuperadmin = useCallback(async () => {
+    if (railwayAuthEnabled) return "總管理者權限已從舊資料庫搬移，不需要重新認領。";
     try {
       await bootstrapSuperadminFn();
       await syncRole();
       return null;
-    } catch (e) {
-      return e instanceof Error ? e.message : "設定失敗";
+    } catch (error) {
+      return error instanceof Error ? error.message : "設定失敗";
     }
   }, [syncRole]);
 
   const logout = useCallback(async () => {
-    await supabase.auth.signOut();
+    if (railwayAuthEnabled) await logoutRailway();
+    await supabase.auth.signOut().catch(() => undefined);
     setCurrentAdmin(null);
     setRoleState("player");
     // Wipe every trace of the event on this device: the next admin to sign in

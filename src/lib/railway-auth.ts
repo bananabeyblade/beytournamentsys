@@ -1,0 +1,34 @@
+export interface RailwayAuthUser {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: "admin" | "superadmin" | null;
+  isGoogle: boolean;
+}
+
+export const railwayAuthEnabled = import.meta.env.VITE_RAILWAY_AUTH_ENABLED === "true";
+
+export async function fetchRailwaySession(): Promise<RailwayAuthUser | null> {
+  const response = await fetch("/api/auth/session", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("登入狀態讀取失敗");
+  const body = (await response.json()) as {
+    authenticated?: boolean;
+    user?: RailwayAuthUser | null;
+  };
+  return body.authenticated ? (body.user ?? null) : null;
+}
+
+export function startRailwayGoogleLogin(): void {
+  window.location.assign("/api/auth/google");
+}
+
+export async function logoutRailway(): Promise<void> {
+  const response = await fetch("/api/auth/session", {
+    method: "DELETE",
+    credentials: "same-origin",
+  });
+  if (!response.ok) throw new Error("登出失敗");
+}

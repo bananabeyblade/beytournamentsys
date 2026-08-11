@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { lovable } from "@/integrations/lovable";
+import { railwayAuthEnabled, startRailwayGoogleLogin } from "@/lib/railway-auth";
 
 export function GoogleSignInButton({ onError }: { onError?: (msg: string) => void }) {
   const [busy, setBusy] = useState(false);
@@ -11,6 +12,10 @@ export function GoogleSignInButton({ onError }: { onError?: (msg: string) => voi
       onClick={async () => {
         setBusy(true);
         onError?.("");
+        if (railwayAuthEnabled) {
+          startRailwayGoogleLogin();
+          return;
+        }
         const result = await lovable.auth.signInWithOAuth("google", {
           redirect_uri: window.location.origin,
         });
@@ -19,8 +24,7 @@ export function GoogleSignInButton({ onError }: { onError?: (msg: string) => voi
           setBusy(false);
           return;
         }
-        if (result.redirected) return;
-        setBusy(false);
+        if (!result.redirected) setBusy(false);
       }}
       className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary font-display text-foreground disabled:opacity-50"
     >

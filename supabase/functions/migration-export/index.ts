@@ -26,7 +26,12 @@ function denied() {
 
 async function readAll(
   client: ReturnType<typeof createClient>,
-  table: "tournaments" | "registrations" | "participant_recovery_codes",
+  table:
+    | "tournaments"
+    | "registrations"
+    | "participant_recovery_codes"
+    | "admin_roles"
+    | "admin_actions",
   columns: string,
 ) {
   const pageSize = 1000;
@@ -41,6 +46,72 @@ async function readAll(
     rows.push(...(data ?? []));
     if ((data ?? []).length < pageSize) return rows;
   }
+}
+
+async function readAuthUsers(client: ReturnType<typeof createClient>) {
+  const users: Array<{
+    id: string;
+    email: string;
+    display_name: string | null;
+    created_at: string;
+    last_sign_in_at: string | null;
+  }> = [];
+  const perPage = 1000;
+  for (let page = 1; ; page += 1) {
+    const { data, error } = await client.auth.admin.listUsers({ page, perPage });
+    if (error) throw new Error(`Unable to export auth users: ${error.message}`);
+    for (const user of data.users) {
+      if (!user.email) continue;
+      const metadata = user.user_metadata ?? {};
+      const displayName = [metadata.full_name, metadata.name, metadata.user_name].find(
+        (value) => typeof value === "string" && value.trim(),
+      );
+      users.push({
+        id: user.id,
+        email: user.email,
+        display_name: typeof displayName === "string" ? displayName.slice(0, 120) : null,
+        created_at: user.created_at,
+        last_sign_in_at: user.last_sign_in_at ?? null,
+      });
+    }
+    if (data.users.length < perPage) return users;
+  }
+}
+
+async function readStorageManifest(client: ReturnType<typeof createClient>) {
+  const { data: buckets, error: bucketError } = await client.storage.listBuckets();
+  if (bucketError) throw new Error(`Unable to list storage buckets: ${bucketError.message}`);
+
+  const objects: Array<{ bucket_id: string; name: string; size: number | null }> = [];
+  for (const bucket of buckets ?? []) {
+    const prefixes = [""];
+    while (prefixes.length > 0) {
+      const prefix = prefixes.shift() ?? "";
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await client.storage.from(bucket.id).list(prefix, {
+          limit: 1000,
+          offset,
+          sortBy: { column: "name", order: "asc" },
+        });
+        if (error) throw new Error(`Unable to list storage bucket ${bucket.id}: ${error.message}`);
+        for (const item of data ?? []) {
+          const name = prefix ? `${prefix}/${item.name}` : item.name;
+          if (item.id) {
+            const size = item.metadata?.size;
+            objects.push({
+              bucket_id: bucket.id,
+              name,
+              size: typeof size === "number" ? size : null,
+            });
+          } else {
+            prefixes.push(name);
+          }
+        }
+        if ((data ?? []).length < 1000) break;
+      }
+    }
+  }
+  return objects;
 }
 
 /**
@@ -68,7 +139,15 @@ Deno.serve(async (request) => {
     const source = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const [tournaments, registrations, recoveryCodes] = await Promise.all([
+    const [
+      tournaments,
+      registrations,
+      recoveryCodes,
+      appUsers,
+      adminRoles,
+      adminActions,
+      storageObjects,
+    ] = await Promise.all([
       readAll(
         source,
         "tournaments",
@@ -80,14 +159,26 @@ Deno.serve(async (request) => {
         "participant_recovery_codes",
         "id,tournament_id,name,recovery_code,created_at",
       ),
+      readAuthUsers(source),
+      readAll(source, "admin_roles", "id,user_id,email,role,created_at"),
+      readAll(
+        source,
+        "admin_actions",
+        "id,actor_user_id,actor_email,action,detail,tournament_id,tournament_name,created_at",
+      ),
+      readStorageManifest(source),
     ]);
     return Response.json(
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         exportedAt: new Date().toISOString(),
         tournaments,
         registrations,
         recoveryCodes,
+        appUsers,
+        adminRoles,
+        adminActions,
+        storageObjects,
       },
       { headers: noStoreHeaders },
     );

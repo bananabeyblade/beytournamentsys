@@ -7,6 +7,8 @@ const OAUTH_STATE_COOKIE = "beyx_oauth_state";
 const OAUTH_VERIFIER_COOKIE = "beyx_oauth_verifier";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 const OAUTH_SECONDS = 60 * 10;
+const OWNER_EMAIL = "john410403123@gmail.com";
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
 type AppRole = "admin" | "superadmin";
 
@@ -42,6 +44,25 @@ function safeEqual(left: string | null, right: string | null): boolean {
   const a = Buffer.from(left);
   const b = Buffer.from(right);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function loginRateLimit(request: Request) {
+  const now = Date.now();
+  const key = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const current = loginAttempts.get(key);
+  if (!current || current.resetAt <= now) {
+    loginAttempts.set(key, { count: 1, resetAt: now + 15 * 60_000 });
+    return;
+  }
+  if (current.count >= 10) throw Object.assign(new Error("TOO_MANY_ATTEMPTS"), { status: 429 });
+  current.count += 1;
+}
+
+function normalizeLoginAccount(value: string): string | null {
+  const account = value.trim().toLowerCase();
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(account)) return account;
+  if (/^[a-z0-9_.-]{3,30}$/.test(account)) return `${account}@beyx.local`;
+  return null;
 }
 
 function requiredEnv(name: "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET"): string {
@@ -203,6 +224,57 @@ export async function finishGoogleOAuth(request: Request): Promise<Response> {
   }
 }
 
+export async function loginRailwayWithPassword(request: Request): Promise<Response> {
+  try {
+    loginRateLimit(request);
+    const body = (await request.json().catch(() => null)) as {
+      account?: unknown;
+      password?: unknown;
+    } | null;
+    const email = typeof body?.account === "string" ? normalizeLoginAccount(body.account) : null;
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!email || password.length < 8 || password.length > 200 || email === OWNER_EMAIL)
+      throw Object.assign(new Error("INVALID_CREDENTIALS"), { status: 401 });
+
+    const result = await queryPostgres<{ id: string }>(
+      `SELECT u.id FROM app_users u
+       WHERE lower(u.email)=lower($1) AND u.password_hash IS NOT NULL
+         AND u.password_hash = crypt($2, u.password_hash)
+         AND EXISTS (SELECT 1 FROM admin_roles r WHERE r.user_id=u.id)
+       LIMIT 1`,
+      [email, password],
+    );
+    if (!result.rows[0]) throw Object.assign(new Error("INVALID_CREDENTIALS"), { status: 401 });
+
+    const token = base64url(randomBytes(32));
+    await withPostgresTransaction(async (client) => {
+      await client.query(
+        `INSERT INTO app_sessions (user_id, token_hash, expires_at)
+         VALUES ($1, $2, now() + interval '30 days')`,
+        [result.rows[0].id, sha256(token)],
+      );
+      await client.query("UPDATE app_users SET last_login_at=now() WHERE id=$1", [
+        result.rows[0].id,
+      ]);
+      await client.query("DELETE FROM app_sessions WHERE expires_at <= now()");
+    });
+    return Response.json(
+      { ok: true },
+      {
+        headers: {
+          "set-cookie": secureCookie(SESSION_COOKIE, token, SESSION_SECONDS),
+          "cache-control": "no-store",
+        },
+      },
+    );
+  } catch (error) {
+    const status = Number((error as { status?: number })?.status) || 500;
+    const code = status === 500 ? "LOGIN_FAILED" : (error as Error).message;
+    if (status === 500) console.error("[auth/password] login failed", error);
+    return Response.json({ error: code }, { status, headers: { "cache-control": "no-store" } });
+  }
+}
+
 export async function readRailwaySession(request: Request): Promise<RailwaySessionUser | null> {
   const token = cookieValue(request, SESSION_COOKIE);
   if (!token) return null;
@@ -243,6 +315,13 @@ export async function requireRailwayAdmin(
   if (!user.role || (superadminOnly && user.role !== "superadmin")) {
     throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
   }
+  return user;
+}
+
+export async function requireRailwayOwner(request: Request): Promise<RailwaySessionUser> {
+  const user = await requireRailwayAdmin(request, true);
+  if (user.email.toLowerCase() !== OWNER_EMAIL || !user.isGoogle)
+    throw Object.assign(new Error("OWNER_REQUIRED"), { status: 403 });
   return user;
 }
 

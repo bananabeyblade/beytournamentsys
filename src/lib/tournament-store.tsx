@@ -26,6 +26,7 @@ import {
   fetchRailwaySession,
   logoutRailway,
   railwayAuthEnabled,
+  loginRailwayWithPassword,
   startRailwayGoogleLogin,
 } from "./railway-auth";
 import {
@@ -507,7 +508,17 @@ export function TournamentProvider({
 
   const signIn = useCallback(
     async (account: string, password: string) => {
-      if (railwayAuthEnabled) return "密碼無法從舊系統安全搬移，請先使用 Google 登入。";
+      if (railwayAuthEnabled) {
+        try {
+          await loginRailwayWithPassword(account, password);
+          const result = await syncRole();
+          return result === "admin" ? null : "登入成功，但此帳號沒有管理者權限。";
+        } catch (error) {
+          const code = error instanceof Error ? error.message : "LOGIN_FAILED";
+          if (code === "TOO_MANY_ATTEMPTS") return "嘗試次數過多，請於 15 分鐘後再試。";
+          return "帳號或密碼錯誤。";
+        }
+      }
       const email = toLoginEmail(account);
       const attempts = isUsernameAccount(account)
         ? [padAdminPassword(password), password]

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, Save, ShieldPlus, Trash2, UserCog, UserPlus } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Save, ShieldPlus, Trash2, UserCog, UserPlus } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -8,6 +8,7 @@ import {
   listAdminsFn,
   removeSuperadminFn,
   removeAdminFn,
+  revealAdminPasswordFn,
   setAdminPasswordFn,
 } from "@/lib/admin-client";
 import { USERNAME_RE, displayAccount, isOwnerEmail } from "@/lib/account-id";
@@ -44,6 +45,20 @@ function MyAccount() {
           已透過 Google 登入：<span className="text-primary">{currentAdmin?.email}</span>
         </p>
         <p className="text-xs text-muted-foreground">此帳號的登入與密碼設定由 Google 管理。</p>
+      </div>
+    );
+  }
+
+  if (railwayAuthEnabled) {
+    return (
+      <div className="panel space-y-2 p-3">
+        <h2 className="flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
+          <KeyRound className="h-4 w-4" /> 我的帳號 MY ACCOUNT
+        </h2>
+        <p className="text-sm">
+          帳號：<span className="text-primary">{currentAdmin?.email}</span>
+        </p>
+        <p className="text-xs text-muted-foreground">此帳號的密碼由擁有者統一設定與管理。</p>
       </div>
     );
   }
@@ -321,6 +336,8 @@ function ManageSuperadmins() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
   const [busy, setBusy] = useState(false);
+  const [revealed, setRevealed] = useState<Record<string, string>>({});
+  const [revealingId, setRevealingId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     listAdminsFn()
@@ -332,16 +349,14 @@ function ManageSuperadmins() {
 
   const create = async () => {
     const account = email.trim();
-    const valid = railwayAuthEnabled
+    const valid = account.includes("@")
       ? /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(account)
-      : account.includes("@")
-        ? /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(account)
-        : USERNAME_RE.test(account);
+      : USERNAME_RE.test(account);
     if (!valid) {
-      setMsg({ ok: false, text: "請輸入有效的信箱或帳號（英數字 3-30 字）" });
+      setMsg({ ok: false, text: "請輸入有效的帳號（3-30 字）或信箱" });
       return;
     }
-    if (!railwayAuthEnabled && password.length < 8) {
+    if (password.length < 8) {
       setMsg({ ok: false, text: "密碼至少需 8 碼" });
       return;
     }
@@ -356,6 +371,30 @@ function ManageSuperadmins() {
       setMsg({ ok: false, text: e instanceof Error ? e.message : "新增失敗" });
     }
     setBusy(false);
+  };
+
+  const togglePassword = async (userId: string) => {
+    if (revealed[userId]) {
+      setRevealed((current) => {
+        const next = { ...current };
+        delete next[userId];
+        return next;
+      });
+      return;
+    }
+    setRevealingId(userId);
+    try {
+      const result = await revealAdminPasswordFn({ data: { userId } });
+      if (!result.password) {
+        setMsg({ ok: false, text: "此帳號尚未設定可查看的密碼，請重新建立或重設密碼。" });
+      } else {
+        setRevealed((current) => ({ ...current, [userId]: result.password! }));
+      }
+    } catch (error) {
+      setMsg({ ok: false, text: error instanceof Error ? error.message : "讀取密碼失敗" });
+    } finally {
+      setRevealingId(null);
+    }
   };
 
   const remove = async (userId: string) => {
@@ -382,22 +421,41 @@ function ManageSuperadmins() {
         {supers.map((a) => {
           const owner = isOwnerEmail(a.email);
           return (
-            <li
-              key={a.id}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-border bg-secondary/40 p-3"
-            >
-              <span className="truncate text-sm">
-                {displayAccount(a.email) || a.user_id}
-                {owner && <span className="ml-1 text-[10px] text-primary">擁有者</span>}
-              </span>
-              {!owner && (
-                <button
-                  aria-label={`移除總管理者 ${displayAccount(a.email) || a.user_id}`}
-                  onClick={() => remove(a.user_id)}
-                  className="grid h-10 w-10 place-items-center rounded-lg text-destructive"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </button>
+            <li key={a.id} className="rounded-lg border border-border bg-secondary/40 p-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
+                <span className="truncate text-sm">
+                  {displayAccount(a.email) || a.user_id}
+                  {owner && <span className="ml-1 text-[10px] text-primary">擁有者</span>}
+                </span>
+                {!owner && railwayAuthEnabled && (
+                  <button
+                    type="button"
+                    disabled={revealingId === a.user_id}
+                    aria-label={revealed[a.user_id] ? "隱藏密碼" : "查看密碼"}
+                    onClick={() => void togglePassword(a.user_id)}
+                    className="grid h-10 w-10 place-items-center rounded-lg text-primary disabled:opacity-50"
+                  >
+                    {revealed[a.user_id] ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                )}
+                {!owner && (
+                  <button
+                    aria-label={`移除總管理者 ${displayAccount(a.email) || a.user_id}`}
+                    onClick={() => remove(a.user_id)}
+                    className="grid h-10 w-10 place-items-center rounded-lg text-destructive"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+              {revealed[a.user_id] && (
+                <div className="mt-2 rounded-lg border border-primary/30 bg-background/70 px-3 py-2 font-mono text-sm">
+                  密碼：{revealed[a.user_id]}
+                </div>
               )}
             </li>
           );
@@ -407,21 +465,20 @@ function ManageSuperadmins() {
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder={railwayAuthEnabled ? "新總管理者 Google 信箱" : "新總管理者帳號或信箱"}
+          placeholder="新總管理者帳號或信箱"
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
           className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
         />
-        {!railwayAuthEnabled && (
-          <input
-            value={password}
-            type="password"
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="密碼（至少 8 碼）"
-            className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-          />
-        )}
+        <input
+          value={password}
+          type="password"
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="密碼（至少 8 碼）"
+          autoComplete="new-password"
+          className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+        />
         {msg && (
           <p className={`text-xs ${msg.ok ? "text-primary" : "text-destructive"}`}>{msg.text}</p>
         )}
@@ -430,7 +487,7 @@ function ManageSuperadmins() {
           disabled={busy}
           className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 font-display text-primary disabled:opacity-50"
         >
-          <ShieldPlus className="h-4 w-4" /> 新增總管理者
+          <ShieldPlus className="h-4 w-4" /> 新增／更新總管理者
         </button>
       </div>
     </div>

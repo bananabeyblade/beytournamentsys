@@ -19,6 +19,13 @@ import { Route as HealthDatabaseRouteImport } from './routes/health.database'
 import { Route as ApiTournamentsRouteImport } from './routes/api.tournaments'
 import { Route as ApiRegistrationsRouteImport } from './routes/api.registrations'
 import { Route as ApiRecoveryRouteImport } from './routes/api.recovery'
+import { Route as ApiAuthSessionRouteImport } from './routes/api.auth.session'
+import { Route as ApiAuthPasswordRouteImport } from './routes/api.auth.password'
+import { Route as ApiAuthGoogleRouteImport } from './routes/api.auth.google'
+import { Route as ApiAssetsIdRouteImport } from './routes/api.assets.$id'
+import { Route as ApiAdminLogoRouteImport } from './routes/api.admin.logo'
+import { Route as ApiAdminActionRouteImport } from './routes/api.admin.$action'
+import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api.auth.google.callback'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -70,6 +77,41 @@ const ApiRecoveryRoute = ApiRecoveryRouteImport.update({
   path: '/api/recovery',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
+  id: '/api/auth/session',
+  path: '/api/auth/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthPasswordRoute = ApiAuthPasswordRouteImport.update({
+  id: '/api/auth/password',
+  path: '/api/auth/password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthGoogleRoute = ApiAuthGoogleRouteImport.update({
+  id: '/api/auth/google',
+  path: '/api/auth/google',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAssetsIdRoute = ApiAssetsIdRouteImport.update({
+  id: '/api/assets/$id',
+  path: '/api/assets/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminLogoRoute = ApiAdminLogoRouteImport.update({
+  id: '/api/admin/logo',
+  path: '/api/admin/logo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminActionRoute = ApiAdminActionRouteImport.update({
+  id: '/api/admin/$action',
+  path: '/api/admin/$action',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => ApiAuthGoogleRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -82,6 +124,13 @@ export interface FileRoutesByFullPath {
   '/health/database': typeof HealthDatabaseRoute
   '/results/$code': typeof ResultsCodeRoute
   '/watch/$code': typeof WatchCodeRoute
+  '/api/admin/$action': typeof ApiAdminActionRoute
+  '/api/admin/logo': typeof ApiAdminLogoRoute
+  '/api/assets/$id': typeof ApiAssetsIdRoute
+  '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/auth/password': typeof ApiAuthPasswordRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -94,6 +143,13 @@ export interface FileRoutesByTo {
   '/health/database': typeof HealthDatabaseRoute
   '/results/$code': typeof ResultsCodeRoute
   '/watch/$code': typeof WatchCodeRoute
+  '/api/admin/$action': typeof ApiAdminActionRoute
+  '/api/admin/logo': typeof ApiAdminLogoRoute
+  '/api/assets/$id': typeof ApiAssetsIdRoute
+  '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/auth/password': typeof ApiAuthPasswordRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -107,6 +163,13 @@ export interface FileRoutesById {
   '/health/database': typeof HealthDatabaseRoute
   '/results/$code': typeof ResultsCodeRoute
   '/watch/$code': typeof WatchCodeRoute
+  '/api/admin/$action': typeof ApiAdminActionRoute
+  '/api/admin/logo': typeof ApiAdminLogoRoute
+  '/api/assets/$id': typeof ApiAssetsIdRoute
+  '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/auth/password': typeof ApiAuthPasswordRoute
+  '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +184,13 @@ export interface FileRouteTypes {
     | '/health/database'
     | '/results/$code'
     | '/watch/$code'
+    | '/api/admin/$action'
+    | '/api/admin/logo'
+    | '/api/assets/$id'
+    | '/api/auth/google'
+    | '/api/auth/password'
+    | '/api/auth/session'
+    | '/api/auth/google/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +203,13 @@ export interface FileRouteTypes {
     | '/health/database'
     | '/results/$code'
     | '/watch/$code'
+    | '/api/admin/$action'
+    | '/api/admin/logo'
+    | '/api/assets/$id'
+    | '/api/auth/google'
+    | '/api/auth/password'
+    | '/api/auth/session'
+    | '/api/auth/google/callback'
   id:
     | '__root__'
     | '/'
@@ -145,6 +222,13 @@ export interface FileRouteTypes {
     | '/health/database'
     | '/results/$code'
     | '/watch/$code'
+    | '/api/admin/$action'
+    | '/api/admin/logo'
+    | '/api/assets/$id'
+    | '/api/auth/google'
+    | '/api/auth/password'
+    | '/api/auth/session'
+    | '/api/auth/google/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -158,6 +242,12 @@ export interface RootRouteChildren {
   HealthDatabaseRoute: typeof HealthDatabaseRoute
   ResultsCodeRoute: typeof ResultsCodeRoute
   WatchCodeRoute: typeof WatchCodeRoute
+  ApiAdminActionRoute: typeof ApiAdminActionRoute
+  ApiAdminLogoRoute: typeof ApiAdminLogoRoute
+  ApiAssetsIdRoute: typeof ApiAssetsIdRoute
+  ApiAuthGoogleRoute: typeof ApiAuthGoogleRouteWithChildren
+  ApiAuthPasswordRoute: typeof ApiAuthPasswordRoute
+  ApiAuthSessionRoute: typeof ApiAuthSessionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -232,8 +322,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRecoveryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/session': {
+      id: '/api/auth/session'
+      path: '/api/auth/session'
+      fullPath: '/api/auth/session'
+      preLoaderRoute: typeof ApiAuthSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/password': {
+      id: '/api/auth/password'
+      path: '/api/auth/password'
+      fullPath: '/api/auth/password'
+      preLoaderRoute: typeof ApiAuthPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/google': {
+      id: '/api/auth/google'
+      path: '/api/auth/google'
+      fullPath: '/api/auth/google'
+      preLoaderRoute: typeof ApiAuthGoogleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/assets/$id': {
+      id: '/api/assets/$id'
+      path: '/api/assets/$id'
+      fullPath: '/api/assets/$id'
+      preLoaderRoute: typeof ApiAssetsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/logo': {
+      id: '/api/admin/logo'
+      path: '/api/admin/logo'
+      fullPath: '/api/admin/logo'
+      preLoaderRoute: typeof ApiAdminLogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/$action': {
+      id: '/api/admin/$action'
+      path: '/api/admin/$action'
+      fullPath: '/api/admin/$action'
+      preLoaderRoute: typeof ApiAdminActionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/google/callback': {
+      id: '/api/auth/google/callback'
+      path: '/callback'
+      fullPath: '/api/auth/google/callback'
+      preLoaderRoute: typeof ApiAuthGoogleCallbackRouteImport
+      parentRoute: typeof ApiAuthGoogleRoute
+    }
   }
 }
+
+interface ApiAuthGoogleRouteChildren {
+  ApiAuthGoogleCallbackRoute: typeof ApiAuthGoogleCallbackRoute
+}
+
+const ApiAuthGoogleRouteChildren: ApiAuthGoogleRouteChildren = {
+  ApiAuthGoogleCallbackRoute: ApiAuthGoogleCallbackRoute,
+}
+
+const ApiAuthGoogleRouteWithChildren = ApiAuthGoogleRoute._addFileChildren(
+  ApiAuthGoogleRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -246,6 +397,12 @@ const rootRouteChildren: RootRouteChildren = {
   HealthDatabaseRoute: HealthDatabaseRoute,
   ResultsCodeRoute: ResultsCodeRoute,
   WatchCodeRoute: WatchCodeRoute,
+  ApiAdminActionRoute: ApiAdminActionRoute,
+  ApiAdminLogoRoute: ApiAdminLogoRoute,
+  ApiAssetsIdRoute: ApiAssetsIdRoute,
+  ApiAuthGoogleRoute: ApiAuthGoogleRouteWithChildren,
+  ApiAuthPasswordRoute: ApiAuthPasswordRoute,
+  ApiAuthSessionRoute: ApiAuthSessionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

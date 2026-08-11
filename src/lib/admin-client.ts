@@ -43,9 +43,15 @@ export async function createSuperadminFn({
   if (!railwayAuthEnabled) return legacyCreateSuperadmin({ data });
   await railwayApi("/api/admin/create-admin", {
     method: "POST",
-    body: JSON.stringify({ email: data.account, role: "superadmin" }),
+    body: JSON.stringify({ account: data.account, password: data.password, role: "superadmin" }),
   });
   return { ok: true };
+}
+
+export async function revealAdminPasswordFn({ data }: { data: { userId: string } }) {
+  if (!railwayAuthEnabled) return { password: null };
+  const params = new URLSearchParams({ userId: data.userId });
+  return railwayApi<{ password: string | null }>(`/api/admin/admin-password?${params}`);
 }
 export async function removeAdminFn({ data }: { data: { userId: string } }) {
   if (!railwayAuthEnabled) return legacyRemoveAdmin({ data });

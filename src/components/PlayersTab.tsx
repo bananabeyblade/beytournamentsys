@@ -15,6 +15,8 @@ import { railwayAuthEnabled } from "@/lib/railway-api";
 
 /** Coalescing window for bursts of sign-ups (e.g. 64 phones scanning at once). */
 const REFRESH_THROTTLE_MS = 1000;
+/** Railway does not provide the Supabase realtime subscription used below. */
+const RAILWAY_REFRESH_MS = 2500;
 /** Sign-ups cleared per request when approving the whole waiting list. */
 const APPROVE_BATCH = 25;
 
@@ -71,7 +73,7 @@ export function PlayersTab() {
             throttledSync,
           )
           .subscribe();
-    const timer = window.setInterval(sync, 10000);
+    const timer = window.setInterval(sync, railwayAuthEnabled ? RAILWAY_REFRESH_MS : 10000);
     return () => {
       alive = false;
       if (timeout) clearTimeout(timeout);

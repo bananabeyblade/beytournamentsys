@@ -16,6 +16,8 @@ import {
 
 /** Name this device registered with, used to detect a rejected sign-up. */
 const readJoined = (code: string) => readJoinedNameForTournament(code);
+const hasGeneratedBracket = (row: TournamentRow) =>
+  Array.isArray(row.live_state?.matches) && row.live_state.matches.length > 0;
 
 export const Route = createFileRoute("/register")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -69,14 +71,25 @@ function RegisterPage() {
     const check = async () => {
       const row = await fetchTournamentByCode(code).catch(() => null);
       if (!alive || !row) return;
-      if (row.live_state) {
-        void navigate({ to: "/watch/$code", params: { code } });
+      // A roster snapshot exists before the bracket is generated. Only enter
+      // the live view when matches exist, and keep a newly issued recovery
+      // code visible until the participant confirms it has been saved.
+      if (hasGeneratedBracket(row)) {
+        if (!recoveryCode) void navigate({ to: "/watch/$code", params: { code } });
         return;
       }
       // Nothing published yet: if the sign-up row is gone, it was rejected
       // (an approved player would already appear in a published roster).
       const joined = readJoined(code);
       if (!joined) return;
+      const approved = row.live_state?.players.some((player) => {
+        const value = player as { name?: unknown };
+        return (
+          typeof value.name === "string" &&
+          value.name.trim().toLowerCase() === joined.trim().toLowerCase()
+        );
+      });
+      if (approved) return;
       const stillPending = await isNameTaken(row.id, joined).catch(() => true);
       if (!alive || stillPending) return;
 
@@ -85,7 +98,7 @@ function RegisterPage() {
       setDone(false);
     };
     void check();
-    const timer = setInterval(check, 20000);
+    const timer = setInterval(check, railwayAuthEnabled ? 2500 : 20000);
     const channel = railwayAuthEnabled
       ? null
       : supabase
@@ -104,7 +117,7 @@ function RegisterPage() {
       if (channel) supabase.removeChannel(channel);
       window.removeEventListener(RECONNECT_EVENT, onBack);
     };
-  }, [done, code, navigate]);
+  }, [done, code, navigate, recoveryCode]);
 
   useEffect(() => {
     let alive = true;
@@ -216,6 +229,13 @@ function RegisterPage() {
               <p className="mt-2 text-xs text-muted-foreground">
                 請立即截圖保存。若重新整理、換瀏覽器或失去連線，可用此碼找回參賽身分。
               </p>
+              <button
+                type="button"
+                onClick={() => setRecoveryCode("")}
+                className="mt-3 min-h-12 w-full rounded-xl bg-primary px-4 font-display text-primary-foreground"
+              >
+                我已截圖保存驗證碼
+              </button>
             </div>
           )}
           <button

@@ -50,6 +50,8 @@ const STATE_KEY = "beyx-live-state";
 
 /** Realtime carries the updates; polling is only a slow safety net. */
 const SLOW_POLL_MS = 25000;
+/** Railway has no Supabase realtime channel, so viewers need a short poll. */
+const RAILWAY_POLL_MS = 2500;
 /** Coalescing window for rapid scoring taps (first write goes out at once). */
 const PUBLISH_TAIL_MS = 250;
 /** A held lock is only re-written (and re-synced) once it is this old. */
@@ -327,9 +329,12 @@ export function TournamentProvider({
     let timer: ReturnType<typeof setInterval> | undefined;
     const startTimer = () => {
       if (timer) return;
-      timer = setInterval(() => {
-        if (isVisible()) void pull();
-      }, SLOW_POLL_MS);
+      timer = setInterval(
+        () => {
+          if (isVisible()) void pull();
+        },
+        railwayAuthEnabled ? RAILWAY_POLL_MS : SLOW_POLL_MS,
+      );
     };
     const stopTimer = () => {
       if (timer) clearInterval(timer);
@@ -647,9 +652,21 @@ export function TournamentProvider({
       toast.error("賽程已產生，請先重置賽事後才能重新抽籤。");
       return;
     }
-    setMatches(buildBracket(players));
-    log("bracket_generate", { count: players.length });
-  }, [players, log]);
+    // Read the ref instead of a render closure: a final registration can land
+    // immediately before the referee taps generate on another device.
+    const roster = [...playersRef.current];
+    const nextMatches = buildBracket(roster);
+    const scheduled = new Set(
+      nextMatches.flatMap((match) => [match.p1, match.p2]).filter((id): id is string => !!id),
+    );
+    if (scheduled.size !== roster.length) {
+      toast.error("賽程產生失敗", { description: "選手名單尚未完整同步，請稍後再試。" });
+      void pullRef.current?.();
+      return;
+    }
+    setMatches(nextMatches);
+    log("bracket_generate", { count: roster.length });
+  }, [log]);
 
   /** Remembers which bouts this device edited, to spot another referee's edits. */
   const localTouch = useRef<Record<string, number>>({});
@@ -1161,9 +1178,12 @@ export function TournamentProvider({
     let timer: ReturnType<typeof setInterval> | undefined;
     const startTimer = () => {
       if (timer) return;
-      timer = setInterval(() => {
-        if (isVisible()) void pull();
-      }, SLOW_POLL_MS);
+      timer = setInterval(
+        () => {
+          if (isVisible()) void pull();
+        },
+        railwayAuthEnabled ? RAILWAY_POLL_MS : SLOW_POLL_MS,
+      );
     };
     const stopTimer = () => {
       if (timer) clearInterval(timer);

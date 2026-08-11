@@ -51,7 +51,10 @@ export function AppShell({ title }: { title?: string }) {
     useTournament();
   const [showLogin, setShowLogin] = useState(false);
   // Spectators arrive via the QR flow; surface the name they registered with.
-  const joinedName = useJoinedName(currentTournament?.code);
+  // The route can render before its first Railway poll finishes. Fall back to
+  // the QR identity so the participant label is present immediately.
+  const participantCode = currentTournament?.code ?? (spectator ? readJoinedTournamentCode() : "");
+  const joinedName = useJoinedName(participantCode);
 
   // Restore a participant only when the saved QR identity still exists in the
   // event's live roster. A lone old code must never trap the browser in

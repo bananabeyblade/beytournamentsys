@@ -864,7 +864,7 @@ export function TournamentProvider({
     // A deliberate reset uses a dedicated superadmin-only RPC. Normal sync is
     // never allowed to replace an existing bracket with an empty snapshot.
     const active = currentTournament;
-    if (active) {
+    if (active?.status === "open") {
       const stamp = new Date().toISOString();
       try {
         await resetTournamentLiveState(active.id, tableCount, stamp);
@@ -875,7 +875,10 @@ export function TournamentProvider({
         return error instanceof Error ? error.message : "重置賽事同步失敗";
       }
     }
-    log("tournament_reset", { count: playersRef.current.length });
+    log("tournament_reset", {
+      count: playersRef.current.length,
+      localOnly: active?.status === "finished",
+    });
     removedPlayers.current = {};
     // Forget the followed event too, otherwise the sync loop re-adopts the
     // same tournament (it is still "open" in the cloud) and it reappears.

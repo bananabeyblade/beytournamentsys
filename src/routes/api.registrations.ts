@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/registrations")({
           await enforceRateLimit(
             request,
             "public-registration",
-            120,
+            256,
             15 * 60,
             String(data.tournamentId),
           );

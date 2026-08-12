@@ -9,32 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as WatchCodeRouteImport } from './routes/watch.$code'
-import { Route as ResultsCodeRouteImport } from './routes/results.$code'
-import { Route as HealthDatabaseRouteImport } from './routes/health.database'
-import { Route as ApiTournamentsRouteImport } from './routes/api.tournaments'
-import { Route as ApiRegistrationsRouteImport } from './routes/api.registrations'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as ApiRecoveryRouteImport } from './routes/api.recovery'
-import { Route as ApiAuthSessionRouteImport } from './routes/api.auth.session'
-import { Route as ApiAuthPasswordRouteImport } from './routes/api.auth.password'
-import { Route as ApiAuthGoogleRouteImport } from './routes/api.auth.google'
-import { Route as ApiAssetsIdRouteImport } from './routes/api.assets.$id'
-import { Route as ApiAdminLogoRouteImport } from './routes/api.admin.logo'
+import { Route as ApiRegistrationsRouteImport } from './routes/api.registrations'
+import { Route as ApiTournamentsRouteImport } from './routes/api.tournaments'
+import { Route as HealthDatabaseRouteImport } from './routes/health.database'
+import { Route as ResultsCodeRouteImport } from './routes/results.$code'
+import { Route as WatchCodeRouteImport } from './routes/watch.$code'
 import { Route as ApiAdminActionRouteImport } from './routes/api.admin.$action'
+import { Route as ApiAdminLogoRouteImport } from './routes/api.admin.logo'
+import { Route as ApiAssetsIdRouteImport } from './routes/api.assets.$id'
+import { Route as ApiAuthGoogleRouteImport } from './routes/api.auth.google'
+import { Route as ApiAuthPasswordRouteImport } from './routes/api.auth.password'
+import { Route as ApiAuthSessionRouteImport } from './routes/api.auth.session'
 import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api.auth.google.callback'
 
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -42,34 +38,19 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WatchCodeRoute = WatchCodeRouteImport.update({
-  id: '/watch/$code',
-  path: '/watch/$code',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResultsCodeRoute = ResultsCodeRouteImport.update({
-  id: '/results/$code',
-  path: '/results/$code',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HealthDatabaseRoute = HealthDatabaseRouteImport.update({
-  id: '/health/database',
-  path: '/health/database',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiTournamentsRoute = ApiTournamentsRouteImport.update({
-  id: '/api/tournaments',
-  path: '/api/tournaments',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiRegistrationsRoute = ApiRegistrationsRouteImport.update({
-  id: '/api/registrations',
-  path: '/api/registrations',
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiRecoveryRoute = ApiRecoveryRouteImport.update({
@@ -77,24 +58,34 @@ const ApiRecoveryRoute = ApiRecoveryRouteImport.update({
   path: '/api/recovery',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
-  id: '/api/auth/session',
-  path: '/api/auth/session',
+const ApiRegistrationsRoute = ApiRegistrationsRouteImport.update({
+  id: '/api/registrations',
+  path: '/api/registrations',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAuthPasswordRoute = ApiAuthPasswordRouteImport.update({
-  id: '/api/auth/password',
-  path: '/api/auth/password',
+const ApiTournamentsRoute = ApiTournamentsRouteImport.update({
+  id: '/api/tournaments',
+  path: '/api/tournaments',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAuthGoogleRoute = ApiAuthGoogleRouteImport.update({
-  id: '/api/auth/google',
-  path: '/api/auth/google',
+const HealthDatabaseRoute = HealthDatabaseRouteImport.update({
+  id: '/health/database',
+  path: '/health/database',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAssetsIdRoute = ApiAssetsIdRouteImport.update({
-  id: '/api/assets/$id',
-  path: '/api/assets/$id',
+const ResultsCodeRoute = ResultsCodeRouteImport.update({
+  id: '/results/$code',
+  path: '/results/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WatchCodeRoute = WatchCodeRouteImport.update({
+  id: '/watch/$code',
+  path: '/watch/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminActionRoute = ApiAdminActionRouteImport.update({
+  id: '/api/admin/$action',
+  path: '/api/admin/$action',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminLogoRoute = ApiAdminLogoRouteImport.update({
@@ -102,9 +93,24 @@ const ApiAdminLogoRoute = ApiAdminLogoRouteImport.update({
   path: '/api/admin/logo',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminActionRoute = ApiAdminActionRouteImport.update({
-  id: '/api/admin/$action',
-  path: '/api/admin/$action',
+const ApiAssetsIdRoute = ApiAssetsIdRouteImport.update({
+  id: '/api/assets/$id',
+  path: '/api/assets/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthGoogleRoute = ApiAuthGoogleRouteImport.update({
+  id: '/api/auth/google',
+  path: '/api/auth/google',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthPasswordRoute = ApiAuthPasswordRouteImport.update({
+  id: '/api/auth/password',
+  path: '/api/auth/password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
+  id: '/api/auth/session',
+  path: '/api/auth/session',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/welcome': typeof WelcomeRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/welcome': typeof WelcomeRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/welcome': typeof WelcomeRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/register'
     | '/sitemap.xml'
+    | '/welcome'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/register'
     | '/sitemap.xml'
+    | '/welcome'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/register'
     | '/sitemap.xml'
+    | '/welcome'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -236,6 +248,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   RegisterRoute: typeof RegisterRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  WelcomeRoute: typeof WelcomeRoute
   ApiRecoveryRoute: typeof ApiRecoveryRoute
   ApiRegistrationsRoute: typeof ApiRegistrationsRoute
   ApiTournamentsRoute: typeof ApiTournamentsRoute
@@ -252,18 +265,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -273,46 +279,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/watch/$code': {
-      id: '/watch/$code'
-      path: '/watch/$code'
-      fullPath: '/watch/$code'
-      preLoaderRoute: typeof WatchCodeRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/results/$code': {
-      id: '/results/$code'
-      path: '/results/$code'
-      fullPath: '/results/$code'
-      preLoaderRoute: typeof ResultsCodeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/health/database': {
-      id: '/health/database'
-      path: '/health/database'
-      fullPath: '/health/database'
-      preLoaderRoute: typeof HealthDatabaseRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/tournaments': {
-      id: '/api/tournaments'
-      path: '/api/tournaments'
-      fullPath: '/api/tournaments'
-      preLoaderRoute: typeof ApiTournamentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/registrations': {
-      id: '/api/registrations'
-      path: '/api/registrations'
-      fullPath: '/api/registrations'
-      preLoaderRoute: typeof ApiRegistrationsRouteImport
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/recovery': {
@@ -322,32 +307,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRecoveryRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/auth/session': {
-      id: '/api/auth/session'
-      path: '/api/auth/session'
-      fullPath: '/api/auth/session'
-      preLoaderRoute: typeof ApiAuthSessionRouteImport
+    '/api/registrations': {
+      id: '/api/registrations'
+      path: '/api/registrations'
+      fullPath: '/api/registrations'
+      preLoaderRoute: typeof ApiRegistrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/auth/password': {
-      id: '/api/auth/password'
-      path: '/api/auth/password'
-      fullPath: '/api/auth/password'
-      preLoaderRoute: typeof ApiAuthPasswordRouteImport
+    '/api/tournaments': {
+      id: '/api/tournaments'
+      path: '/api/tournaments'
+      fullPath: '/api/tournaments'
+      preLoaderRoute: typeof ApiTournamentsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/auth/google': {
-      id: '/api/auth/google'
-      path: '/api/auth/google'
-      fullPath: '/api/auth/google'
-      preLoaderRoute: typeof ApiAuthGoogleRouteImport
+    '/health/database': {
+      id: '/health/database'
+      path: '/health/database'
+      fullPath: '/health/database'
+      preLoaderRoute: typeof HealthDatabaseRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/assets/$id': {
-      id: '/api/assets/$id'
-      path: '/api/assets/$id'
-      fullPath: '/api/assets/$id'
-      preLoaderRoute: typeof ApiAssetsIdRouteImport
+    '/results/$code': {
+      id: '/results/$code'
+      path: '/results/$code'
+      fullPath: '/results/$code'
+      preLoaderRoute: typeof ResultsCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/watch/$code': {
+      id: '/watch/$code'
+      path: '/watch/$code'
+      fullPath: '/watch/$code'
+      preLoaderRoute: typeof WatchCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/$action': {
+      id: '/api/admin/$action'
+      path: '/api/admin/$action'
+      fullPath: '/api/admin/$action'
+      preLoaderRoute: typeof ApiAdminActionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/logo': {
@@ -357,11 +356,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminLogoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin/$action': {
-      id: '/api/admin/$action'
-      path: '/api/admin/$action'
-      fullPath: '/api/admin/$action'
-      preLoaderRoute: typeof ApiAdminActionRouteImport
+    '/api/assets/$id': {
+      id: '/api/assets/$id'
+      path: '/api/assets/$id'
+      fullPath: '/api/assets/$id'
+      preLoaderRoute: typeof ApiAssetsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/google': {
+      id: '/api/auth/google'
+      path: '/api/auth/google'
+      fullPath: '/api/auth/google'
+      preLoaderRoute: typeof ApiAuthGoogleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/password': {
+      id: '/api/auth/password'
+      path: '/api/auth/password'
+      fullPath: '/api/auth/password'
+      preLoaderRoute: typeof ApiAuthPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/session': {
+      id: '/api/auth/session'
+      path: '/api/auth/session'
+      fullPath: '/api/auth/session'
+      preLoaderRoute: typeof ApiAuthSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/google/callback': {
@@ -391,6 +411,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   RegisterRoute: RegisterRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  WelcomeRoute: WelcomeRoute,
   ApiRecoveryRoute: ApiRecoveryRoute,
   ApiRegistrationsRoute: ApiRegistrationsRoute,
   ApiTournamentsRoute: ApiTournamentsRoute,

@@ -12,6 +12,7 @@ import {
   Sun,
   Image as ImageIcon,
   Trophy,
+  Loader2,
 } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { LiveTab } from "@/components/LiveTab";
@@ -177,6 +178,10 @@ export function AppShell({ title }: { title?: string }) {
   const tabs = spectator ? TABS.filter((t) => t.id !== "settings") : TABS;
   const activeTab = tabs.some((t) => t.id === tab) ? tab : "live";
 
+  // While the auth check is still in flight we don't yet know whether to
+  // show the dashboard or the logged-out landing content — render neither
+  // (a spinner) rather than flashing the dashboard shell first.
+  const checkingAuth = !spectator && !authReady;
   const locked = !spectator && authReady && !currentAdmin;
   const isSuper = currentAdmin?.isSuper === true;
 
@@ -239,7 +244,11 @@ export function AppShell({ title }: { title?: string }) {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-4">
-        {locked ? (
+        {checkingAuth ? (
+          <div className="grid min-h-[50vh] place-items-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : locked ? (
           showLogin ? (
             <div className="space-y-3">
               <button
@@ -299,7 +308,7 @@ export function AppShell({ title }: { title?: string }) {
         )}
       </main>
 
-      {!locked && (
+      {!checkingAuth && !locked && (
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md">
           <div
             className="mx-auto grid max-w-3xl"

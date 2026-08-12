@@ -1,0 +1,334 @@
+import {
+  ArrowDown,
+  CheckCircle2,
+  ClipboardCheck,
+  GitBranch,
+  QrCode,
+  ShieldCheck,
+  Sparkles,
+  Swords,
+  Trophy,
+  UserCheck,
+  Users,
+} from "lucide-react";
+import logoAsset from "@/assets/beyx-logo.png";
+
+type LandingPageProps = {
+  onAdminLogin: () => void;
+};
+
+const STEPS = [
+  {
+    number: "01",
+    eyebrow: "CREATE TOURNAMENT",
+    title: "輸入名稱，建立一場賽事",
+    body: "填入賽事名稱，再設定選手上限與比賽桌數。建立後，系統會保留這場賽事的報名、賽程與最終成績。",
+    icon: ClipboardCheck,
+  },
+  {
+    number: "02",
+    eyebrow: "GENERATE QR CODE",
+    title: "一鍵產生專屬報名 QR Code",
+    body: "管理者從賽事設定頁產生 QR Code 或複製報名連結，將它投放到現場螢幕、社群或報名表單。",
+    icon: QrCode,
+  },
+  {
+    number: "03",
+    eyebrow: "PLAYER REGISTRATION",
+    title: "參賽者掃碼，輸入名稱報名",
+    body: "選手不用下載 App。掃描 QR Code、輸入名稱後送出報名，並取得八碼驗證碼，可在斷線後找回自己的身分。",
+    icon: Users,
+  },
+  {
+    number: "04",
+    eyebrow: "ADMIN APPROVAL",
+    title: "管理者逐筆或全部核准",
+    body: "待審核名單會集中在選手頁。確認名稱與參賽資格後核准加入正式名單，也能拒絕重複或錯誤報名。",
+    icon: UserCheck,
+  },
+  {
+    number: "05",
+    eyebrow: "RANDOM BRACKET",
+    title: "名單確認後，產生隨機賽程",
+    body: "人數足夠時由管理者產生賽程，系統依桌數分配對戰。產生後選手名單會鎖定，避免比賽中途異動。",
+    icon: GitBranch,
+  },
+  {
+    number: "06",
+    eyebrow: "LIVE SCORING",
+    title: "多位裁判，同步掌握賽況",
+    body: "裁判依桌次即時計分；迴轉、擊飛、爆裂與極限勝利自動累積，賽程立即推進。",
+    icon: Swords,
+  },
+  {
+    number: "07",
+    eyebrow: "RESULTS",
+    title: "從賽程到頒獎，自動完成",
+    body: "賽程樹、歷史比分與前四名榜單會自動生成，現場與觀眾能同步追蹤每一輪。",
+    icon: Trophy,
+  },
+] as const;
+
+function ProductPreview({ step }: { step: (typeof STEPS)[number] }) {
+  const Icon = step.icon;
+  return (
+    <div className="relative mx-auto w-full max-w-sm rounded-[1.75rem] border border-primary/45 bg-background/90 p-2 shadow-2xl shadow-primary/10">
+      <div className="overflow-hidden rounded-[1.35rem] border border-border bg-card">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <img src={logoAsset} alt="竹塹陀螺集會所標誌" className="h-7 w-7 object-contain" />
+            <div>
+              <p className="font-display text-xs text-primary">竹塹陀螺集會所</p>
+              <p className="text-[9px] tracking-widest text-muted-foreground">TOURNAMENT SYSTEM</p>
+            </div>
+          </div>
+          <span className="rounded-md border border-primary/40 px-2 py-1 text-[9px] text-primary">
+            即時同步
+          </span>
+        </div>
+
+        <div className="min-h-72 space-y-3 p-4">
+          {step.number === "01" && (
+            <>
+              <p className="font-display text-xs tracking-widest text-muted-foreground">賽事設定</p>
+              <div className="rounded-xl border border-primary/45 bg-accent/20 p-4">
+                <p className="text-xs text-muted-foreground">賽事名稱</p>
+                <p className="mt-1 font-display text-sm text-primary">2026 夏季挑戰盃</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl border border-border p-3">
+                  <p className="text-[10px] text-muted-foreground">選手上限</p>
+                  <p className="font-display text-lg">64</p>
+                </div>
+                <div className="rounded-xl border border-border p-3">
+                  <p className="text-[10px] text-muted-foreground">比賽桌數</p>
+                  <p className="font-display text-lg">3</p>
+                </div>
+              </div>
+              <div className="rounded-xl bg-primary px-3 py-3 text-center text-xs font-bold text-primary-foreground">
+                建立賽事
+              </div>
+            </>
+          )}
+          {step.number === "02" && (
+            <>
+              <p className="font-display text-xs tracking-widest text-muted-foreground">
+                報名 QR CODE
+              </p>
+              <div className="grid place-items-center rounded-xl border border-border bg-background p-4">
+                <QrCode className="h-28 w-28 text-primary" />
+                <p className="mt-2 font-display text-xs">S5FWQ7</p>
+              </div>
+              <div className="rounded-xl border border-primary/45 bg-accent/20 p-3">
+                <p className="text-xs text-primary">掃描後即可填寫參賽名稱</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">可複製連結或展示於現場螢幕</p>
+              </div>
+            </>
+          )}
+          {step.number === "03" && (
+            <>
+              <p className="font-display text-xs tracking-widest text-muted-foreground">選手報名</p>
+              <div className="rounded-xl border border-primary/45 bg-accent/20 p-4">
+                <p className="text-xs text-muted-foreground">參賽名稱</p>
+                <p className="mt-1 font-display text-sm text-primary">陀螺玩家 A</p>
+              </div>
+              <div className="rounded-xl border border-primary/45 bg-accent/20 p-3">
+                <p className="text-xs text-primary">報名成功，請截圖保存驗證碼</p>
+                <p className="mt-1 font-display text-xl tracking-[0.22em]">5274 1938</p>
+              </div>
+              <div className="rounded-xl bg-primary px-3 py-3 text-center text-xs font-bold text-primary-foreground">
+                送出報名
+              </div>
+            </>
+          )}
+          {step.number === "04" && (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="font-display text-xs tracking-widest text-muted-foreground">
+                  待審核名單
+                </p>
+                <span className="text-[10px] text-primary">3 筆待確認</span>
+              </div>
+              {["陀螺玩家 A", "陀螺玩家 B", "陀螺玩家 C"].map((player) => (
+                <div
+                  key={player}
+                  className="flex items-center justify-between rounded-xl border border-border px-3 py-2.5"
+                >
+                  <span className="text-sm">{player}</span>
+                  <span className="rounded-lg bg-primary px-2 py-1 text-[10px] font-bold text-primary-foreground">
+                    核准
+                  </span>
+                </div>
+              ))}
+              <div className="rounded-xl border border-primary/45 px-3 py-3 text-center text-xs font-bold text-primary">
+                全部核准
+              </div>
+            </>
+          )}
+          {step.number === "05" && (
+            <>
+              <p className="font-display text-xs tracking-widest text-muted-foreground">賽程設定</p>
+              <div className="rounded-xl border border-border p-3 text-xs">
+                <div className="flex justify-between border-b border-border pb-2">
+                  <span>桌 1</span>
+                  <span className="text-primary">玩家 A vs 玩家 B</span>
+                </div>
+                <div className="flex justify-between border-b border-border py-2">
+                  <span>桌 2</span>
+                  <span className="text-primary">玩家 C vs 玩家 D</span>
+                </div>
+                <div className="flex justify-between pt-2">
+                  <span>桌 3</span>
+                  <span className="text-primary">玩家 E vs 玩家 F</span>
+                </div>
+              </div>
+              <div className="rounded-xl bg-primary px-3 py-3 text-center text-xs font-bold text-primary-foreground">
+                隨機產生賽程
+              </div>
+              <p className="text-center text-[10px] text-muted-foreground">產生後將鎖定選手名單</p>
+            </>
+          )}
+          {step.number === "06" && (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="font-display text-xs tracking-widest text-muted-foreground">
+                  桌 1 · LIVE
+                </p>
+                <span className="text-[10px] text-primary">裁判計分中</span>
+              </div>
+              <div className="rounded-xl border border-primary/55 p-4 text-center">
+                <p className="text-sm">
+                  選手 A <span className="mx-3 font-display text-2xl text-primary">3 - 2</span> 選手
+                  B
+                </p>
+                <p className="mt-2 text-[10px] text-muted-foreground">先取 4 分獲勝</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                <div className="rounded-xl border border-spin p-3 text-spin">迴轉 +1</div>
+                <div className="rounded-xl border border-primary p-3 text-primary">擊飛 +2</div>
+                <div className="rounded-xl border border-burst p-3 text-burst">爆裂 +2</div>
+                <div className="rounded-xl border border-xtreme p-3 text-xtreme">極限 +3</div>
+              </div>
+            </>
+          )}
+          {step.number === "07" && (
+            <>
+              <p className="font-display text-xs tracking-widest text-muted-foreground">
+                賽事完成 · 前四名已產生
+              </p>
+              {["冠軍  選手 A", "亞軍  選手 B", "季軍  選手 C", "殿軍  選手 D"].map(
+                (place, index) => (
+                  <div
+                    key={place}
+                    className="flex items-center gap-3 rounded-xl border border-border px-3 py-2"
+                  >
+                    <span className="font-display text-primary">0{index + 1}</span>
+                    <span className="text-sm">{place}</span>
+                  </div>
+                ),
+              )}
+              <div className="rounded-xl bg-primary px-3 py-3 text-center text-xs font-bold text-primary-foreground">
+                查看成績頁
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LandingPage({ onAdminLogin }: LandingPageProps) {
+  return (
+    <div className="landing-snap -mx-4 -my-4">
+      <section className="landing-panel px-5 py-12 sm:px-8">
+        <div className="mx-auto max-w-xl text-center">
+          <p className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-accent/25 px-3 py-1 text-[11px] tracking-widest text-primary">
+            <Sparkles className="h-3.5 w-3.5" /> BEYBLADE X · TOURNAMENT MANAGER
+          </p>
+          <h2 className="mt-6 font-display text-3xl leading-tight neon-text sm:text-5xl">
+            辦一場陀螺賽事，
+            <br />
+            從報名到頒獎一次搞定
+          </h2>
+          <p className="mx-auto mt-5 max-w-md text-base leading-relaxed text-muted-foreground">
+            掃碼報名、裁判即時計分、賽程與成績自動同步。讓主辦方專注比賽現場。
+          </p>
+          <div className="mt-8 grid gap-3 sm:grid-cols-2">
+            <button
+              onClick={onAdminLogin}
+              className="min-h-12 rounded-xl bg-primary px-5 font-bold text-primary-foreground"
+            >
+              我是管理者／裁判
+            </button>
+            <a
+              href="#flow"
+              className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border font-bold text-foreground"
+            >
+              查看操作流程 <ArrowDown className="h-4 w-4" />
+            </a>
+          </div>
+          <div className="mt-10 grid grid-cols-3 gap-2 text-left text-xs">
+            <div className="panel p-3">
+              <Users className="mb-2 h-4 w-4 text-primary" />
+              128 人測試完成
+            </div>
+            <div className="panel p-3">
+              <Swords className="mb-2 h-4 w-4 text-primary" />
+              多桌裁判同步
+            </div>
+            <div className="panel p-3">
+              <ShieldCheck className="mb-2 h-4 w-4 text-primary" />
+              驗證碼找回
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div id="flow">
+        {STEPS.map((step) => {
+          const Icon = step.icon;
+          return (
+            <section key={step.number} className="landing-panel px-5 py-10 sm:px-8">
+              <div className="mx-auto grid max-w-4xl items-center gap-8 md:grid-cols-2">
+                <div>
+                  <p className="font-display text-sm tracking-[0.2em] text-primary">
+                    {step.number} · {step.eyebrow}
+                  </p>
+                  <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
+                    {step.title}
+                  </h2>
+                  <p className="mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
+                    {step.body}
+                  </p>
+                  <div className="mt-6 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-primary/45 bg-accent/25">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </div>
+                </div>
+                <ProductPreview step={step} />
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
+      <section className="landing-panel px-5 py-12 sm:px-8">
+        <div className="panel mx-auto max-w-2xl p-7 text-center sm:p-10">
+          <CheckCircle2 className="mx-auto h-9 w-9 text-primary" />
+          <h2 className="mt-4 font-display text-2xl neon-text sm:text-3xl">
+            準備好開始下一場賽事了嗎？
+          </h2>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+            登入後即可建立賽事、產生 QR 報名連結並分配裁判桌次。
+          </p>
+          <button
+            onClick={onAdminLogin}
+            className="mt-7 min-h-12 rounded-xl bg-primary px-7 font-bold text-primary-foreground"
+          >
+            進入管理系統
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}

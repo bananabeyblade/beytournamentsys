@@ -1,24 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import {
-  Swords,
-  GitBranch,
-  Users,
-  Settings,
-  Shield,
-  Eye,
-  QrCode,
-  Moon,
-  Sun,
-  Image as ImageIcon,
-  Trophy,
-  Loader2,
-} from "lucide-react";
+import { Swords, GitBranch, Users, Settings, Shield, Eye, Moon, Sun, Loader2 } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { LiveTab } from "@/components/LiveTab";
 import { BracketTab } from "@/components/BracketTab";
 import { PlayersTab } from "@/components/PlayersTab";
 import { SettingsTab } from "@/components/SettingsTab";
+import { LandingPage } from "@/components/LandingPage";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { SyncStatusBadge } from "@/components/SyncStatusBadge";
 import {
@@ -42,39 +30,6 @@ type TabId = (typeof TABS)[number]["id"];
 
 const TAB_KEY = "beyx-active-tab";
 
-/** Shown to brand-new visitors on the locked (logged-out) home screen. */
-const FEATURES = [
-  {
-    icon: Swords,
-    title: "即時對戰計分",
-    desc: "迴轉、擊飛、爆裂、極限四種得分方式，先達 4 分自動判定勝者並晉級。",
-  },
-  {
-    icon: GitBranch,
-    title: "隨機賽程樹",
-    desc: "一鍵產生單淘汰賽程樹，支援非 2 的冪次人數，自動安排預賽。",
-  },
-  {
-    icon: QrCode,
-    title: "QR Code 報名",
-    desc: "參賽者掃碼即可報名，裁判審核後直接加入選手名單，無需下載 App。",
-  },
-  {
-    icon: Users,
-    title: "多桌裁判管理",
-    desc: "多位裁判同時登入、分桌計分，賽況即時同步給所有裝置與觀眾。",
-  },
-  {
-    icon: ImageIcon,
-    title: "賽事專屬 Logo",
-    desc: "建立賽事時可自訂名稱與 Logo，報名頁與成績頁自動套用。",
-  },
-  {
-    icon: Moon,
-    title: "深色 / 淺色模式",
-    desc: "配合現場燈光環境切換介面主題，長時間使用也不刺眼。",
-  },
-] as const;
 const THEME_KEY = "beyx-theme";
 
 type Theme = "dark" | "light";
@@ -260,43 +215,7 @@ export function AppShell({ title }: { title?: string }) {
               <SettingsTab />
             </div>
           ) : (
-            <div className="space-y-8 py-4">
-              <div className="mx-auto max-w-lg space-y-4 text-center">
-                <p className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-accent/30 px-3 py-1 text-[11px] tracking-widest text-primary">
-                  <Trophy className="h-3.5 w-3.5" /> BEYBLADE X · TOURNAMENT MANAGER
-                </p>
-                <h1 className="font-display text-2xl leading-tight neon-text sm:text-3xl">
-                  辦一場陀螺賽事，從報名到頒獎一次搞定
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  參賽者掃碼報名、裁判一鍵產生賽程並即時計分，
-                  比賽結果與前四名榜單自動生成，賽事現場不再手忙腳亂。
-                </p>
-                <div className="panel space-y-3 p-6 text-center">
-                  <QrCode className="mx-auto h-10 w-10 text-primary" />
-                  <p className="font-display text-base neon-text">請掃描賽事 QR Code</p>
-                  <p className="text-xs text-muted-foreground">
-                    參賽者請掃描裁判提供的報名 QR Code 並輸入名稱，比賽開始後會自動進入賽事畫面。
-                  </p>
-                  <button
-                    onClick={() => setShowLogin(true)}
-                    className="min-h-12 w-full rounded-xl border border-primary/60 bg-accent/40 font-display text-primary"
-                  >
-                    我是管理者 / 裁判
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {FEATURES.map((f) => (
-                  <div key={f.title} className="panel space-y-2 p-4">
-                    <f.icon className="h-5 w-5 text-primary" />
-                    <h2 className="font-display text-sm tracking-wide">{f.title}</h2>
-                    <p className="text-xs leading-relaxed text-muted-foreground">{f.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <LandingPage onAdminLogin={() => setShowLogin(true)} />
           )
         ) : (
           <>

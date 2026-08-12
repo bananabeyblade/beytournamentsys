@@ -152,6 +152,24 @@
   animation: livePulse 1.6s ease-in-out infinite;
 }
 
+@utility landing-snap {
+  scroll-snap-type: y proximity;
+}
+
+@utility landing-panel {
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+  min-height: min(100svh, 46rem);
+  display: grid;
+  align-items: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-snap {
+    scroll-snap-type: none;
+  }
+}
+
 @keyframes livePulse {
   0%,
   100% {

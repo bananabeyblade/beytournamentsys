@@ -180,7 +180,7 @@ export function AppShell({ title }: { title?: string }) {
             >
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
-            {!isSuper && (
+            {!isSuper && (currentAdmin || joinedName) && (
               <button
                 onClick={() => setRole(role === "admin" ? "player" : "admin")}
                 disabled={role === "player" && !currentAdmin}

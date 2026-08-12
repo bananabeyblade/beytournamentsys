@@ -13,7 +13,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as ApiRecoveryRouteImport } from './routes/api.recovery'
 import { Route as ApiRegistrationsRouteImport } from './routes/api.registrations'
 import { Route as ApiTournamentsRouteImport } from './routes/api.tournaments'
@@ -46,11 +45,6 @@ const RegisterRoute = RegisterRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const WelcomeRoute = WelcomeRouteImport.update({
-  id: '/welcome',
-  path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiRecoveryRoute = ApiRecoveryRouteImport.update({
@@ -124,7 +118,6 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/welcome': typeof WelcomeRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -144,7 +137,6 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/welcome': typeof WelcomeRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -165,7 +157,6 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/welcome': typeof WelcomeRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -187,7 +178,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/register'
     | '/sitemap.xml'
-    | '/welcome'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -207,7 +197,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/register'
     | '/sitemap.xml'
-    | '/welcome'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -227,7 +216,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/register'
     | '/sitemap.xml'
-    | '/welcome'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -248,7 +236,6 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   RegisterRoute: typeof RegisterRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  WelcomeRoute: typeof WelcomeRoute
   ApiRecoveryRoute: typeof ApiRecoveryRoute
   ApiRegistrationsRoute: typeof ApiRegistrationsRoute
   ApiTournamentsRoute: typeof ApiTournamentsRoute
@@ -291,13 +278,6 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/welcome': {
-      id: '/welcome'
-      path: '/welcome'
-      fullPath: '/welcome'
-      preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/recovery': {
@@ -411,7 +391,6 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   RegisterRoute: RegisterRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  WelcomeRoute: WelcomeRoute,
   ApiRecoveryRoute: ApiRecoveryRoute,
   ApiRegistrationsRoute: ApiRegistrationsRoute,
   ApiTournamentsRoute: ApiTournamentsRoute,

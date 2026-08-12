@@ -47,7 +47,7 @@ const FEATURES = [
   {
     icon: Swords,
     title: "即時對戰計分",
-    desc: "迴轉、擊出、爆裂、極限四種得分方式，先達 4 分自動判定勝者並晉級。",
+    desc: "迴轉、擊飛、爆裂、極限四種得分方式，先達 4 分自動判定勝者並晉級。",
   },
   {
     icon: GitBranch,

@@ -11,6 +11,7 @@ import {
 import { FINISHES, WIN_TARGET } from "@/lib/tournament-types";
 
 export type RegistrationFocusTarget = "name" | "submit" | null;
+export type BracketFocusTarget = "tables" | "generate" | null;
 
 export function RegistrationPanel({
   name,
@@ -117,25 +118,62 @@ export function PendingRegistrationsPanel({ names }: { names: string[] }) {
   );
 }
 
-export function TournamentSetupPanel({ tableCount = 3 }: { tableCount?: number }) {
+export function TournamentSetupPanel({
+  tableCount = 3,
+  onTableCountChange,
+  onGenerate,
+  focusTarget = null,
+  activeTableControl = null,
+  activeGenerate = false,
+  generated = false,
+}: {
+  tableCount?: number;
+  onTableCountChange?: (tableCount: number) => void;
+  onGenerate?: () => void;
+  focusTarget?: BracketFocusTarget;
+  activeTableControl?: "increase" | "decrease" | null;
+  activeGenerate?: boolean;
+  generated?: boolean;
+}) {
   return (
     <div className="panel space-y-3 p-3">
       <h2 className="text-sm tracking-widest text-muted-foreground">賽事設定 TOURNAMENT</h2>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm">桌數 TABLES</span>
-        <div className="flex items-center gap-2">
-          <button className="h-11 w-11 rounded-lg border border-border bg-secondary font-display">
-            −
-          </button>
-          <span className="w-8 text-center font-display text-xl neon-text">{tableCount}</span>
-          <button className="h-11 w-11 rounded-lg border border-border bg-secondary font-display">
-            +
-          </button>
+      <div className={focusTarget === "tables" ? "rounded-xl landing-live-focus" : "rounded-xl"}>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm">桌數 TABLES</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="減少桌數"
+              onClick={() => onTableCountChange?.(Math.max(1, tableCount - 1))}
+              className={`h-11 w-11 rounded-lg border border-border bg-secondary font-display ${activeTableControl === "decrease" ? "landing-control-press" : ""}`}
+            >
+              −
+            </button>
+            <span className="w-8 text-center font-display text-xl neon-text">{tableCount}</span>
+            <button
+              type="button"
+              aria-label="增加桌數"
+              onClick={() => onTableCountChange?.(Math.min(12, tableCount + 1))}
+              className={`h-11 w-11 rounded-lg border border-border bg-secondary font-display ${activeTableControl === "increase" ? "landing-control-press" : ""}`}
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
-      <button className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground">
-        <Shuffle className="h-5 w-5" /> 隨機產生賽程 RANDOM BRACKET
-      </button>
+      <div className={focusTarget === "generate" ? "rounded-xl landing-live-focus" : "rounded-xl"}>
+        <button
+          type="button"
+          onClick={onGenerate}
+          className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground ${activeGenerate ? "landing-control-press" : ""}`}
+        >
+          <Shuffle className="h-5 w-5" /> 隨機產生賽程 RANDOM BRACKET
+        </button>
+      </div>
+      {generated && (
+        <p className="text-center text-xs text-primary">賽程已隨機產生，選手名單已鎖定。</p>
+      )}
       <button className="min-h-12 w-full rounded-xl border border-primary/50 bg-accent/30 text-primary">
         載入 16 位示範選手
       </button>

@@ -223,6 +223,10 @@
   animation: landingCompleteReveal 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.landing-control-press {
+  animation: landingControlPress 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (min-width: 48rem) {
   .landing-story-step {
     border-left: 2px solid var(--border);
@@ -244,6 +248,10 @@
   }
 
   .landing-registration-complete {
+    animation: none;
+  }
+
+  .landing-control-press {
     animation: none;
   }
 }
@@ -285,6 +293,19 @@
     opacity: 1;
     transform: translateY(0) scale(1);
     filter: blur(0);
+  }
+}
+
+@keyframes landingControlPress {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.88);
+    filter: brightness(1.22);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 

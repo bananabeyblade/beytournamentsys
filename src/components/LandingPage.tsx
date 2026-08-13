@@ -6,6 +6,7 @@ import {
   GitBranch,
   QrCode,
   ShieldCheck,
+  Shuffle,
   Sparkles,
   Swords,
   Trophy,
@@ -23,6 +24,7 @@ import {
   ScoringPanel,
   TournamentResultsPanel,
   TournamentSetupPanel,
+  type BracketFocusTarget,
   type RegistrationFocusTarget,
 } from "@/components/WorkflowPanels";
 
@@ -122,6 +124,26 @@ const REGISTRATION_STEPS = [
     icon: CheckCircle2,
     focus: null as RegistrationFocusTarget,
     completed: true,
+  },
+] as const;
+
+const BRACKET_STEPS = [
+  {
+    number: "06.1",
+    eyebrow: "RANDOM BRACKET · STEP 1",
+    title: "設定比賽桌數",
+    body: "以加號與減號調整同時進行的對戰桌數，系統會依桌數安排每輪可進行的比賽。",
+    icon: GitBranch,
+    focus: "tables" as BracketFocusTarget,
+  },
+  {
+    number: "06.2",
+    eyebrow: "RANDOM BRACKET · STEP 2",
+    title: "隨機產生賽程",
+    body: "確認名單和桌數後，按下按鈕產生隨機賽程；產生後選手名單會鎖定以確保賽事公平。",
+    icon: Shuffle,
+    focus: "generate" as BracketFocusTarget,
+    generated: true,
   },
 ] as const;
 
@@ -327,6 +349,135 @@ function RegistrationStory() {
                   stepRefs.current[index] = element;
                 }}
                 data-registration-step={index}
+                className={`landing-story-step ${isActive ? "landing-story-step-active" : ""}`}
+              >
+                <p className="font-display text-sm tracking-[0.18em] text-primary">
+                  {step.eyebrow}
+                </p>
+                <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
+                  {step.title}
+                </h2>
+                <p className="mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
+                  {step.body}
+                </p>
+                <div className="mt-6 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-primary/45 bg-accent/25">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EmbeddedBracket({ focus, generated }: { focus: BracketFocusTarget; generated: boolean }) {
+  const [tableCount, setTableCount] = useState(1);
+  const [activeTableControl, setActiveTableControl] = useState<"increase" | "decrease" | null>(
+    null,
+  );
+  const [activeGenerate, setActiveGenerate] = useState(false);
+  const [manuallyGenerated, setManuallyGenerated] = useState(false);
+
+  useEffect(() => {
+    if (focus !== "tables") {
+      setActiveTableControl(null);
+      return;
+    }
+
+    const sequence: Array<{ control: "increase" | "decrease"; value: number }> = [
+      { control: "increase", value: 2 },
+      { control: "decrease", value: 1 },
+      { control: "increase", value: 2 },
+      { control: "decrease", value: 1 },
+    ];
+    let index = 0;
+    const play = () => {
+      const next = sequence[index];
+      setActiveTableControl(next.control);
+      setTableCount(next.value);
+      index = (index + 1) % sequence.length;
+    };
+
+    play();
+    const interval = window.setInterval(play, 1150);
+    return () => window.clearInterval(interval);
+  }, [focus]);
+
+  useEffect(() => {
+    if (!generated) {
+      setActiveGenerate(false);
+      return;
+    }
+
+    setActiveGenerate(true);
+    const timer = window.setTimeout(() => setActiveGenerate(false), 450);
+    return () => window.clearTimeout(timer);
+  }, [generated]);
+
+  return (
+    <div className="landing-embedded-screen mx-auto w-full max-w-[30rem] bg-background p-3">
+      <TournamentSetupPanel
+        tableCount={tableCount}
+        onTableCountChange={setTableCount}
+        onGenerate={() => {
+          setActiveGenerate(true);
+          setManuallyGenerated(true);
+          window.setTimeout(() => setActiveGenerate(false), 450);
+        }}
+        focusTarget={focus}
+        activeTableControl={activeTableControl}
+        activeGenerate={activeGenerate}
+        generated={generated || manuallyGenerated}
+      />
+    </div>
+  );
+}
+
+function BracketStory() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const stepRefs = useRef<Array<HTMLElement | null>>([]);
+  const activeStep = BRACKET_STEPS[activeIndex];
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        const index = visible?.target.getAttribute("data-bracket-step");
+        if (index) setActiveIndex(Number(index));
+      },
+      { rootMargin: "-35% 0px -35% 0px", threshold: [0.2, 0.5, 0.8] },
+    );
+
+    stepRefs.current.forEach((element) => {
+      if (element) observer.observe(element);
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <section className="landing-story px-5 py-10 sm:px-8">
+      <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="landing-story-visual">
+          <EmbeddedBracket
+            focus={activeStep.focus}
+            generated={"generated" in activeStep && activeStep.generated === true}
+          />
+        </div>
+        <div className="space-y-10 pb-[45svh] md:pb-[70svh]">
+          {BRACKET_STEPS.map((step, index) => {
+            const Icon = step.icon;
+            const isActive = activeIndex === index;
+            return (
+              <article
+                key={step.number}
+                ref={(element) => {
+                  stepRefs.current[index] = element;
+                }}
+                data-bracket-step={index}
                 className={`landing-story-step ${isActive ? "landing-story-step-active" : ""}`}
               >
                 <p className="font-display text-sm tracking-[0.18em] text-primary">
@@ -571,9 +722,12 @@ export function LandingPage({ onAdminLogin }: LandingPageProps) {
       <div id="flow">
         <QrCreationStory />
         <RegistrationStory />
-        {STEPS.filter((step) => !step.screenshotFocus && step.number !== "04").map((step) => {
+        {STEPS.filter(
+          (step) => !step.screenshotFocus && step.number !== "04" && step.number !== "06",
+        ).map((step) => {
           const Icon = step.icon;
-          return (
+          return [
+            step.number === "07" ? <BracketStory key="bracket-story" /> : null,
             <section key={step.number} className="landing-panel px-5 py-10 sm:px-8">
               <div className="mx-auto grid max-w-4xl items-center gap-8 md:grid-cols-2">
                 <div>
@@ -592,8 +746,8 @@ export function LandingPage({ onAdminLogin }: LandingPageProps) {
                 </div>
                 <ProductPreview step={step} />
               </div>
-            </section>
-          );
+            </section>,
+          ];
         })}
       </div>
 

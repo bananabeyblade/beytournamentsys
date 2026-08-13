@@ -18,7 +18,10 @@
     "db:migrate": "node scripts/migrate-postgres.mjs",
     "db:check": "node scripts/check-postgres.mjs",
     "db:import:dry-run": "node scripts/import-from-supabase.mjs",
-    "db:import:apply": "node scripts/import-from-supabase.mjs --apply"
+    "db:import:apply": "node scripts/import-from-supabase.mjs --apply",
+    "parts:check": "node scripts/sync-beyblade-parts.mjs --check",
+    "parts:update": "node scripts/sync-beyblade-parts.mjs --write",
+    "parts:database": "node scripts/sync-beyblade-parts.mjs --check-database"
   },
   "dependencies": {
     "@lovable.dev/cloud-auth-js": "^1.1.2",

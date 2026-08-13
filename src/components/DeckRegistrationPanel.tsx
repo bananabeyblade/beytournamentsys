@@ -36,16 +36,14 @@ function PartSelect({
   const [query, setQuery] = useState("");
   const options = useMemo(() => parts.filter((part) => part.partType === type), [parts, type]);
   const selected = options.find((part) => part.id === value);
-  const labelFor = (part: BeybladePart) => `${part.name} · ${part.code} (${part.system})`;
+  const labelFor = (part: BeybladePart) => `${part.name} · ${part.code}（${part.system}）`;
   const normalizedQuery = query.toLowerCase().replace(/[\s-]/g, "");
-  const matches = options
-    .filter((part) =>
-      `${part.name} ${part.nameEn} ${part.code} ${part.system}`
-        .toLowerCase()
-        .replace(/[\s-]/g, "")
-        .includes(normalizedQuery),
-    )
-    .slice(0, 12);
+  const matches = options.filter((part) =>
+    `${part.name} ${part.nameEn} ${part.code} ${part.system}`
+      .toLowerCase()
+      .replace(/[\s-]/g, "")
+      .includes(normalizedQuery),
+  );
 
   useEffect(() => {
     if (!open) setQuery(selected ? labelFor(selected) : "");
@@ -72,6 +70,9 @@ function PartSelect({
       />
       {open && (
         <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-xl">
+          <p className="sticky top-0 z-10 bg-popover px-3 py-2 text-xs text-muted-foreground">
+            找到 {matches.length} 個零件
+          </p>
           {optional && (
             <button
               type="button"
@@ -99,7 +100,9 @@ function PartSelect({
               className="min-h-10 w-full rounded-lg px-3 text-left text-sm hover:bg-accent"
             >
               {labelFor(part)}
-              <span className="ml-2 text-xs text-muted-foreground">{part.nameEn}</span>
+              {part.nameEn.toLowerCase() !== part.name.toLowerCase() && (
+                <span className="ml-2 text-xs text-muted-foreground">{part.nameEn}</span>
+              )}
             </button>
           ))}
           {!matches.length && (
@@ -185,7 +188,7 @@ export function DeckRegistrationPanel({
           className="rounded-xl border border-border p-3"
         >
           <summary className="flex cursor-pointer list-none items-center justify-between font-display">
-            Combo {combo.slot}
+            組合 {combo.slot}
             <ChevronDown className="h-4 w-4" />
           </summary>
           <div className="mt-3 grid gap-3">
@@ -207,13 +210,13 @@ export function DeckRegistrationPanel({
                   }
                   className={`min-h-10 rounded-lg text-xs ${combo.mode === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
                 >
-                  {mode === "standard" ? "BX／UX Blade" : "CX 自訂 Blade"}
+                  {mode === "standard" ? "一般戰刃（BX／UX）" : "自訂戰刃（CX）"}
                 </button>
               ))}
             </div>
             {combo.mode === "standard" ? (
               <PartSelect
-                label="Blade"
+                label="戰刃（Blade）"
                 type="blade"
                 value={combo.bladeId}
                 parts={parts}
@@ -222,28 +225,28 @@ export function DeckRegistrationPanel({
             ) : (
               <>
                 <PartSelect
-                  label="Lock Chip"
+                  label="鎖定紋章（Lock Chip）"
                   type="lock_chip"
                   value={combo.lockChipId}
                   parts={parts}
                   onChange={(lockChipId) => update(index, { lockChipId })}
                 />
                 <PartSelect
-                  label="Main Blade"
+                  label="主要戰刃（Main Blade）"
                   type="main_blade"
                   value={combo.mainBladeId}
                   parts={parts}
                   onChange={(mainBladeId) => update(index, { mainBladeId })}
                 />
                 <PartSelect
-                  label="Assist Blade"
+                  label="輔助戰刃（Assist Blade）"
                   type="assist_blade"
                   value={combo.assistBladeId}
                   parts={parts}
                   onChange={(assistBladeId) => update(index, { assistBladeId })}
                 />
                 <PartSelect
-                  label="Metal Blade（選填）"
+                  label="金屬戰刃（Metal Blade，選填）"
                   type="metal_blade"
                   value={combo.metalBladeId}
                   parts={parts}
@@ -251,7 +254,7 @@ export function DeckRegistrationPanel({
                   onChange={(metalBladeId) => update(index, { metalBladeId })}
                 />
                 <PartSelect
-                  label="Over Blade（選填）"
+                  label="超越戰刃（Over Blade，選填）"
                   type="over_blade"
                   value={combo.overBladeId}
                   parts={parts}
@@ -261,14 +264,14 @@ export function DeckRegistrationPanel({
               </>
             )}
             <PartSelect
-              label="Ratchet"
+              label="固鎖（Ratchet）"
               type="ratchet"
               value={combo.ratchetId}
               parts={parts}
               onChange={(ratchetId) => update(index, { ratchetId })}
             />
             <PartSelect
-              label="Bit"
+              label="軸心（Bit）"
               type="bit"
               value={combo.bitId}
               parts={parts}
@@ -285,7 +288,7 @@ export function DeckRegistrationPanel({
           }
           className="min-h-11 w-full rounded-xl border border-primary/50 text-sm text-primary"
         >
-          ＋ 新增 Combo
+          ＋ 新增組合
         </button>
       )}
       {message && <p className="text-xs text-muted-foreground">{message}</p>}

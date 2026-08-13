@@ -26,6 +26,7 @@ import {
   TournamentSetupPanel,
   type BracketFocusTarget,
   type RegistrationFocusTarget,
+  type ScoringFinishTarget,
 } from "@/components/WorkflowPanels";
 
 type LandingPageProps = {
@@ -35,7 +36,7 @@ type LandingPageProps = {
 const STEPS = [
   {
     number: "01",
-    eyebrow: "CREATE QR CODE · STEP 1",
+    eyebrow: "CREATE QR CODE",
     title: "輸入新賽事名稱",
     body: "在「報名 QR CODE」區塊先填入賽事名稱。這個名稱會出現在參賽者掃描後的報名頁面。",
     icon: ClipboardCheck,
@@ -43,7 +44,7 @@ const STEPS = [
   },
   {
     number: "02",
-    eyebrow: "CREATE QR CODE · STEP 2",
+    eyebrow: "CREATE QR CODE",
     title: "上傳賽事 Logo（選填）",
     body: "可替這一場賽事上傳專屬 Logo；不需要上傳也能直接繼續建立，系統會使用預設標誌。",
     icon: Sparkles,
@@ -51,7 +52,7 @@ const STEPS = [
   },
   {
     number: "03",
-    eyebrow: "CREATE QR CODE · STEP 3",
+    eyebrow: "CREATE QR CODE",
     title: "建立新賽事與 QR Code",
     body: "確認名稱後按下建立。系統會建立賽事，並產生可展示、列印或分享的專屬報名 QR Code。",
     icon: QrCode,
@@ -66,7 +67,7 @@ const STEPS = [
     screenshotFocus: null,
   },
   {
-    number: "05",
+    number: "07",
     eyebrow: "ADMIN APPROVAL",
     title: "管理者逐筆或全部核准",
     body: "待審核名單會集中在選手頁。確認名稱與參賽資格後核准加入正式名單，也能拒絕重複或錯誤報名。",
@@ -74,7 +75,7 @@ const STEPS = [
     screenshotFocus: null,
   },
   {
-    number: "06",
+    number: "08",
     eyebrow: "RANDOM BRACKET",
     title: "名單確認後，產生隨機賽程",
     body: "人數足夠時由管理者產生賽程，系統依桌數分配對戰。產生後選手名單會鎖定，避免比賽中途異動。",
@@ -82,7 +83,7 @@ const STEPS = [
     screenshotFocus: null,
   },
   {
-    number: "07",
+    number: "10",
     eyebrow: "LIVE SCORING",
     title: "多位裁判，同步掌握賽況",
     body: "裁判依桌次即時計分；迴轉、擊飛、爆裂與極限勝利自動累積，賽程立即推進。",
@@ -90,7 +91,7 @@ const STEPS = [
     screenshotFocus: null,
   },
   {
-    number: "08",
+    number: "11",
     eyebrow: "RESULTS",
     title: "從賽程到頒獎，自動完成",
     body: "賽程樹、歷史比分與前四名榜單會自動生成，現場與觀眾能同步追蹤每一輪。",
@@ -101,24 +102,24 @@ const STEPS = [
 
 const REGISTRATION_STEPS = [
   {
-    number: "04.1",
-    eyebrow: "PLAYER REGISTRATION · STEP 1",
+    number: "04",
+    eyebrow: "PLAYER REGISTRATION",
     title: "輸入參賽名稱",
     body: "掃描賽事 QR Code 後，輸入將顯示在賽程與對戰紀錄中的名稱。",
     icon: Users,
     focus: "name" as RegistrationFocusTarget,
   },
   {
-    number: "04.2",
-    eyebrow: "PLAYER REGISTRATION · STEP 2",
+    number: "05",
+    eyebrow: "PLAYER REGISTRATION",
     title: "送出報名",
     body: "確認名稱後送出。系統會檢查同一賽事中是否有重複的名稱。",
     icon: UserCheck,
     focus: "submit" as RegistrationFocusTarget,
   },
   {
-    number: "04.3",
-    eyebrow: "PLAYER REGISTRATION · STEP 3",
+    number: "06",
+    eyebrow: "PLAYER REGISTRATION",
     title: "保存參賽者驗證碼",
     body: "報名送出後，請立即截圖保存八碼驗證碼；更換手機或重新連線時可用它找回身分。",
     icon: CheckCircle2,
@@ -129,16 +130,16 @@ const REGISTRATION_STEPS = [
 
 const BRACKET_STEPS = [
   {
-    number: "06.1",
-    eyebrow: "RANDOM BRACKET · STEP 1",
+    number: "08",
+    eyebrow: "RANDOM BRACKET",
     title: "設定比賽桌數",
     body: "以加號與減號調整同時進行的對戰桌數，系統會依桌數安排每輪可進行的比賽。",
     icon: GitBranch,
     focus: "tables" as BracketFocusTarget,
   },
   {
-    number: "06.2",
-    eyebrow: "RANDOM BRACKET · STEP 2",
+    number: "09",
+    eyebrow: "RANDOM BRACKET",
     title: "隨機產生賽程",
     body: "確認名單和桌數後，按下按鈕產生隨機賽程；產生後選手名單會鎖定以確保賽事公平。",
     icon: Shuffle,
@@ -228,7 +229,7 @@ function QrCreationStory() {
 
   return (
     <section className="landing-story px-5 py-10 sm:px-8">
-      <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <div className="mx-auto max-w-3xl space-y-8">
         <div className="landing-story-visual">
           <EmbeddedQrCreation focus={activeStep.screenshotFocus as CreationFocusTarget} />
         </div>
@@ -246,7 +247,7 @@ function QrCreationStory() {
                 className={`landing-story-step ${isActive ? "landing-story-step-active" : ""}`}
               >
                 <p className="font-display text-sm tracking-[0.18em] text-primary">
-                  {step.eyebrow}
+                  {step.number} · {step.eyebrow}
                 </p>
                 <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
                   {step.title}
@@ -331,7 +332,7 @@ function RegistrationStory() {
 
   return (
     <section className="landing-story px-5 py-10 sm:px-8">
-      <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <div className="mx-auto max-w-3xl space-y-8">
         <div className="landing-story-visual">
           <EmbeddedRegistration
             focus={activeStep.focus}
@@ -352,7 +353,7 @@ function RegistrationStory() {
                 className={`landing-story-step ${isActive ? "landing-story-step-active" : ""}`}
               >
                 <p className="font-display text-sm tracking-[0.18em] text-primary">
-                  {step.eyebrow}
+                  {step.number} · {step.eyebrow}
                 </p>
                 <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
                   {step.title}
@@ -460,7 +461,7 @@ function BracketStory() {
 
   return (
     <section className="landing-story px-5 py-10 sm:px-8">
-      <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <div className="mx-auto max-w-3xl space-y-8">
         <div className="landing-story-visual">
           <EmbeddedBracket
             focus={activeStep.focus}
@@ -481,7 +482,7 @@ function BracketStory() {
                 className={`landing-story-step ${isActive ? "landing-story-step-active" : ""}`}
               >
                 <p className="font-display text-sm tracking-[0.18em] text-primary">
-                  {step.eyebrow}
+                  {step.number} · {step.eyebrow}
                 </p>
                 <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
                   {step.title}
@@ -501,16 +502,74 @@ function BracketStory() {
   );
 }
 
+const SCORING_SEQUENCE: Array<{
+  score1: number;
+  score2: number;
+  slot: 1 | 2;
+  finish: ScoringFinishTarget;
+  winner: "B" | null;
+}> = [
+  { score1: 0, score2: 0, slot: 1, finish: null, winner: null },
+  { score1: 2, score2: 0, slot: 1, finish: "burst", winner: null },
+  { score1: 2, score2: 1, slot: 2, finish: "spin", winner: null },
+  { score1: 3, score2: 1, slot: 1, finish: "spin", winner: null },
+  { score1: 3, score2: 4, slot: 2, finish: "xtreme", winner: null },
+  { score1: 3, score2: 4, slot: 2, finish: null, winner: "B" },
+];
+
+function ScoringStory() {
+  const [phase, setPhase] = useState(0);
+  const current = SCORING_SEQUENCE[phase];
+
+  useEffect(() => {
+    const delay = phase === 0 ? 850 : phase === SCORING_SEQUENCE.length - 1 ? 2600 : 1250;
+    const timer = window.setTimeout(
+      () => setPhase((previous) => (previous + 1) % SCORING_SEQUENCE.length),
+      delay,
+    );
+    return () => window.clearTimeout(timer);
+  }, [phase]);
+
+  return (
+    <section className="landing-panel px-5 py-10 sm:px-8">
+      <div className="mx-auto w-full max-w-3xl">
+        <div className="landing-scoring-transition mx-auto w-full max-w-sm">
+          <ScoringPanel
+            score1={current.score1}
+            score2={current.score2}
+            activeSlot={current.slot}
+            activeFinish={current.finish}
+            winner={current.winner}
+          />
+        </div>
+        <div className="mt-8">
+          <p className="font-display text-sm tracking-[0.2em] text-primary">10 · LIVE SCORING</p>
+          <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
+            多位裁判，同步掌握賽況
+          </h2>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
+            示範依序記錄：選手 A 爆裂勝利得 2 分、選手 B 迴轉勝利得 1 分、選手 A 再得 1 分，最後選手
+            B 以極限勝利取得 3 分。達到 4 分後會顯示實際的勝者確認畫面。
+          </p>
+          <div className="mt-6 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-primary/45 bg-accent/25">
+            <Swords className="h-5 w-5 text-primary" />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ProductPreview({ step }: { step: (typeof STEPS)[number] }) {
   if (step.screenshotFocus) return <EmbeddedQrCreation focus={step.screenshotFocus} />;
   const sharedScreen =
     step.number === "04" ? (
       <RegistrationDemo />
-    ) : step.number === "05" ? (
-      <PendingRegistrationsPanel names={["陀螺玩家 A", "陀螺玩家 B", "陀螺玩家 C"]} />
-    ) : step.number === "06" ? (
-      <TournamentSetupPanel tableCount={3} />
     ) : step.number === "07" ? (
+      <PendingRegistrationsPanel names={["陀螺玩家 A", "陀螺玩家 B", "陀螺玩家 C"]} />
+    ) : step.number === "08" ? (
+      <TournamentSetupPanel tableCount={3} />
+    ) : step.number === "10" ? (
       <ScoringPanel />
     ) : (
       <TournamentResultsPanel names={["選手 A", "選手 B", "選手 C", "選手 D"]} />
@@ -575,7 +634,7 @@ function LegacyProductPreview({ step }: { step: (typeof STEPS)[number] }) {
               </div>
             </>
           )}
-          {step.number === "05" && (
+          {step.number === "07" && (
             <>
               <div className="flex items-center justify-between">
                 <p className="font-display text-xs tracking-widest text-muted-foreground">
@@ -599,7 +658,7 @@ function LegacyProductPreview({ step }: { step: (typeof STEPS)[number] }) {
               </div>
             </>
           )}
-          {step.number === "06" && (
+          {step.number === "08" && (
             <>
               <p className="font-display text-xs tracking-widest text-muted-foreground">賽程設定</p>
               <div className="rounded-xl border border-border p-3 text-xs">
@@ -622,7 +681,7 @@ function LegacyProductPreview({ step }: { step: (typeof STEPS)[number] }) {
               <p className="text-center text-[10px] text-muted-foreground">產生後將鎖定選手名單</p>
             </>
           )}
-          {step.number === "07" && (
+          {step.number === "10" && (
             <>
               <div className="flex items-center justify-between">
                 <p className="font-display text-xs tracking-widest text-muted-foreground">
@@ -645,7 +704,7 @@ function LegacyProductPreview({ step }: { step: (typeof STEPS)[number] }) {
               </div>
             </>
           )}
-          {step.number === "08" && (
+          {step.number === "11" && (
             <>
               <p className="font-display text-xs tracking-widest text-muted-foreground">
                 賽事完成 · 前四名已產生
@@ -722,15 +781,16 @@ export function LandingPage({ onAdminLogin }: LandingPageProps) {
       <div id="flow">
         <QrCreationStory />
         <RegistrationStory />
-        {STEPS.filter(
-          (step) => !step.screenshotFocus && step.number !== "04" && step.number !== "06",
-        ).map((step) => {
+        {STEPS.filter((step) => ["07", "10", "11"].includes(step.number)).map((step) => {
           const Icon = step.icon;
+          if (step.number === "10") {
+            return [<BracketStory key="bracket-story" />, <ScoringStory key="scoring-story" />];
+          }
           return [
-            step.number === "07" ? <BracketStory key="bracket-story" /> : null,
             <section key={step.number} className="landing-panel px-5 py-10 sm:px-8">
-              <div className="mx-auto grid max-w-4xl items-center gap-8 md:grid-cols-2">
-                <div>
+              <div className="mx-auto w-full max-w-3xl">
+                <ProductPreview step={step} />
+                <div className="mt-8">
                   <p className="font-display text-sm tracking-[0.2em] text-primary">
                     {step.number} · {step.eyebrow}
                   </p>
@@ -744,7 +804,6 @@ export function LandingPage({ onAdminLogin }: LandingPageProps) {
                     <Icon className="h-5 w-5 text-primary" />
                   </div>
                 </div>
-                <ProductPreview step={step} />
               </div>
             </section>,
           ];

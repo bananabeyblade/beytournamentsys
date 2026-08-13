@@ -12,6 +12,7 @@ import { FINISHES, WIN_TARGET } from "@/lib/tournament-types";
 
 export type RegistrationFocusTarget = "name" | "submit" | null;
 export type BracketFocusTarget = "tables" | "generate" | null;
+export type ScoringFinishTarget = "spin" | "burst" | "xtreme" | null;
 
 export function RegistrationPanel({
   name,
@@ -188,30 +189,51 @@ const tones: Record<string, string> = {
   xtreme: "bg-xtreme/25 border-xtreme text-xtreme danger-edge",
 };
 
-export function ScoringPanel() {
+export function ScoringPanel({
+  score1 = 3,
+  score2 = 2,
+  activeSlot = 1,
+  activeFinish = null,
+  winner = null,
+}: {
+  score1?: number;
+  score2?: number;
+  activeSlot?: 1 | 2;
+  activeFinish?: ScoringFinishTarget;
+  winner?: "A" | "B" | null;
+}) {
   return (
     <div className="panel neon-edge p-4">
       <p className="text-xs tracking-widest text-muted-foreground">裁判計分 · 第一輪 · 桌 1</p>
       <h2 className="text-lg neon-text">REFEREE SCORING</h2>
       <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <div className="rounded-xl border p-3 text-center neon-edge bg-accent/40">
+        <div
+          className={`rounded-xl border p-3 text-center transition ${activeSlot === 1 ? "neon-edge bg-accent/40" : "border-border bg-secondary/50"}`}
+        >
           <p className="truncate text-sm font-semibold">選手 A</p>
-          <p className="font-display text-4xl neon-text">3</p>
+          <p key={score1} className="font-display text-4xl neon-text landing-score-pop">
+            {score1}
+          </p>
         </div>
         <div className="text-center font-display text-xs text-muted-foreground">VS</div>
-        <div className="rounded-xl border border-border bg-secondary/50 p-3 text-center">
+        <div
+          className={`rounded-xl border p-3 text-center transition ${activeSlot === 2 ? "neon-edge bg-accent/40" : "border-border bg-secondary/50"}`}
+        >
           <p className="truncate text-sm font-semibold">選手 B</p>
-          <p className="font-display text-4xl neon-text">2</p>
+          <p key={score2} className="font-display text-4xl neon-text landing-score-pop">
+            {score2}
+          </p>
         </div>
       </div>
       <p className="mt-2 text-center text-xs text-muted-foreground">
-        先取 {WIN_TARGET} 分獲勝 · 目前為 <span className="text-primary">選手 1</span> 加分
+        先取 {WIN_TARGET} 分獲勝 · 目前為{" "}
+        <span className="text-primary">選手 {activeSlot === 1 ? "A" : "B"}</span> 加分
       </p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         {FINISHES.map((finish) => (
           <button
             key={finish.type}
-            className={`min-h-20 rounded-xl border-2 px-3 py-3 text-left font-semibold ${tones[finish.tone]}`}
+            className={`min-h-20 rounded-xl border-2 px-3 py-3 text-left font-semibold ${tones[finish.tone]} ${activeFinish === finish.type ? "landing-score-button-press" : ""}`}
           >
             <span className="font-display text-2xl">+{finish.points}</span>
             <span className="block text-sm">{finish.zh}</span>
@@ -219,6 +241,16 @@ export function ScoringPanel() {
           </button>
         ))}
       </div>
+      {winner && (
+        <div className="landing-winner-reveal mt-4 rounded-xl border-2 border-primary bg-accent/40 p-4 text-center neon-edge">
+          <Trophy className="mx-auto h-8 w-8 text-primary" />
+          <p className="mt-2 font-display text-lg neon-text">選手 {winner} Wins!</p>
+          <p className="text-xs text-muted-foreground">確認後將自動晉級下一輪</p>
+          <button className="mt-3 min-h-14 w-full rounded-xl bg-primary font-display text-lg text-primary-foreground">
+            確認勝利 CONFIRM
+          </button>
+        </div>
+      )}
     </div>
   );
 }

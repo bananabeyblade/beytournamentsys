@@ -227,6 +227,20 @@
   animation: landingControlPress 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.landing-score-button-press {
+  position: relative;
+  z-index: 3;
+  animation: landingScoreButtonPress 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-score-pop {
+  animation: landingScorePop 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-winner-reveal {
+  animation: landingWinnerReveal 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (min-width: 48rem) {
   .landing-story-step {
     border-left: 2px solid var(--border);
@@ -252,6 +266,12 @@
   }
 
   .landing-control-press {
+    animation: none;
+  }
+
+  .landing-score-button-press,
+  .landing-score-pop,
+  .landing-winner-reveal {
     animation: none;
   }
 }
@@ -306,6 +326,47 @@
   }
   100% {
     transform: scale(1);
+  }
+}
+
+@keyframes landingScoreButtonPress {
+  0% {
+    transform: scale(1);
+  }
+  38% {
+    transform: scale(0.9);
+    filter: brightness(1.35);
+    box-shadow: 0 0 1.5rem currentColor;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes landingScorePop {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.35;
+  }
+  65% {
+    transform: scale(1.16);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes landingWinnerReveal {
+  from {
+    opacity: 0;
+    transform: translateY(0.8rem) scale(0.96);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
   }
 }
 

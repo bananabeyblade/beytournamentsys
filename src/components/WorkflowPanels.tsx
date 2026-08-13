@@ -10,22 +10,26 @@ import {
 } from "lucide-react";
 import { FINISHES, WIN_TARGET } from "@/lib/tournament-types";
 
+export type RegistrationFocusTarget = "name" | "submit" | null;
+
 export function RegistrationPanel({
   name,
   onNameChange,
   recoveryCode,
   submitted = false,
   onSubmit,
+  focusTarget = null,
 }: {
   name: string;
   onNameChange: (value: string) => void;
   recoveryCode?: string;
   submitted?: boolean;
   onSubmit: () => void;
+  focusTarget?: RegistrationFocusTarget;
 }) {
   if (submitted)
     return (
-      <div className="panel space-y-3 p-4 text-center">
+      <div className="landing-registration-complete panel space-y-3 p-4 text-center">
         <Check className="mx-auto h-10 w-10 text-primary" />
         <p className="font-display text-lg">報名已送出</p>
         <p className="text-sm text-muted-foreground">請等待裁判於現場確認加入選手名單。</p>
@@ -52,21 +56,25 @@ export function RegistrationPanel({
       >
         已有驗證碼？找回我的參賽身分
       </button>
-      <input
-        value={name}
-        onChange={(event) => onNameChange(event.target.value)}
-        maxLength={40}
-        placeholder="選手名稱 / 暱稱"
-        className="min-h-14 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-      />
-      <button
-        type="button"
-        disabled={!name.trim()}
-        onClick={onSubmit}
-        className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
-      >
-        <UserPlus className="h-5 w-5" /> 送出報名
-      </button>
+      <div className={focusTarget === "name" ? "rounded-xl landing-live-focus" : "rounded-xl"}>
+        <input
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          maxLength={40}
+          placeholder="選手名稱 / 暱稱"
+          className="min-h-14 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+        />
+      </div>
+      <div className={focusTarget === "submit" ? "rounded-xl landing-live-focus" : "rounded-xl"}>
+        <button
+          type="button"
+          disabled={!name.trim()}
+          onClick={onSubmit}
+          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
+        >
+          <UserPlus className="h-5 w-5" /> 送出報名
+        </button>
+      </div>
       <p className="text-xs text-muted-foreground">
         同一場賽事不可使用重複名稱，送出前系統會自動檢查。
       </p>

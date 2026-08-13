@@ -23,6 +23,7 @@ import {
   ScoringPanel,
   TournamentResultsPanel,
   TournamentSetupPanel,
+  type RegistrationFocusTarget,
 } from "@/components/WorkflowPanels";
 
 type LandingPageProps = {
@@ -93,6 +94,34 @@ const STEPS = [
     body: "賽程樹、歷史比分與前四名榜單會自動生成，現場與觀眾能同步追蹤每一輪。",
     icon: Trophy,
     screenshotFocus: null,
+  },
+] as const;
+
+const REGISTRATION_STEPS = [
+  {
+    number: "04.1",
+    eyebrow: "PLAYER REGISTRATION · STEP 1",
+    title: "輸入參賽名稱",
+    body: "掃描賽事 QR Code 後，輸入將顯示在賽程與對戰紀錄中的名稱。",
+    icon: Users,
+    focus: "name" as RegistrationFocusTarget,
+  },
+  {
+    number: "04.2",
+    eyebrow: "PLAYER REGISTRATION · STEP 2",
+    title: "送出報名",
+    body: "確認名稱後送出。系統會檢查同一賽事中是否有重複的名稱。",
+    icon: UserCheck,
+    focus: "submit" as RegistrationFocusTarget,
+  },
+  {
+    number: "04.3",
+    eyebrow: "PLAYER REGISTRATION · STEP 3",
+    title: "保存參賽者驗證碼",
+    body: "報名送出後，請立即截圖保存八碼驗證碼；更換手機或重新連線時可用它找回身分。",
+    icon: CheckCircle2,
+    focus: null as RegistrationFocusTarget,
+    completed: true,
   },
 ] as const;
 
@@ -192,6 +221,112 @@ function QrCreationStory() {
                   stepRefs.current[index] = element;
                 }}
                 data-story-step={index}
+                className={`landing-story-step ${isActive ? "landing-story-step-active" : ""}`}
+              >
+                <p className="font-display text-sm tracking-[0.18em] text-primary">
+                  {step.eyebrow}
+                </p>
+                <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
+                  {step.title}
+                </h2>
+                <p className="mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
+                  {step.body}
+                </p>
+                <div className="mt-6 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-primary/45 bg-accent/25">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EmbeddedRegistration({
+  focus,
+  completed,
+}: {
+  focus: RegistrationFocusTarget;
+  completed: boolean;
+}) {
+  const [name, setName] = useState("陀螺玩家 A");
+  const [submitted, setSubmitted] = useState(false);
+  const showComplete = completed || submitted;
+
+  return (
+    <div className="landing-embedded-screen mx-auto w-full max-w-[30rem]">
+      <div className="flex items-center justify-between border-b border-border bg-background/95 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <img src={logoAsset} alt="竹野陀螺集會所" className="h-7 w-7 object-contain" />
+          <div>
+            <p className="font-display text-xs text-primary">竹野陀螺集會所</p>
+            <p className="text-[8px] tracking-widest text-muted-foreground">TOURNAMENT SYSTEM</p>
+          </div>
+        </div>
+        <span className="rounded-full border border-primary/40 bg-accent/30 px-2 py-1 text-[9px] text-primary">
+          即時同步
+        </span>
+      </div>
+      <div className="landing-registration-visual bg-background p-3">
+        <RegistrationPanel
+          key={showComplete ? "complete" : "form"}
+          name={name}
+          onNameChange={setName}
+          submitted={showComplete}
+          recoveryCode="52741938"
+          onSubmit={() => setSubmitted(true)}
+          focusTarget={showComplete ? null : focus}
+        />
+      </div>
+    </div>
+  );
+}
+
+function RegistrationStory() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const stepRefs = useRef<Array<HTMLElement | null>>([]);
+  const activeStep = REGISTRATION_STEPS[activeIndex];
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        const index = visible?.target.getAttribute("data-registration-step");
+        if (index) setActiveIndex(Number(index));
+      },
+      { rootMargin: "-35% 0px -35% 0px", threshold: [0.2, 0.5, 0.8] },
+    );
+
+    stepRefs.current.forEach((element) => {
+      if (element) observer.observe(element);
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <section className="landing-story px-5 py-10 sm:px-8">
+      <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="landing-story-visual">
+          <EmbeddedRegistration
+            focus={activeStep.focus}
+            completed={"completed" in activeStep && activeStep.completed === true}
+          />
+        </div>
+        <div className="space-y-10 pb-[45svh] md:pb-[70svh]">
+          {REGISTRATION_STEPS.map((step, index) => {
+            const Icon = step.icon;
+            const isActive = activeIndex === index;
+            return (
+              <article
+                key={step.number}
+                ref={(element) => {
+                  stepRefs.current[index] = element;
+                }}
+                data-registration-step={index}
                 className={`landing-story-step ${isActive ? "landing-story-step-active" : ""}`}
               >
                 <p className="font-display text-sm tracking-[0.18em] text-primary">
@@ -435,7 +570,8 @@ export function LandingPage({ onAdminLogin }: LandingPageProps) {
 
       <div id="flow">
         <QrCreationStory />
-        {STEPS.filter((step) => !step.screenshotFocus).map((step) => {
+        <RegistrationStory />
+        {STEPS.filter((step) => !step.screenshotFocus && step.number !== "04").map((step) => {
           const Icon = step.icon;
           return (
             <section key={step.number} className="landing-panel px-5 py-10 sm:px-8">

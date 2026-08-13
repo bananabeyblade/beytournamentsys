@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { QrCode, Copy, Check, Plus, Flag, Image as ImageIcon, X } from "lucide-react";
+import { QrCode, Copy, Check, Plus, Flag } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { uploadTournamentLogo } from "@/lib/tournaments";
 import { addRegistration } from "@/lib/registration";
+import { TournamentCreationForm } from "@/components/TournamentCreationForm";
 
 export function QrRegisterCard() {
   const { currentTournament, startNewTournament, currentAdmin, forceFinishTournament } =
@@ -21,7 +22,6 @@ export function QrRegisterCard() {
   const [batchResult, setBatchResult] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState("");
-  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!currentTournament) {
@@ -216,57 +216,15 @@ export function QrRegisterCard() {
       )}
 
       {currentAdmin?.isSuper ? (
-        <div className="space-y-2 border-t border-border pt-3">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={60}
-            placeholder="新賽事名稱，例如：0729 週三戰"
-            className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-          />
-          <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => pickLogo(e.target.files?.[0] ?? null)}
-          />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => logoInputRef.current?.click()}
-              className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-secondary text-sm text-muted-foreground"
-            >
-              <ImageIcon className="h-4 w-4" />
-              {logoPreview ? "更換 logo" : "上傳賽事 logo（選填）"}
-            </button>
-            {logoPreview && (
-              <>
-                <img
-                  src={logoPreview}
-                  alt="logo 預覽"
-                  className="h-12 w-12 shrink-0 rounded-xl border border-border object-cover"
-                />
-                <button
-                  type="button"
-                  aria-label="移除 logo"
-                  onClick={() => pickLogo(null)}
-                  className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-destructive/60 text-destructive"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </>
-            )}
-          </div>
-          {err && <p className="text-xs text-destructive">{err}</p>}
-          <button
-            disabled={busy || !name.trim()}
-            onClick={() => void create()}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" /> 建立新賽事與 QR CODE
-          </button>
-        </div>
+        <TournamentCreationForm
+          name={name}
+          onNameChange={setName}
+          logoPreview={logoPreview}
+          onLogoChange={pickLogo}
+          error={err}
+          busy={busy}
+          onCreate={() => void create()}
+        />
       ) : (
         <p className="border-t border-border pt-3 text-xs text-muted-foreground">
           僅總管理者可以建立新賽事。

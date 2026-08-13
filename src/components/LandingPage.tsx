@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
   CheckCircle2,
@@ -12,6 +13,17 @@ import {
   Users,
 } from "lucide-react";
 import logoAsset from "@/assets/beyx-logo.png";
+import {
+  TournamentCreationForm,
+  type CreationFocusTarget,
+} from "@/components/TournamentCreationForm";
+import {
+  PendingRegistrationsPanel,
+  RegistrationPanel,
+  ScoringPanel,
+  TournamentResultsPanel,
+  TournamentSetupPanel,
+} from "@/components/WorkflowPanels";
 
 type LandingPageProps = {
   onAdminLogin: () => void;
@@ -20,56 +32,229 @@ type LandingPageProps = {
 const STEPS = [
   {
     number: "01",
-    eyebrow: "CREATE TOURNAMENT",
-    title: "輸入名稱，建立一場賽事",
-    body: "填入賽事名稱，再設定選手上限與比賽桌數。建立後，系統會保留這場賽事的報名、賽程與最終成績。",
+    eyebrow: "CREATE QR CODE · STEP 1",
+    title: "輸入新賽事名稱",
+    body: "在「報名 QR CODE」區塊先填入賽事名稱。這個名稱會出現在參賽者掃描後的報名頁面。",
     icon: ClipboardCheck,
+    screenshotFocus: "name",
   },
   {
     number: "02",
-    eyebrow: "GENERATE QR CODE",
-    title: "一鍵產生專屬報名 QR Code",
-    body: "管理者從賽事設定頁產生 QR Code 或複製報名連結，將它投放到現場螢幕、社群或報名表單。",
-    icon: QrCode,
+    eyebrow: "CREATE QR CODE · STEP 2",
+    title: "上傳賽事 Logo（選填）",
+    body: "可替這一場賽事上傳專屬 Logo；不需要上傳也能直接繼續建立，系統會使用預設標誌。",
+    icon: Sparkles,
+    screenshotFocus: "logo",
   },
   {
     number: "03",
+    eyebrow: "CREATE QR CODE · STEP 3",
+    title: "建立新賽事與 QR Code",
+    body: "確認名稱後按下建立。系統會建立賽事，並產生可展示、列印或分享的專屬報名 QR Code。",
+    icon: QrCode,
+    screenshotFocus: "create",
+  },
+  {
+    number: "04",
     eyebrow: "PLAYER REGISTRATION",
     title: "參賽者掃碼，輸入名稱報名",
     body: "選手不用下載 App。掃描 QR Code、輸入名稱後送出報名，並取得八碼驗證碼，可在斷線後找回自己的身分。",
     icon: Users,
+    screenshotFocus: null,
   },
   {
-    number: "04",
+    number: "05",
     eyebrow: "ADMIN APPROVAL",
     title: "管理者逐筆或全部核准",
     body: "待審核名單會集中在選手頁。確認名稱與參賽資格後核准加入正式名單，也能拒絕重複或錯誤報名。",
     icon: UserCheck,
+    screenshotFocus: null,
   },
   {
-    number: "05",
+    number: "06",
     eyebrow: "RANDOM BRACKET",
     title: "名單確認後，產生隨機賽程",
     body: "人數足夠時由管理者產生賽程，系統依桌數分配對戰。產生後選手名單會鎖定，避免比賽中途異動。",
     icon: GitBranch,
+    screenshotFocus: null,
   },
   {
-    number: "06",
+    number: "07",
     eyebrow: "LIVE SCORING",
     title: "多位裁判，同步掌握賽況",
     body: "裁判依桌次即時計分；迴轉、擊飛、爆裂與極限勝利自動累積，賽程立即推進。",
     icon: Swords,
+    screenshotFocus: null,
   },
   {
-    number: "07",
+    number: "08",
     eyebrow: "RESULTS",
     title: "從賽程到頒獎，自動完成",
     body: "賽程樹、歷史比分與前四名榜單會自動生成，現場與觀眾能同步追蹤每一輪。",
     icon: Trophy,
+    screenshotFocus: null,
   },
 ] as const;
 
+function EmbeddedQrCreation({ focus }: { focus: CreationFocusTarget }) {
+  const [name, setName] = useState("");
+  const [logoPreview, setLogoPreview] = useState("");
+  const [message, setMessage] = useState("");
+
+  const pickLogo = (file: File | null) => {
+    setLogoPreview((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return file ? URL.createObjectURL(file) : "";
+    });
+  };
+
+  return (
+    <div className="landing-embedded-screen mx-auto w-full max-w-[38rem]">
+      <div className="flex items-center justify-between border-b border-border bg-background/95 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <img src={logoAsset} alt="竹塹陀螺集會所標誌" className="h-7 w-7 object-contain" />
+          <div>
+            <p className="font-display text-xs text-primary">竹塹陀螺集會所</p>
+            <p className="text-[8px] tracking-widest text-muted-foreground">TOURNAMENT SYSTEM</p>
+          </div>
+        </div>
+        <span className="rounded-full border border-primary/40 bg-accent/30 px-2 py-1 text-[9px] text-primary">
+          互動示範
+        </span>
+      </div>
+      <div className="bg-background p-3">
+        <div className="panel space-y-3 p-3">
+          <h3 className="flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
+            <QrCode className="h-4 w-4" /> 報名 QR CODE
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            建立一場新賽事後即可產生專屬報名 QR Code。
+          </p>
+          <TournamentCreationForm
+            name={name}
+            onNameChange={(value) => {
+              setName(value);
+              setMessage("");
+            }}
+            logoPreview={logoPreview}
+            onLogoChange={pickLogo}
+            onCreate={() => setMessage("示範完成：正式操作時會建立賽事並產生 QR Code。")}
+            focusTarget={focus}
+          />
+          {message && <p className="text-xs text-primary">{message}</p>}
+        </div>
+        <p className="mt-2 text-center text-[10px] text-muted-foreground">
+          可直接操作的唯讀示範，不會寫入正式賽事資料
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function QrCreationStory() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const stepRefs = useRef<Array<HTMLElement | null>>([]);
+  const qrSteps = STEPS.slice(0, 3);
+  const activeStep = qrSteps[activeIndex];
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        const index = visible?.target.getAttribute("data-story-step");
+        if (index) setActiveIndex(Number(index));
+      },
+      { rootMargin: "-35% 0px -35% 0px", threshold: [0.2, 0.5, 0.8] },
+    );
+
+    stepRefs.current.forEach((element) => {
+      if (element) observer.observe(element);
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <section className="landing-story px-5 py-10 sm:px-8">
+      <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="landing-story-visual">
+          <EmbeddedQrCreation focus={activeStep.screenshotFocus as CreationFocusTarget} />
+        </div>
+        <div className="space-y-10 pb-[45svh] md:pb-[70svh]">
+          {qrSteps.map((step, index) => {
+            const Icon = step.icon;
+            const isActive = activeIndex === index;
+            return (
+              <article
+                key={step.number}
+                ref={(element) => {
+                  stepRefs.current[index] = element;
+                }}
+                data-story-step={index}
+                className={`landing-story-step ${isActive ? "landing-story-step-active" : ""}`}
+              >
+                <p className="font-display text-sm tracking-[0.18em] text-primary">
+                  {step.eyebrow}
+                </p>
+                <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
+                  {step.title}
+                </h2>
+                <p className="mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
+                  {step.body}
+                </p>
+                <div className="mt-6 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-primary/45 bg-accent/25">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ProductPreview({ step }: { step: (typeof STEPS)[number] }) {
+  if (step.screenshotFocus) return <EmbeddedQrCreation focus={step.screenshotFocus} />;
+  const sharedScreen =
+    step.number === "04" ? (
+      <RegistrationDemo />
+    ) : step.number === "05" ? (
+      <PendingRegistrationsPanel names={["陀螺玩家 A", "陀螺玩家 B", "陀螺玩家 C"]} />
+    ) : step.number === "06" ? (
+      <TournamentSetupPanel tableCount={3} />
+    ) : step.number === "07" ? (
+      <ScoringPanel />
+    ) : (
+      <TournamentResultsPanel names={["選手 A", "選手 B", "選手 C", "選手 D"]} />
+    );
+
+  return (
+    <div className="relative mx-auto w-full max-w-sm rounded-[1.75rem] border border-primary/45 bg-background/90 p-2 shadow-2xl shadow-primary/10">
+      <div className="landing-embedded-screen min-h-72 rounded-[1.35rem] bg-background p-2">
+        {sharedScreen}
+      </div>
+    </div>
+  );
+}
+
+function RegistrationDemo() {
+  const [name, setName] = useState("陀螺玩家 A");
+  const [submitted, setSubmitted] = useState(false);
+  return (
+    <RegistrationPanel
+      name={name}
+      onNameChange={setName}
+      submitted={submitted}
+      recoveryCode="52741938"
+      onSubmit={() => setSubmitted(true)}
+    />
+  );
+}
+
+/* Previous static preview retained temporarily for comparison while this local prototype is reviewed. */
+function LegacyProductPreview({ step }: { step: (typeof STEPS)[number] }) {
   const Icon = step.icon;
   return (
     <div className="relative mx-auto w-full max-w-sm rounded-[1.75rem] border border-primary/45 bg-background/90 p-2 shadow-2xl shadow-primary/10">
@@ -88,44 +273,7 @@ function ProductPreview({ step }: { step: (typeof STEPS)[number] }) {
         </div>
 
         <div className="min-h-72 space-y-3 p-4">
-          {step.number === "01" && (
-            <>
-              <p className="font-display text-xs tracking-widest text-muted-foreground">賽事設定</p>
-              <div className="rounded-xl border border-primary/45 bg-accent/20 p-4">
-                <p className="text-xs text-muted-foreground">賽事名稱</p>
-                <p className="mt-1 font-display text-sm text-primary">2026 夏季挑戰盃</p>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl border border-border p-3">
-                  <p className="text-[10px] text-muted-foreground">選手上限</p>
-                  <p className="font-display text-lg">64</p>
-                </div>
-                <div className="rounded-xl border border-border p-3">
-                  <p className="text-[10px] text-muted-foreground">比賽桌數</p>
-                  <p className="font-display text-lg">3</p>
-                </div>
-              </div>
-              <div className="rounded-xl bg-primary px-3 py-3 text-center text-xs font-bold text-primary-foreground">
-                建立賽事
-              </div>
-            </>
-          )}
-          {step.number === "02" && (
-            <>
-              <p className="font-display text-xs tracking-widest text-muted-foreground">
-                報名 QR CODE
-              </p>
-              <div className="grid place-items-center rounded-xl border border-border bg-background p-4">
-                <QrCode className="h-28 w-28 text-primary" />
-                <p className="mt-2 font-display text-xs">S5FWQ7</p>
-              </div>
-              <div className="rounded-xl border border-primary/45 bg-accent/20 p-3">
-                <p className="text-xs text-primary">掃描後即可填寫參賽名稱</p>
-                <p className="mt-1 text-[10px] text-muted-foreground">可複製連結或展示於現場螢幕</p>
-              </div>
-            </>
-          )}
-          {step.number === "03" && (
+          {step.number === "04" && (
             <>
               <p className="font-display text-xs tracking-widest text-muted-foreground">選手報名</p>
               <div className="rounded-xl border border-primary/45 bg-accent/20 p-4">
@@ -141,7 +289,7 @@ function ProductPreview({ step }: { step: (typeof STEPS)[number] }) {
               </div>
             </>
           )}
-          {step.number === "04" && (
+          {step.number === "05" && (
             <>
               <div className="flex items-center justify-between">
                 <p className="font-display text-xs tracking-widest text-muted-foreground">
@@ -165,7 +313,7 @@ function ProductPreview({ step }: { step: (typeof STEPS)[number] }) {
               </div>
             </>
           )}
-          {step.number === "05" && (
+          {step.number === "06" && (
             <>
               <p className="font-display text-xs tracking-widest text-muted-foreground">賽程設定</p>
               <div className="rounded-xl border border-border p-3 text-xs">
@@ -188,7 +336,7 @@ function ProductPreview({ step }: { step: (typeof STEPS)[number] }) {
               <p className="text-center text-[10px] text-muted-foreground">產生後將鎖定選手名單</p>
             </>
           )}
-          {step.number === "06" && (
+          {step.number === "07" && (
             <>
               <div className="flex items-center justify-between">
                 <p className="font-display text-xs tracking-widest text-muted-foreground">
@@ -211,7 +359,7 @@ function ProductPreview({ step }: { step: (typeof STEPS)[number] }) {
               </div>
             </>
           )}
-          {step.number === "07" && (
+          {step.number === "08" && (
             <>
               <p className="font-display text-xs tracking-widest text-muted-foreground">
                 賽事完成 · 前四名已產生
@@ -286,7 +434,8 @@ export function LandingPage({ onAdminLogin }: LandingPageProps) {
       </section>
 
       <div id="flow">
-        {STEPS.map((step) => {
+        <QrCreationStory />
+        {STEPS.filter((step) => !step.screenshotFocus).map((step) => {
           const Icon = step.icon;
           return (
             <section key={step.number} className="landing-panel px-5 py-10 sm:px-8">

@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/client.server";
 import { generateRecoveryCode } from "./recovery-code.server";
+import type { DeckCombo, PartType } from "./deck";
 
 export type PublicTournament = {
   id: string;
@@ -152,4 +153,155 @@ export async function claimPublicRecoveryCode(
     [tournamentId, name, codeInput.trim()],
   );
   return { claimed: rows[0]?.claimed === true };
+}
+
+type PartRow = {
+  id: string;
+  name: string;
+  name_en: string;
+  code: string;
+  part_type: PartType;
+  system: string;
+};
+
+export async function listActiveParts() {
+  const { rows } = await queryPostgres<PartRow>(
+    `SELECT id, name, name_en, code, part_type, system
+     FROM parts WHERE active = TRUE
+     ORDER BY part_type, release_date DESC NULLS LAST, name_en, code`,
+  );
+  return {
+    parts: rows.map((part) => ({
+      id: part.id,
+      name: part.name,
+      nameEn: part.name_en,
+      code: part.code,
+      partType: part.part_type,
+      system: part.system,
+    })),
+  };
+}
+
+function recoveryCode(value: unknown): string {
+  if (typeof value !== "string" || !/^\d{8}$/.test(value.trim())) {
+    throw new ApiError(400, "RECOVERY_CODE_INVALID");
+  }
+  return value.trim();
+}
+
+async function participantIdentity(
+  client: PoolClient,
+  tournamentId: string,
+  name: string,
+  code: string,
+) {
+  const { rows } = await client.query<{ id: string }>(
+    `SELECT c.id FROM participant_recovery_codes c
+     JOIN tournaments t ON t.id = c.tournament_id
+     WHERE c.tournament_id = $1 AND t.status = 'open'
+       AND lower(btrim(c.name)) = lower(btrim($2)) AND c.recovery_code = $3
+     LIMIT 1`,
+    [tournamentId, name, code],
+  );
+  if (!rows[0]) throw new ApiError(403, "PARTICIPANT_CREDENTIAL_INVALID");
+  return rows[0].id;
+}
+
+const partFields: Array<[keyof DeckCombo, PartType, boolean]> = [
+  ["bladeId", "blade", false],
+  ["lockChipId", "lock_chip", false],
+  ["mainBladeId", "main_blade", false],
+  ["assistBladeId", "assist_blade", false],
+  ["metalBladeId", "metal_blade", true],
+  ["overBladeId", "over_blade", true],
+  ["ratchetId", "ratchet", false],
+  ["bitId", "bit", false],
+];
+
+async function validatedCombos(client: PoolClient, input: unknown): Promise<DeckCombo[]> {
+  if (!Array.isArray(input) || input.length < 1 || input.length > 3) {
+    throw new ApiError(400, "DECK_COMBOS_INVALID");
+  }
+  const combos = input.map((value, index) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new ApiError(400, "DECK_COMBO_INVALID");
+    }
+    const raw = value as Record<string, unknown>;
+    const mode = raw.mode === "custom" ? "custom" : raw.mode === "standard" ? "standard" : null;
+    if (!mode) throw new ApiError(400, "DECK_MODE_INVALID");
+    const combo: Record<string, unknown> = { slot: index + 1, mode };
+    for (const [field] of partFields) {
+      const partId = raw[field];
+      if (typeof partId === "string" && partId.trim()) combo[field] = partId.trim();
+    }
+    if (!combo.ratchetId || !combo.bitId) throw new ApiError(400, "DECK_PART_REQUIRED");
+    if (mode === "standard" && !combo.bladeId) throw new ApiError(400, "DECK_BLADE_REQUIRED");
+    if (mode === "custom" && (!combo.lockChipId || !combo.mainBladeId || !combo.assistBladeId)) {
+      throw new ApiError(400, "DECK_CUSTOM_BLADE_REQUIRED");
+    }
+    return combo as unknown as DeckCombo;
+  });
+
+  const requested = new Map<string, PartType>();
+  for (const combo of combos) {
+    for (const [field, expectedType, optional] of partFields) {
+      const id = combo[field];
+      if (typeof id === "string" && id) requested.set(id, expectedType);
+      else if (!optional && field !== "bladeId" && combo.mode === "standard") continue;
+    }
+  }
+  const ids = [...requested.keys()];
+  const { rows } = await client.query<{ id: string; part_type: PartType }>(
+    "SELECT id, part_type FROM parts WHERE active = TRUE AND id = ANY($1::text[])",
+    [ids],
+  );
+  const found = new Map(rows.map((row) => [row.id, row.part_type]));
+  for (const [id, expectedType] of requested) {
+    if (found.get(id) !== expectedType) throw new ApiError(400, "DECK_PART_INVALID");
+  }
+  return combos;
+}
+
+export async function loadPublicParticipantDeck(
+  tournamentIdInput: unknown,
+  nameInput: unknown,
+  codeInput: unknown,
+) {
+  const tournamentId = uuid(tournamentIdInput, "tournament_id");
+  const name = cleanName(nameInput);
+  const code = recoveryCode(codeInput);
+  return withPostgresTransaction(async (client) => {
+    const recoveryCodeId = await participantIdentity(client, tournamentId, name, code);
+    const { rows } = await client.query<{ combos: DeckCombo[] }>(
+      "SELECT combos FROM participant_decks WHERE recovery_code_id = $1 LIMIT 1",
+      [recoveryCodeId],
+    );
+    return { combos: Array.isArray(rows[0]?.combos) ? rows[0].combos : [] };
+  });
+}
+
+export async function savePublicParticipantDeck(
+  tournamentIdInput: unknown,
+  nameInput: unknown,
+  codeInput: unknown,
+  combosInput: unknown,
+) {
+  const tournamentId = uuid(tournamentIdInput, "tournament_id");
+  const name = cleanName(nameInput);
+  const code = recoveryCode(codeInput);
+  return withPostgresTransaction(async (client) => {
+    const recoveryCodeId = await participantIdentity(client, tournamentId, name, code);
+    const combos = await validatedCombos(client, combosInput);
+    await client.query(
+      `INSERT INTO participant_decks
+         (recovery_code_id, tournament_id, participant_name, combos)
+       VALUES ($1, $2, $3, $4::jsonb)
+       ON CONFLICT (recovery_code_id) DO UPDATE SET
+         participant_name = EXCLUDED.participant_name,
+         combos = EXCLUDED.combos,
+         updated_at = now()`,
+      [recoveryCodeId, tournamentId, name, JSON.stringify(combos)],
+    );
+    return { saved: true };
+  });
 }

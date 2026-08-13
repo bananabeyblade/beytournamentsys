@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { railwayAuthEnabled } from "@/lib/railway-api";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
+import { DeckRegistrationPanel } from "@/components/DeckRegistrationPanel";
 import {
   clearJoinedRegistration,
   readJoinedNameForTournament,
@@ -50,6 +51,8 @@ function RegisterPage() {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
+  const [participantCredential, setParticipantCredential] = useState("");
+  const [joinedParticipantName, setJoinedParticipantName] = useState("");
   const [showRecovery, setShowRecovery] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -146,6 +149,8 @@ function RegisterPage() {
       const generatedCode = await addRegistration(tournament.id, name);
       setName("");
       setRecoveryCode(generatedCode);
+      setParticipantCredential(generatedCode);
+      setJoinedParticipantName(joinedName);
       writeJoinedTournamentCode(tournament.code);
       writeJoinedName(joinedName);
 
@@ -172,7 +177,10 @@ function RegisterPage() {
         return;
       }
       writeJoinedTournamentCode(tournament.code);
-      writeJoinedName(name.trim());
+      const recoveredName = name.trim();
+      writeJoinedName(recoveredName);
+      setParticipantCredential(recoveryCode.trim());
+      setJoinedParticipantName(recoveredName);
       setRecoveryCode("");
       setDone(true);
     } catch {
@@ -238,9 +246,18 @@ function RegisterPage() {
               </button>
             </div>
           )}
+          {railwayAuthEnabled && participantCredential && joinedParticipantName && tournament && (
+            <DeckRegistrationPanel
+              tournamentId={tournament.id}
+              participantName={joinedParticipantName}
+              recoveryCode={participantCredential}
+            />
+          )}
           <button
             onClick={() => {
               setName("");
+              setParticipantCredential("");
+              setJoinedParticipantName("");
               clearJoinedRegistration();
 
               setDone(false);

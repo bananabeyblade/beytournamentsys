@@ -42,6 +42,8 @@ export async function postgresReadinessCheck(): Promise<void> {
       AND to_regclass('public.tournaments') IS NOT NULL
       AND to_regclass('public.registrations') IS NOT NULL
       AND to_regclass('public.participant_recovery_codes') IS NOT NULL
+      AND to_regclass('public.parts') IS NOT NULL
+      AND to_regclass('public.participant_decks') IS NOT NULL
       AND to_regclass('public.request_rate_limits') IS NOT NULL
       AND to_regprocedure('public.merge_tournament_live_state(uuid,jsonb,timestamptz)') IS NOT NULL
       AND EXISTS (

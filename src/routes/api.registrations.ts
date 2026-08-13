@@ -3,7 +3,10 @@ import type {} from "@tanstack/react-start";
 import {
   ApiError,
   createPublicRegistration,
+  listActiveParts,
+  loadPublicParticipantDeck,
   registrationNameTaken,
+  savePublicParticipantDeck,
 } from "@/lib/railway-tournament-api.server";
 import { enforceRateLimit } from "@/lib/rate-limit.server";
 
@@ -33,6 +36,26 @@ export const Route = createFileRoute("/api/registrations")({
       POST: async ({ request }) => {
         try {
           const data = await body(request);
+          const action = data.action;
+          if (action === "load-deck" || action === "save-deck") {
+            await enforceRateLimit(
+              request,
+              `participant-${action}`,
+              60,
+              15 * 60,
+              String(data.tournamentId),
+            );
+            return Response.json(
+              action === "load-deck"
+                ? await loadPublicParticipantDeck(data.tournamentId, data.name, data.recoveryCode)
+                : await savePublicParticipantDeck(
+                    data.tournamentId,
+                    data.name,
+                    data.recoveryCode,
+                    data.combos,
+                  ),
+            );
+          }
           await enforceRateLimit(
             request,
             "public-registration",
@@ -50,6 +73,9 @@ export const Route = createFileRoute("/api/registrations")({
       GET: async ({ request }) => {
         try {
           const url = new URL(request.url);
+          if (url.searchParams.get("parts") === "1") {
+            return Response.json(await listActiveParts());
+          }
           return Response.json(
             await registrationNameTaken(
               url.searchParams.get("tournamentId"),

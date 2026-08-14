@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { RotateCcw, X, Trophy, Lock, Unlock } from "lucide-react";
 import { FINISHES, WIN_TARGET, type Match } from "@/lib/tournament-types";
 import { useTournament } from "@/lib/tournament-store";
+import { fetchDeckReport } from "@/lib/deck-report";
+import type { DeckCombo } from "@/lib/deck";
+import { isTop8Match } from "@/lib/top8";
 
 const toneClass: Record<string, string> = {
   spin: "bg-spin/20 border-spin text-spin",
@@ -34,6 +37,46 @@ function SlotCard({
   );
 }
 
+function ComboPicker({
+  label,
+  combos,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  combos: DeckCombo[];
+  value?: 1 | 2 | 3;
+  onChange: (slot: 1 | 2 | 3) => void;
+  disabled: boolean;
+}) {
+  if (!combos.length) {
+    return <p className="text-center text-[11px] text-muted-foreground">{label} 未登記 Deck</p>;
+  }
+  return (
+    <div>
+      <p className="mb-1 text-center text-[11px] text-muted-foreground">{label} 本局 Combo</p>
+      <div className="grid grid-cols-3 gap-1">
+        {combos.map((combo) => (
+          <button
+            key={combo.slot}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(combo.slot)}
+            className={`min-h-10 rounded-lg border font-display text-xs ${
+              value === combo.slot
+                ? "border-primary bg-accent/50 text-primary neon-edge"
+                : "border-border bg-secondary text-muted-foreground"
+            }`}
+          >
+            {String.fromCharCode(64 + combo.slot)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ScoringModal({ match, onClose }: { match: Match; onClose: () => void }) {
   const {
     playerName,
@@ -50,8 +93,35 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
     releaseMatchLock,
     forceUnlockMatch,
     isOwner,
+    matches,
+    currentTournament,
   } = useTournament();
   const [slot, setSlot] = useState<1 | 2>(1);
+  const [deckByPlayer, setDeckByPlayer] = useState<Record<string, DeckCombo[]>>({});
+  const previous = match.events.at(-1);
+  const [combo1Slot, setCombo1Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo1Slot);
+  const [combo2Slot, setCombo2Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo2Slot);
+  const top8Tracking = isTop8Match(match, matches);
+
+  useEffect(() => {
+    if (!top8Tracking || !currentTournament?.id) return;
+    let alive = true;
+    fetchDeckReport(currentTournament.id)
+      .then((report) => {
+        if (!alive) return;
+        const next: Record<string, DeckCombo[]> = {};
+        for (const snapshot of report.snapshots) next[snapshot.playerId] = snapshot.combos;
+        setDeckByPlayer(next);
+        const p1 = match.p1 ? (next[match.p1] ?? []) : [];
+        const p2 = match.p2 ? (next[match.p2] ?? []) : [];
+        setCombo1Slot((current) => current ?? p1[0]?.slot);
+        setCombo2Slot((current) => current ?? p2[0]?.slot);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [currentTournament?.id, match.p1, match.p2, top8Tracking]);
 
   const held = lockInfo(match);
   // Someone else is already scoring this bout: show it read-only instead of
@@ -72,6 +142,10 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   const reached = match.score1 >= WIN_TARGET || match.score2 >= WIN_TARGET;
   const frozen = reached || locked || heldByOther;
   const winnerName = match.score1 >= WIN_TARGET ? playerName(match.p1) : playerName(match.p2);
+  const p1Combos = match.p1 ? (deckByPlayer[match.p1] ?? []) : [];
+  const p2Combos = match.p2 ? (deckByPlayer[match.p2] ?? []) : [];
+  const comboSelectionRequired = top8Tracking && p1Combos.length > 0 && p2Combos.length > 0;
+  const comboSelectionReady = !comboSelectionRequired || (!!combo1Slot && !!combo2Slot);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/85 p-0 backdrop-blur-sm sm:items-center sm:p-4">
@@ -113,12 +187,39 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
           先取 {WIN_TARGET} 分獲勝 · 目前為 <span className="text-primary">選手 {slot}</span> 加分
         </p>
 
+        {top8Tracking && (
+          <div className="mt-4 rounded-xl border border-primary/50 bg-accent/20 p-3">
+            <p className="mb-3 text-center font-display text-xs text-primary">
+              TOP 8 · 本局 COMBO 紀錄
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <ComboPicker
+                label={playerName(match.p1)}
+                combos={p1Combos}
+                value={combo1Slot}
+                onChange={setCombo1Slot}
+                disabled={frozen}
+              />
+              <ComboPicker
+                label={playerName(match.p2)}
+                combos={p2Combos}
+                value={combo2Slot}
+                onChange={setCombo2Slot}
+                disabled={frozen}
+              />
+            </div>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              每局可重新選擇；第四局起仍可重複使用 A／B／C。未登記 Deck 不會阻擋計分。
+            </p>
+          </div>
+        )}
+
         <div className="mt-4 grid grid-cols-2 gap-3">
           {FINISHES.map((f) => (
             <button
               key={f.type}
-              disabled={frozen}
-              onClick={() => addScore(match.id, slot, f.type, f.points)}
+              disabled={frozen || !comboSelectionReady}
+              onClick={() => addScore(match.id, slot, f.type, f.points, combo1Slot, combo2Slot)}
               className={`min-h-20 rounded-xl border-2 px-3 py-3 text-left font-semibold disabled:opacity-40 ${toneClass[f.tone]}`}
             >
               <span className="font-display text-2xl">+{f.points}</span>

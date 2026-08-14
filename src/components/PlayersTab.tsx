@@ -12,6 +12,7 @@ import {
 } from "@/lib/registration";
 import { supabase } from "@/integrations/supabase/client";
 import { railwayAuthEnabled } from "@/lib/railway-api";
+import { DeckStatisticsCard } from "./DeckStatisticsCard";
 
 /** Coalescing window for bursts of sign-ups (e.g. 64 phones scanning at once). */
 const REFRESH_THROTTLE_MS = 1000;
@@ -293,6 +294,9 @@ export function PlayersTab() {
         <p className="rounded-xl border border-primary/50 bg-accent/20 p-3 text-xs text-primary">
           賽程已產生，選手名單與待審核報名已鎖定；如需修改，請由總管理者重置賽事後再操作。
         </p>
+      )}
+      {role === "admin" && currentTournament && railwayAuthEnabled && (
+        <DeckStatisticsCard tournamentId={currentTournament.id} />
       )}
     </div>
   );

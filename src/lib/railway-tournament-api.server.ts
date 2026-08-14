@@ -289,7 +289,16 @@ export async function loadPublicParticipantDeck(
       "SELECT combos FROM participant_decks WHERE recovery_code_id = $1 LIMIT 1",
       [recoveryCodeId],
     );
-    return { combos: Array.isArray(rows[0]?.combos) ? rows[0].combos : [] };
+    const lock = await client.query<{ locked: boolean }>(
+      `SELECT status <> 'open'
+          OR jsonb_array_length(COALESCE(live_state->'matches', '[]'::jsonb)) > 0 AS locked
+       FROM tournaments WHERE id = $1`,
+      [tournamentId],
+    );
+    return {
+      combos: Array.isArray(rows[0]?.combos) ? rows[0].combos : [],
+      locked: lock.rows[0]?.locked === true,
+    };
   });
 }
 
@@ -304,6 +313,13 @@ export async function savePublicParticipantDeck(
   const code = recoveryCode(codeInput);
   return withPostgresTransaction(async (client) => {
     const recoveryCodeId = await participantIdentity(client, tournamentId, name, code);
+    const lock = await client.query<{ locked: boolean }>(
+      `SELECT status <> 'open'
+          OR jsonb_array_length(COALESCE(live_state->'matches', '[]'::jsonb)) > 0 AS locked
+       FROM tournaments WHERE id = $1 FOR SHARE`,
+      [tournamentId],
+    );
+    if (lock.rows[0]?.locked) throw new ApiError(409, "DECK_LOCKED");
     const combos = await validatedCombos(client, combosInput);
     await client.query(
       `INSERT INTO participant_decks

@@ -6,6 +6,7 @@ import {
   type RailwaySessionUser,
 } from "./railway-auth.server";
 import { decryptAdminPassword, encryptAdminPassword } from "./admin-password-vault.server";
+import type { DeckCombo, PartType } from "./deck";
 
 type Body = Record<string, unknown>;
 
@@ -82,6 +83,146 @@ export async function railwayAdminGet(request: Request, action: string) {
       [tournamentId],
     );
     return { recoveryCodes: result.rows };
+  }
+  if (action === "deck-report") {
+    const tournamentId = uuid(url.searchParams.get("tournamentId"), "TOURNAMENT_ID");
+    const snapshots = await queryPostgres<{
+      player_id: string;
+      participant_name: string;
+      combos: DeckCombo[];
+    }>(
+      `SELECT player_id,participant_name,combos
+       FROM tournament_deck_snapshots WHERE tournament_id=$1 ORDER BY captured_at`,
+      [tournamentId],
+    );
+    const tournament = await queryPostgres<{ live_state: unknown; results: unknown }>(
+      "SELECT live_state,results FROM tournaments WHERE id=$1 LIMIT 1",
+      [tournamentId],
+    );
+    if (!tournament.rowCount) throw new AdminApiError(404, "TOURNAMENT_NOT_FOUND");
+
+    const comboPartFields = [
+      "bladeId",
+      "lockChipId",
+      "mainBladeId",
+      "assistBladeId",
+      "metalBladeId",
+      "overBladeId",
+      "ratchetId",
+      "bitId",
+    ] as const;
+    const partParticipants = new Map<string, Set<string>>();
+    let registeredComboCount = 0;
+    for (const snapshot of snapshots.rows) {
+      const combos = Array.isArray(snapshot.combos) ? snapshot.combos : [];
+      registeredComboCount += combos.length;
+      for (const combo of combos) {
+        for (const field of comboPartFields) {
+          const partId = combo[field];
+          if (!partId) continue;
+          const names = partParticipants.get(partId) ?? new Set<string>();
+          names.add(snapshot.participant_name);
+          partParticipants.set(partId, names);
+        }
+      }
+    }
+    const partIds = [...partParticipants.keys()];
+    const parts = partIds.length
+      ? await queryPostgres<{
+          id: string;
+          name: string;
+          name_en: string;
+          code: string;
+          part_type: PartType;
+        }>("SELECT id,name,name_en,code,part_type FROM parts WHERE id=ANY($1::uuid[])", [partIds])
+      : { rows: [] };
+    const partLabels = new Map(
+      parts.rows.map((part) => [part.id, part.name || part.name_en || part.code]),
+    );
+    const resultValue = tournament.rows[0]?.results;
+    const top4 =
+      resultValue &&
+      typeof resultValue === "object" &&
+      Array.isArray((resultValue as { top4?: unknown }).top4)
+        ? (resultValue as { top4: Array<{ rank?: unknown; name?: unknown }> }).top4
+        : [];
+    const ranks = new Map(
+      top4
+        .filter((entry) => typeof entry.name === "string" && Number.isFinite(Number(entry.rank)))
+        .map((entry) => [(entry.name as string).trim().toLowerCase(), Number(entry.rank)]),
+    );
+
+    type LivePlayer = { id?: unknown; name?: unknown };
+    type LiveEvent = { combo1Slot?: unknown; combo2Slot?: unknown };
+    type LiveMatch = { p1?: unknown; p2?: unknown; events?: unknown };
+    const live =
+      tournament.rows[0]?.live_state && typeof tournament.rows[0].live_state === "object"
+        ? (tournament.rows[0].live_state as { players?: unknown; matches?: unknown })
+        : {};
+    const livePlayers = Array.isArray(live.players) ? (live.players as LivePlayer[]) : [];
+    const playerNames = new Map(
+      livePlayers
+        .filter((player) => typeof player.id === "string" && typeof player.name === "string")
+        .map((player) => [player.id as string, player.name as string]),
+    );
+    const comboCounts = new Map<string, number>();
+    let trackedBattleCount = 0;
+    for (const match of Array.isArray(live.matches) ? (live.matches as LiveMatch[]) : []) {
+      const events = Array.isArray(match.events) ? (match.events as LiveEvent[]) : [];
+      for (const event of events) {
+        const slot1 = Number(event.combo1Slot);
+        const slot2 = Number(event.combo2Slot);
+        if (![1, 2, 3].includes(slot1) || ![1, 2, 3].includes(slot2)) continue;
+        trackedBattleCount += 1;
+        for (const [playerId, slot] of [
+          [match.p1, slot1],
+          [match.p2, slot2],
+        ] as const) {
+          if (typeof playerId !== "string") continue;
+          const name = playerNames.get(playerId);
+          if (!name) continue;
+          const key = `${name}\u0000${slot}`;
+          comboCounts.set(key, (comboCounts.get(key) ?? 0) + 1);
+        }
+      }
+    }
+
+    return {
+      qualifierCount: snapshots.rowCount,
+      registeredComboCount,
+      trackedBattleCount,
+      snapshots: snapshots.rows.map((snapshot) => ({
+        playerId: snapshot.player_id,
+        participantName: snapshot.participant_name,
+        combos: Array.isArray(snapshot.combos) ? snapshot.combos : [],
+        comboLabels: (Array.isArray(snapshot.combos) ? snapshot.combos : []).map((combo) =>
+          comboPartFields
+            .map((field) => combo[field])
+            .filter((partId): partId is string => !!partId)
+            .map((partId) => partLabels.get(partId) ?? partId)
+            .join(" / "),
+        ),
+        rank: ranks.get(snapshot.participant_name.trim().toLowerCase()),
+      })),
+      partUsage: parts.rows
+        .map((part) => ({
+          id: part.id,
+          name: part.name,
+          nameEn: part.name_en,
+          code: part.code,
+          partType: part.part_type,
+          participantCount: partParticipants.get(part.id)?.size ?? 0,
+        }))
+        .sort((a, b) => b.participantCount - a.participantCount || a.name.localeCompare(b.name)),
+      comboUsage: [...comboCounts.entries()]
+        .map(([key, battles]) => {
+          const [participantName, rawSlot] = key.split("\u0000");
+          return { participantName, slot: Number(rawSlot) as 1 | 2 | 3, battles };
+        })
+        .sort(
+          (a, b) => b.battles - a.battles || a.participantName.localeCompare(b.participantName),
+        ),
+    };
   }
   if (action === "admins") {
     const result = await queryPostgres(

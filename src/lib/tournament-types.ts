@@ -29,6 +29,9 @@ export interface ScoreEvent {
   slot: 1 | 2;
   type: FinishType;
   points: number;
+  /** Top-eight tracking: both players' selected Combo for this battle. */
+  combo1Slot?: 1 | 2 | 3;
+  combo2Slot?: 1 | 2 | 3;
 }
 
 export interface Match {

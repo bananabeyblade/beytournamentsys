@@ -47,14 +47,12 @@ export async function loadParticipantDeck(
   tournamentId: string,
   name: string,
   recoveryCode: string,
-): Promise<DeckCombo[]> {
-  if (!railwayAuthEnabled) return [];
-  return (
-    await railwayApi<{ combos: DeckCombo[] }>("/api/registrations", {
-      method: "POST",
-      body: JSON.stringify({ action: "load-deck", tournamentId, name, recoveryCode }),
-    })
-  ).combos;
+): Promise<{ combos: DeckCombo[]; locked: boolean }> {
+  if (!railwayAuthEnabled) return { combos: [], locked: false };
+  return await railwayApi<{ combos: DeckCombo[]; locked: boolean }>("/api/registrations", {
+    method: "POST",
+    body: JSON.stringify({ action: "load-deck", tournamentId, name, recoveryCode }),
+  });
 }
 
 export async function saveParticipantDeck(

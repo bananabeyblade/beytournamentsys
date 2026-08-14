@@ -104,7 +104,14 @@ interface Ctx extends TournamentState {
   setTableCount: (n: number) => void;
   generateBracket: () => void;
   startMatch: (matchId: string, table: number) => void;
-  addScore: (matchId: string, slot: 1 | 2, type: FinishType, points: number) => void;
+  addScore: (
+    matchId: string,
+    slot: 1 | 2,
+    type: FinishType,
+    points: number,
+    combo1Slot?: 1 | 2 | 3,
+    combo2Slot?: 1 | 2 | 3,
+  ) => void;
   undoScore: (matchId: string) => void;
   confirmWinner: (matchId: string) => void;
   /** True when another device edited this bout moments ago (shared scoring). */
@@ -658,7 +665,14 @@ export function TournamentProvider({
   );
 
   const addScore = useCallback(
-    (matchId: string, slot: 1 | 2, type: FinishType, points: number) => {
+    (
+      matchId: string,
+      slot: 1 | 2,
+      type: FinishType,
+      points: number,
+      combo1Slot?: 1 | 2 | 3,
+      combo2Slot?: 1 | 2 | 3,
+    ) => {
       markLocal(matchId);
       let logged: { matchup: string; score: string } | null = null;
       setMatches((prev) =>
@@ -668,7 +682,7 @@ export function TournamentProvider({
             ...m,
             score1: slot === 1 ? m.score1 + points : m.score1,
             score2: slot === 2 ? m.score2 + points : m.score2,
-            events: [...m.events, { slot, type, points }],
+            events: [...m.events, { slot, type, points, combo1Slot, combo2Slot }],
           });
           logged = { matchup: matchupOf(m), score: `${next.score1} : ${next.score2}` };
           return next;

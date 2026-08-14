@@ -19,6 +19,10 @@ export function MatchHistoryModal({ match, onClose }: { match: Match; onClose: (
       tone: f?.tone ?? "spin",
       points: e.points,
       running: `${s1} - ${s2}`,
+      combos:
+        e.combo1Slot && e.combo2Slot
+          ? `A：Combo ${String.fromCharCode(64 + e.combo1Slot)} · B：Combo ${String.fromCharCode(64 + e.combo2Slot)}`
+          : null,
     };
   });
 
@@ -83,6 +87,11 @@ export function MatchHistoryModal({ match, onClose }: { match: Match; onClose: (
                     <span className={`block truncate text-xs ${toneText[r.tone]}`}>
                       {r.label} +{r.points}
                     </span>
+                    {r.combos && (
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {r.combos}
+                      </span>
+                    )}
                   </span>
                   <span className="font-display text-sm text-primary">{r.running}</span>
                 </li>

@@ -128,6 +128,7 @@ export function DeckRegistrationPanel({
   const [combos, setCombos] = useState<DeckCombo[]>([emptyCombo(1)]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -139,7 +140,8 @@ export function DeckRegistrationPanel({
       .then(([availableParts, saved]) => {
         if (!alive) return;
         setParts(availableParts);
-        if (saved.length) setCombos(saved);
+        setLocked(saved.locked);
+        if (saved.combos.length) setCombos(saved.combos);
       })
       .catch(() => alive && setMessage("暫時無法載入零件資料，稍後可用驗證碼重新登入填寫。"))
       .finally(() => alive && setLoading(false));
@@ -182,126 +184,133 @@ export function DeckRegistrationPanel({
           最多登錄三組 Combo，之後可用驗證碼回來修改。
         </p>
       </div>
-      {combos.map((combo, index) => (
-        <details
-          key={combo.slot}
-          open={index === 0}
-          className="rounded-xl border border-border p-3"
-        >
-          <summary className="flex cursor-pointer list-none items-center justify-between font-display">
-            組合 {combo.slot}
-            <ChevronDown className="h-4 w-4" />
-          </summary>
-          <div className="mt-3 grid gap-3">
-            <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/40 p-1">
-              {(["standard", "custom"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() =>
-                    update(index, {
-                      mode,
-                      bladeId: "",
-                      lockChipId: "",
-                      mainBladeId: "",
-                      assistBladeId: "",
-                      metalBladeId: "",
-                      overBladeId: "",
-                    })
-                  }
-                  className={`min-h-10 rounded-lg text-xs ${combo.mode === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-                >
-                  {mode === "standard" ? "一般戰刃（BX／UX）" : "自訂戰刃（CX）"}
-                </button>
-              ))}
-            </div>
-            {combo.mode === "standard" ? (
+      {locked && (
+        <p className="rounded-xl border border-primary/50 bg-accent/20 p-3 text-xs text-primary">
+          賽程已產生，Deck 已鎖定。若需更正，請聯絡管理者並留下異動紀錄。
+        </p>
+      )}
+      <fieldset disabled={locked || saving} className="space-y-3 disabled:opacity-75">
+        {combos.map((combo, index) => (
+          <details
+            key={combo.slot}
+            open={index === 0}
+            className="rounded-xl border border-border p-3"
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between font-display">
+              組合 {combo.slot}
+              <ChevronDown className="h-4 w-4" />
+            </summary>
+            <div className="mt-3 grid gap-3">
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/40 p-1">
+                {(["standard", "custom"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() =>
+                      update(index, {
+                        mode,
+                        bladeId: "",
+                        lockChipId: "",
+                        mainBladeId: "",
+                        assistBladeId: "",
+                        metalBladeId: "",
+                        overBladeId: "",
+                      })
+                    }
+                    className={`min-h-10 rounded-lg text-xs ${combo.mode === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                  >
+                    {mode === "standard" ? "一般戰刃（BX／UX）" : "自訂戰刃（CX）"}
+                  </button>
+                ))}
+              </div>
+              {combo.mode === "standard" ? (
+                <PartSelect
+                  label="戰刃（Blade）"
+                  type="blade"
+                  value={combo.bladeId}
+                  parts={parts}
+                  onChange={(bladeId) => update(index, { bladeId })}
+                />
+              ) : (
+                <>
+                  <PartSelect
+                    label="鎖定紋章（Lock Chip）"
+                    type="lock_chip"
+                    value={combo.lockChipId}
+                    parts={parts}
+                    onChange={(lockChipId) => update(index, { lockChipId })}
+                  />
+                  <PartSelect
+                    label="主要戰刃（Main Blade）"
+                    type="main_blade"
+                    value={combo.mainBladeId}
+                    parts={parts}
+                    onChange={(mainBladeId) => update(index, { mainBladeId })}
+                  />
+                  <PartSelect
+                    label="輔助戰刃（Assist Blade）"
+                    type="assist_blade"
+                    value={combo.assistBladeId}
+                    parts={parts}
+                    onChange={(assistBladeId) => update(index, { assistBladeId })}
+                  />
+                  <PartSelect
+                    label="金屬戰刃（Metal Blade，選填）"
+                    type="metal_blade"
+                    value={combo.metalBladeId}
+                    parts={parts}
+                    optional
+                    onChange={(metalBladeId) => update(index, { metalBladeId })}
+                  />
+                  <PartSelect
+                    label="超越戰刃（Over Blade，選填）"
+                    type="over_blade"
+                    value={combo.overBladeId}
+                    parts={parts}
+                    optional
+                    onChange={(overBladeId) => update(index, { overBladeId })}
+                  />
+                </>
+              )}
               <PartSelect
-                label="戰刃（Blade）"
-                type="blade"
-                value={combo.bladeId}
+                label="固鎖（Ratchet）"
+                type="ratchet"
+                value={combo.ratchetId}
                 parts={parts}
-                onChange={(bladeId) => update(index, { bladeId })}
+                onChange={(ratchetId) => update(index, { ratchetId })}
               />
-            ) : (
-              <>
-                <PartSelect
-                  label="鎖定紋章（Lock Chip）"
-                  type="lock_chip"
-                  value={combo.lockChipId}
-                  parts={parts}
-                  onChange={(lockChipId) => update(index, { lockChipId })}
-                />
-                <PartSelect
-                  label="主要戰刃（Main Blade）"
-                  type="main_blade"
-                  value={combo.mainBladeId}
-                  parts={parts}
-                  onChange={(mainBladeId) => update(index, { mainBladeId })}
-                />
-                <PartSelect
-                  label="輔助戰刃（Assist Blade）"
-                  type="assist_blade"
-                  value={combo.assistBladeId}
-                  parts={parts}
-                  onChange={(assistBladeId) => update(index, { assistBladeId })}
-                />
-                <PartSelect
-                  label="金屬戰刃（Metal Blade，選填）"
-                  type="metal_blade"
-                  value={combo.metalBladeId}
-                  parts={parts}
-                  optional
-                  onChange={(metalBladeId) => update(index, { metalBladeId })}
-                />
-                <PartSelect
-                  label="超越戰刃（Over Blade，選填）"
-                  type="over_blade"
-                  value={combo.overBladeId}
-                  parts={parts}
-                  optional
-                  onChange={(overBladeId) => update(index, { overBladeId })}
-                />
-              </>
-            )}
-            <PartSelect
-              label="固鎖（Ratchet）"
-              type="ratchet"
-              value={combo.ratchetId}
-              parts={parts}
-              onChange={(ratchetId) => update(index, { ratchetId })}
-            />
-            <PartSelect
-              label="軸心（Bit）"
-              type="bit"
-              value={combo.bitId}
-              parts={parts}
-              onChange={(bitId) => update(index, { bitId })}
-            />
-          </div>
-        </details>
-      ))}
-      {combos.length < 3 && (
+              <PartSelect
+                label="軸心（Bit）"
+                type="bit"
+                value={combo.bitId}
+                parts={parts}
+                onChange={(bitId) => update(index, { bitId })}
+              />
+            </div>
+          </details>
+        ))}
+        {combos.length < 3 && (
+          <button
+            type="button"
+            onClick={() =>
+              setCombos((current) => [...current, emptyCombo((current.length + 1) as 1 | 2 | 3)])
+            }
+            className="min-h-11 w-full rounded-xl border border-primary/50 text-sm text-primary"
+          >
+            ＋ 新增組合
+          </button>
+        )}
+        {message && <p className="text-xs text-muted-foreground">{message}</p>}
         <button
           type="button"
-          onClick={() =>
-            setCombos((current) => [...current, emptyCombo((current.length + 1) as 1 | 2 | 3)])
-          }
-          className="min-h-11 w-full rounded-xl border border-primary/50 text-sm text-primary"
+          disabled={saving || locked}
+          onClick={() => void submit()}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-50"
         >
-          ＋ 新增組合
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {saving ? "儲存中…" : "儲存 Deck"}
         </button>
-      )}
-      {message && <p className="text-xs text-muted-foreground">{message}</p>}
-      <button
-        type="button"
-        disabled={saving}
-        onClick={() => void submit()}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-50"
-      >
-        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-        {saving ? "儲存中…" : "儲存 Deck"}
-      </button>
+      </fieldset>
     </section>
   );
 }

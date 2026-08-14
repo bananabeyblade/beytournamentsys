@@ -17,6 +17,12 @@ export interface BeybladePart {
   code: string;
   partType: PartType;
   system: string;
+  sourcePartId: string;
+  functionalCode: string;
+  packageId: string;
+  setId: string;
+  color: string;
+  brandSource: string;
 }
 
 export interface DeckCombo {

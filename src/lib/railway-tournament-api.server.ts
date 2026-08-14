@@ -162,11 +162,18 @@ type PartRow = {
   code: string;
   part_type: PartType;
   system: string;
+  source_part_id: string;
+  functional_code: string;
+  package_id: string;
+  set_id: string;
+  color: string;
+  brand_source: string;
 };
 
 export async function listActiveParts() {
   const { rows } = await queryPostgres<PartRow>(
-    `SELECT id, name, name_en, code, part_type, system
+    `SELECT id, name, name_en, code, part_type, system,
+            source_part_id, functional_code, package_id, set_id, color, brand_source
      FROM parts WHERE active = TRUE
      ORDER BY part_type, release_date DESC NULLS LAST, name_en, code`,
   );
@@ -178,6 +185,12 @@ export async function listActiveParts() {
       code: part.code,
       partType: part.part_type,
       system: part.system,
+      sourcePartId: part.source_part_id,
+      functionalCode: part.functional_code,
+      packageId: part.package_id,
+      setId: part.set_id,
+      color: part.color,
+      brandSource: part.brand_source,
     })),
   };
 }

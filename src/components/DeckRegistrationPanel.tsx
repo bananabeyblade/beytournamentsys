@@ -36,10 +36,11 @@ function PartSelect({
   const [query, setQuery] = useState("");
   const options = useMemo(() => parts.filter((part) => part.partType === type), [parts, type]);
   const selected = options.find((part) => part.id === value);
-  const labelFor = (part: BeybladePart) => `${part.name} · ${part.code}（${part.system}）`;
+  const labelFor = (part: BeybladePart) =>
+    `${part.name} · ${part.functionalCode || part.code}（${part.system}）`;
   const normalizedQuery = query.toLowerCase().replace(/[\s-]/g, "");
   const matches = options.filter((part) =>
-    `${part.name} ${part.nameEn} ${part.code} ${part.system}`
+    `${part.name} ${part.nameEn} ${part.code} ${part.sourcePartId} ${part.packageId} ${part.setId} ${part.color} ${part.system}`
       .toLowerCase()
       .replace(/[\s-]/g, "")
       .includes(normalizedQuery),

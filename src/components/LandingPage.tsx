@@ -33,6 +33,28 @@ type LandingPageProps = {
   onAdminLogin: () => void;
 };
 
+function useViewportPlayback<T extends HTMLElement>() {
+  const elementRef = useRef<T | null>(null);
+  const [isInViewport, setIsInViewport] = useState(false);
+
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInViewport(entry.isIntersecting && entry.intersectionRatio >= 0.2);
+      },
+      { threshold: [0, 0.2, 0.5] },
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return { elementRef, isInViewport };
+}
+
 const STEPS = [
   {
     number: "01",
@@ -374,6 +396,7 @@ function RegistrationStory() {
 }
 
 function EmbeddedBracket({ focus, generated }: { focus: BracketFocusTarget; generated: boolean }) {
+  const { elementRef, isInViewport } = useViewportPlayback<HTMLDivElement>();
   const [tableCount, setTableCount] = useState(1);
   const [activeTableControl, setActiveTableControl] = useState<"increase" | "decrease" | null>(
     null,
@@ -382,7 +405,7 @@ function EmbeddedBracket({ focus, generated }: { focus: BracketFocusTarget; gene
   const [manuallyGenerated, setManuallyGenerated] = useState(false);
 
   useEffect(() => {
-    if (focus !== "tables") {
+    if (focus !== "tables" || !isInViewport) {
       setActiveTableControl(null);
       return;
     }
@@ -404,7 +427,7 @@ function EmbeddedBracket({ focus, generated }: { focus: BracketFocusTarget; gene
     play();
     const interval = window.setInterval(play, 1150);
     return () => window.clearInterval(interval);
-  }, [focus]);
+  }, [focus, isInViewport]);
 
   useEffect(() => {
     if (!generated) {
@@ -418,7 +441,10 @@ function EmbeddedBracket({ focus, generated }: { focus: BracketFocusTarget; gene
   }, [generated]);
 
   return (
-    <div className="landing-embedded-screen mx-auto w-full max-w-[30rem] bg-background p-3">
+    <div
+      ref={elementRef}
+      className="landing-embedded-screen mx-auto w-full max-w-[30rem] bg-background p-3"
+    >
       <TournamentSetupPanel
         tableCount={tableCount}
         onTableCountChange={setTableCount}
@@ -518,20 +544,23 @@ const SCORING_SEQUENCE: Array<{
 ];
 
 function ScoringStory() {
+  const { elementRef, isInViewport } = useViewportPlayback<HTMLElement>();
   const [phase, setPhase] = useState(0);
   const current = SCORING_SEQUENCE[phase];
 
   useEffect(() => {
+    if (!isInViewport) return;
+
     const delay = phase === 0 ? 850 : phase === SCORING_SEQUENCE.length - 1 ? 2600 : 1250;
     const timer = window.setTimeout(
       () => setPhase((previous) => (previous + 1) % SCORING_SEQUENCE.length),
       delay,
     );
     return () => window.clearTimeout(timer);
-  }, [phase]);
+  }, [phase, isInViewport]);
 
   return (
-    <section className="landing-panel px-5 py-10 sm:px-8">
+    <section ref={elementRef} className="landing-panel px-5 py-10 sm:px-8">
       <div className="mx-auto w-full max-w-3xl">
         <div className="landing-scoring-transition mx-auto w-full max-w-sm">
           <ScoringPanel

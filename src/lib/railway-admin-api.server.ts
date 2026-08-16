@@ -2,11 +2,17 @@ import { randomInt } from "node:crypto";
 import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/client.server";
 import {
   requireRailwayAdmin,
+  requireRailwayOperator,
   requireRailwayOwner,
   type RailwaySessionUser,
 } from "./railway-auth.server";
 import { decryptAdminPassword, encryptAdminPassword } from "./admin-password-vault.server";
 import type { DeckCombo, PartType } from "./deck";
+import {
+  createOrUpdateRefereeInvite,
+  decideReferee,
+  getRefereeAccess,
+} from "./referee-access.server";
 
 type Body = Record<string, unknown>;
 
@@ -49,8 +55,60 @@ async function audit(
   await queryPostgres(
     `INSERT INTO admin_actions (actor_user_id, actor_email, action, detail, tournament_id, tournament_name)
      VALUES ($1,$2,$3,$4::jsonb,$5,$6)`,
-    [user.id, user.email, action, json(detail ?? {}), tournamentId ?? null, tournamentName ?? null],
+    [
+      user.role === "referee" ? null : user.id,
+      user.email,
+      action,
+      json(detail ?? {}),
+      tournamentId ?? null,
+      tournamentName ?? null,
+    ],
   );
+}
+
+const immutableRefereeMatchFields = [
+  "id",
+  "round",
+  "index",
+  "nextMatchId",
+  "nextSlot",
+  "kind",
+  "loserNextMatchId",
+  "loserNextSlot",
+] as const;
+
+async function assertRefereeStateMutation(tournamentId: string, state: Body) {
+  const current = await queryPostgres<{ live_state: Body }>(
+    "SELECT live_state FROM tournaments WHERE id=$1 AND status='open' LIMIT 1",
+    [tournamentId],
+  );
+  if (!current.rows[0]) throw new AdminApiError(404, "OPEN_TOURNAMENT_NOT_FOUND");
+  const previous = current.rows[0].live_state ?? {};
+  if (
+    JSON.stringify(state.players ?? []) !== JSON.stringify(previous.players ?? []) ||
+    JSON.stringify(state.removedPlayers ?? []) !== JSON.stringify(previous.removedPlayers ?? []) ||
+    Number(state.tableCount) !== Number(previous.tableCount)
+  )
+    throw new AdminApiError(403, "REFEREE_ROSTER_LOCKED");
+
+  const beforeMatches = Array.isArray(previous.matches) ? previous.matches : [];
+  const afterMatches = Array.isArray(state.matches) ? state.matches : [];
+  if (beforeMatches.length !== afterMatches.length)
+    throw new AdminApiError(403, "REFEREE_BRACKET_LOCKED");
+  const beforeById = new Map(
+    beforeMatches.map((match) => [String((match as Body).id ?? ""), match as Body]),
+  );
+  for (const candidate of afterMatches) {
+    const match = candidate as Body;
+    const before = beforeById.get(String(match.id ?? ""));
+    if (
+      !before ||
+      immutableRefereeMatchFields.some(
+        (field) => JSON.stringify(match[field]) !== JSON.stringify(before[field]),
+      )
+    )
+      throw new AdminApiError(403, "REFEREE_BRACKET_LOCKED");
+  }
 }
 
 export async function railwayAdminGet(request: Request, action: string) {
@@ -59,6 +117,8 @@ export async function railwayAdminGet(request: Request, action: string) {
     action === "admins" || action === "audit" || action === "admin-password",
   );
   const url = new URL(request.url);
+  if (action === "referee-access")
+    return getRefereeAccess(request, url.searchParams.get("tournamentId"));
   if (action === "role") return { role: user.role, user };
   if (action === "tournaments") {
     const latest = url.searchParams.get("latest") === "open";
@@ -268,6 +328,19 @@ export async function railwayAdminGet(request: Request, action: string) {
 }
 
 export async function railwayAdminPost(request: Request, action: string, body: Body) {
+  if (action === "referee-invite")
+    return createOrUpdateRefereeInvite(
+      request,
+      body.tournamentId,
+      body.quota,
+      body.rotate === true,
+    );
+  if (action === "referee-decide") {
+    const decision = body.decision;
+    if (decision !== "approved" && decision !== "rejected" && decision !== "revoked")
+      throw new AdminApiError(400, "REFEREE_DECISION_INVALID");
+    return decideReferee(request, body.refereeId, decision);
+  }
   const superadminActions = new Set([
     "reset",
     "delete-tournament",
@@ -275,11 +348,33 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     "remove-admin",
     "set-admin-password",
   ]);
-  const user = await requireRailwayAdmin(request, superadminActions.has(action));
+  const operatorActions = new Set(["publish", "finish", "record-audit"]);
+  const operatorTournamentId =
+    action === "record-audit"
+      ? body.tournamentId == null
+        ? null
+        : uuid(body.tournamentId, "TOURNAMENT_ID")
+      : body.id == null
+        ? null
+        : uuid(body.id, "TOURNAMENT_ID");
+  const user =
+    operatorActions.has(action) && operatorTournamentId
+      ? await requireRailwayOperator(request, operatorTournamentId)
+      : await requireRailwayAdmin(request, superadminActions.has(action));
   if (action === "record-audit") {
     const auditAction = text(body.action, "ACTION", 60);
     const tournamentId =
       body.tournamentId == null ? undefined : uuid(body.tournamentId, "TOURNAMENT_ID");
+    if (user.role === "referee") {
+      const allowed = new Set([
+        "match_start",
+        "score_add",
+        "score_undo",
+        "match_confirm",
+        "match_lock_force",
+      ]);
+      if (!allowed.has(auditAction)) throw new AdminApiError(403, "FORBIDDEN");
+    }
     await audit(
       user,
       auditAction,
@@ -311,6 +406,7 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     const id = uuid(body.id);
     if (!body.state || typeof body.state !== "object")
       throw new AdminApiError(400, "STATE_INVALID");
+    if (user.role === "referee") await assertRefereeStateMutation(id, body.state as Body);
     await queryPostgres("SELECT merge_tournament_live_state($1,$2::jsonb,$3::timestamptz)", [
       id,
       json(body.state),
@@ -335,8 +431,13 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     const id = uuid(body.id);
     const result = await queryPostgres(
       `UPDATE tournaments SET status='finished',finished_at=now(),results=$2::jsonb
-       WHERE id=$1 AND status='open' RETURNING ${tournamentColumns}`,
-      [id, json(body.results)],
+       WHERE id=$1 AND status='open'
+         AND ($3::boolean = false OR NOT EXISTS (
+           SELECT 1 FROM jsonb_array_elements(COALESCE(live_state->'matches','[]'::jsonb)) AS match
+           WHERE COALESCE(match->>'status','waiting') <> 'done'
+         ))
+       RETURNING ${tournamentColumns}`,
+      [id, json(body.results), user.role === "referee"],
     );
     if (!result.rowCount) throw new AdminApiError(404, "OPEN_TOURNAMENT_NOT_FOUND");
     await audit(user, "finish_tournament", body.results, id, result.rows[0].name as string);

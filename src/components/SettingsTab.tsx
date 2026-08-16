@@ -9,6 +9,7 @@ import { TournamentHistory } from "./TournamentHistory";
 import { AuditLogCard } from "./AuditLogCard";
 import { SystemStatusCard } from "./SystemStatusCard";
 import { AdminPlayerRegistration } from "./AdminPlayerRegistration";
+import { RefereeAccessCard } from "./RefereeAccessCard";
 
 export function SettingsTab() {
   const {
@@ -160,6 +161,8 @@ export function SettingsTab() {
       <AdminPlayerRegistration />
 
       {role === "admin" && <QrRegisterCard />}
+
+      {role === "admin" && <RefereeAccessCard />}
 
       {currentAdmin?.isSuper && <AdminLoginQrCard />}
 

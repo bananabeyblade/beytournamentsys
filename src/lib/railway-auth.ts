@@ -2,8 +2,10 @@ export interface RailwayAuthUser {
   id: string;
   email: string;
   displayName: string | null;
-  role: "admin" | "superadmin" | null;
+  role: "admin" | "superadmin" | "referee" | null;
   isGoogle: boolean;
+  tournamentId?: string;
+  tournamentCode?: string;
 }
 
 export const railwayAuthEnabled = import.meta.env.VITE_RAILWAY_AUTH_ENABLED === "true";

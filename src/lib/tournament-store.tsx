@@ -390,11 +390,35 @@ export function TournamentProvider({
         setAuthIssue("此 Google 帳號尚未取得管理者權限。");
         return "not_authorized" as const;
       }
+      if (user.role === "referee" && (!user.tournamentId || !user.tournamentCode)) {
+        setCurrentAdmin(null);
+        setRoleState("player");
+        setAuthIssue("裁判權限缺少賽事資訊，請重新掃描裁判 QR Code。");
+        return "not_authorized" as const;
+      }
+      if (
+        user.role === "referee" &&
+        user.tournamentCode &&
+        readActiveTournamentCode() !== user.tournamentCode
+      ) {
+        setCurrentTournament(null);
+        setPlayers([]);
+        setMatches([]);
+        removedPlayers.current = {};
+        followedId.current = "";
+        playersRef.current = [];
+        matchesRef.current = [];
+      }
+      if (user.role === "referee" && user.tournamentCode)
+        writeActiveTournamentCode(user.tournamentCode);
       setCurrentAdmin({
         id: user.id,
-        email: displayAccount(user.email),
+        email: user.displayName || displayAccount(user.email),
         isSuper: user.role === "superadmin",
         isGoogle: user.isGoogle,
+        isReferee: user.role === "referee",
+        tournamentId: user.tournamentId,
+        tournamentCode: user.tournamentCode,
       });
       setRoleState("admin");
       setAuthIssue(null);

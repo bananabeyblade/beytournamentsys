@@ -4,13 +4,14 @@ import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/
 import { enforceRateLimit } from "./rate-limit.server";
 
 const SESSION_COOKIE = "beyx_session";
+export const REFEREE_SESSION_COOKIE = "beyx_referee_session";
 const OAUTH_STATE_COOKIE = "beyx_oauth_state";
 const OAUTH_VERIFIER_COOKIE = "beyx_oauth_verifier";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 const OAUTH_SECONDS = 60 * 10;
 const OWNER_EMAIL = "john410403123@gmail.com";
 
-type AppRole = "admin" | "superadmin";
+type AppRole = "admin" | "superadmin" | "referee";
 
 export interface RailwaySessionUser {
   id: string;
@@ -18,6 +19,9 @@ export interface RailwaySessionUser {
   displayName: string | null;
   role: AppRole | null;
   isGoogle: boolean;
+  tournamentId?: string;
+  tournamentCode?: string;
+  refereeStatus?: "pending" | "approved" | "rejected" | "revoked";
 }
 
 const base64url = (value: Buffer) => value.toString("base64url");
@@ -264,34 +268,100 @@ export async function loginRailwayWithPassword(request: Request): Promise<Respon
 }
 
 export async function readRailwaySession(request: Request): Promise<RailwaySessionUser | null> {
+  let signedInUser: RailwaySessionUser | null = null;
   const token = cookieValue(request, SESSION_COOKIE);
-  if (!token) return null;
-  const result = await queryPostgres<{
-    id: string;
-    email: string;
-    display_name: string | null;
-    google_subject: string | null;
-    role: AppRole | null;
-  }>(
-    `SELECT u.id, u.email, u.display_name, u.google_subject,
+  if (token) {
+    const result = await queryPostgres<{
+      id: string;
+      email: string;
+      display_name: string | null;
+      google_subject: string | null;
+      role: AppRole | null;
+    }>(
+      `SELECT u.id, u.email, u.display_name, u.google_subject,
        CASE WHEN bool_or(r.role = 'superadmin') THEN 'superadmin'::app_role
             WHEN bool_or(r.role = 'admin') THEN 'admin'::app_role ELSE NULL END AS role
      FROM app_sessions s JOIN app_users u ON u.id = s.user_id
      LEFT JOIN admin_roles r ON r.user_id = u.id
      WHERE s.token_hash = $1 AND s.expires_at > now()
      GROUP BY u.id, u.email, u.display_name, u.google_subject`,
-    [sha256(token)],
-  );
-  const row = result.rows[0];
-  return row
-    ? {
+      [sha256(token)],
+    );
+    const row = result.rows[0];
+    if (row) {
+      signedInUser = {
         id: row.id,
         email: row.email,
         displayName: row.display_name,
         role: row.role,
         isGoogle: Boolean(row.google_subject),
-      }
-    : null;
+      };
+      if (row.role) return signedInUser;
+    }
+  }
+
+  const refereeToken = cookieValue(request, REFEREE_SESSION_COOKIE);
+  if (!refereeToken) return signedInUser;
+  const referee = await queryPostgres<{
+    id: string;
+    display_name: string;
+    status: "approved";
+    tournament_id: string;
+    code: string;
+  }>(
+    `SELECT r.id,r.display_name,r.status,r.tournament_id,t.code
+     FROM tournament_referees r
+     JOIN tournament_referee_invites i ON i.id=r.invite_id
+     JOIN tournaments t ON t.id=r.tournament_id
+     WHERE r.session_token_hash=$1 AND r.status='approved' AND t.status='open'
+       AND i.revoked_at IS NULL AND (i.expires_at IS NULL OR i.expires_at > now())
+     LIMIT 1`,
+    [sha256(refereeToken)],
+  );
+  const row = referee.rows[0];
+  if (!row) return signedInUser;
+  void queryPostgres("UPDATE tournament_referees SET last_seen_at=now() WHERE id=$1", [row.id]);
+  return {
+    id: row.id,
+    email: row.display_name,
+    displayName: row.display_name,
+    role: "referee",
+    isGoogle: false,
+    tournamentId: row.tournament_id,
+    tournamentCode: row.code,
+    refereeStatus: "approved",
+  };
+}
+
+export async function readRailwayRefereeClaim(request: Request) {
+  const token = cookieValue(request, REFEREE_SESSION_COOKIE);
+  if (!token) return null;
+  const result = await queryPostgres<{
+    id: string;
+    display_name: string;
+    status: "pending" | "approved" | "rejected" | "revoked";
+    tournament_id: string;
+    code: string;
+    name: string;
+  }>(
+    `SELECT r.id,r.display_name,r.status,r.tournament_id,t.code,t.name
+     FROM tournament_referees r JOIN tournaments t ON t.id=r.tournament_id
+     WHERE r.session_token_hash=$1 LIMIT 1`,
+    [sha256(token)],
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function requireRailwayOperator(request: Request, tournamentId: string) {
+  const user = await readRailwaySession(request);
+  if (!user) throw Object.assign(new Error("AUTH_REQUIRED"), { status: 401 });
+  if (user.role === "admin" || user.role === "superadmin") return user;
+  if (user.role === "referee" && user.tournamentId === tournamentId) return user;
+  throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
+}
+
+export function refereeSessionCookie(token: string) {
+  return secureCookie(REFEREE_SESSION_COOKIE, token, SESSION_SECONDS);
 }
 
 export async function requireRailwayAdmin(
@@ -300,7 +370,10 @@ export async function requireRailwayAdmin(
 ): Promise<RailwaySessionUser> {
   const user = await readRailwaySession(request);
   if (!user) throw Object.assign(new Error("AUTH_REQUIRED"), { status: 401 });
-  if (!user.role || (superadminOnly && user.role !== "superadmin")) {
+  if (
+    (user.role !== "admin" && user.role !== "superadmin") ||
+    (superadminOnly && user.role !== "superadmin")
+  ) {
     throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
   }
   return user;
@@ -316,8 +389,8 @@ export async function requireRailwayOwner(request: Request): Promise<RailwaySess
 export async function logoutRailwaySession(request: Request): Promise<Response> {
   const token = cookieValue(request, SESSION_COOKIE);
   if (token) await queryPostgres("DELETE FROM app_sessions WHERE token_hash = $1", [sha256(token)]);
-  return Response.json(
-    { ok: true },
-    { headers: { "set-cookie": clearCookie(SESSION_COOKIE), "cache-control": "no-store" } },
-  );
+  const headers = new Headers({ "cache-control": "no-store" });
+  headers.append("set-cookie", clearCookie(SESSION_COOKIE));
+  headers.append("set-cookie", clearCookie(REFEREE_SESSION_COOKIE));
+  return Response.json({ ok: true }, { headers });
 }

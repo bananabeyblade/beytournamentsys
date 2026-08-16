@@ -70,6 +70,10 @@ export interface CloudAdmin {
   email: string;
   isSuper: boolean;
   isGoogle: boolean;
+  /** Event-scoped referee approved through a tournament QR invitation. */
+  isReferee?: boolean;
+  tournamentId?: string;
+  tournamentCode?: string;
 }
 
 export interface TournamentState {

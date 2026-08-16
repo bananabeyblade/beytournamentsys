@@ -13,7 +13,13 @@ export type AuditAction =
   | "match_lock_force"
   | "tournament_create"
   | "tournament_force_finish"
-  | "tournament_reset";
+  | "tournament_reset"
+  | "referee_invite_create"
+  | "referee_quota_update"
+  | "referee_request"
+  | "referee_approved"
+  | "referee_rejected"
+  | "referee_revoked";
 
 export const AUDIT_LABELS: Record<AuditAction, string> = {
   player_add: "新增選手",
@@ -27,6 +33,12 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   tournament_create: "建立賽事",
   tournament_force_finish: "強制結束賽事",
   tournament_reset: "重置賽事",
+  referee_invite_create: "建立／重發裁判 QR",
+  referee_quota_update: "調整裁判名額",
+  referee_request: "申請裁判權限",
+  referee_approved: "核准裁判",
+  referee_rejected: "拒絕裁判",
+  referee_revoked: "撤銷裁判",
 };
 
 export interface AuditEntry {
@@ -89,6 +101,7 @@ export function describeEntry(e: AuditEntry): string {
   if (typeof d["name"] === "string") bits.push(String(d["name"]));
   if (Array.isArray(d["names"])) bits.push((d["names"] as unknown[]).join("、"));
   if (typeof d["count"] === "number") bits.push(`${d["count"]} 人`);
+  if (typeof d["quota"] === "number") bits.push(`名額 ${d["quota"]} 人`);
   if (typeof d["round"] === "string") bits.push(String(d["round"]));
   if (typeof d["table"] === "number") bits.push(`桌 ${d["table"]}`);
   if (typeof d["matchup"] === "string") bits.push(String(d["matchup"]));

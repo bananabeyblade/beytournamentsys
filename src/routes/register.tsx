@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { UserPlus, Check, AlertTriangle, KeyRound } from "lucide-react";
+import { UserPlus, Check, AlertTriangle, KeyRound, Loader2, ShieldCheck } from "lucide-react";
 import { addRegistration, claimParticipantRecoveryCode, isNameTaken } from "@/lib/registration";
 import { fetchTournamentByCode, type TournamentRow } from "@/lib/tournaments";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ import {
   writeJoinedName,
   writeJoinedTournamentCode,
 } from "@/lib/joined-name";
+import { loadRefereeClaim, requestReferee, type RefereeClaim } from "@/lib/referee-access";
 
 /** Name this device registered with, used to detect a rejected sign-up. */
 const readJoined = (code: string) => readJoinedNameForTournament(code);
@@ -23,6 +24,7 @@ const hasGeneratedBracket = (row: TournamentRow) =>
 export const Route = createFileRoute("/register")({
   validateSearch: (search: Record<string, unknown>) => ({
     t: typeof search.t === "string" ? search.t : "",
+    ref: typeof search.ref === "string" ? search.ref : "",
   }),
   head: () => ({
     meta: [
@@ -45,6 +47,119 @@ export const Route = createFileRoute("/register")({
 });
 
 function RegisterPage() {
+  const { t, ref } = Route.useSearch();
+  return ref ? <RefereeJoinPage code={t} inviteToken={ref} /> : <PlayerRegisterPage />;
+}
+
+function RefereeJoinPage({ code, inviteToken }: { code: string; inviteToken: string }) {
+  const [name, setName] = useState("");
+  const [claim, setClaim] = useState<RefereeClaim | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      const next = await loadRefereeClaim().catch(() => null);
+      if (!alive) return;
+      setClaim(next);
+      if (next?.status === "approved") window.location.assign("/");
+    };
+    void check();
+    const timer = setInterval(() => void check(), 2500);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  const submit = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await requestReferee(code, inviteToken, name);
+      setClaim(await loadRefereeClaim());
+    } catch (reason) {
+      const value = reason instanceof Error ? reason.message : "REFEREE_REQUEST_FAILED";
+      setError(
+        value === "REFEREE_QUOTA_FULL"
+          ? "本場裁判名額已滿。"
+          : value === "REFEREE_NAME_TAKEN"
+            ? "這個裁判名稱已有人申請。"
+            : value === "REFEREE_INVITE_INVALID"
+              ? "裁判 QR Code 已失效，請向管理者索取新的 QR Code。"
+              : "送出失敗，請確認網路後再試一次。",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 px-4 py-8">
+      <ConnectionBanner />
+      <div>
+        <h1 className="flex items-center gap-2 font-display text-2xl neon-text">
+          <ShieldCheck className="h-6 w-6" /> 裁判加入
+        </h1>
+        <p className="text-[11px] tracking-widest text-muted-foreground">
+          EVENT REFEREE · ADMIN APPROVAL REQUIRED
+        </p>
+      </div>
+      {claim ? (
+        <section className="panel space-y-3 p-4 text-center">
+          {claim.status === "pending" ? (
+            <>
+              <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
+              <p className="font-display text-lg">等待管理者核准</p>
+              <p className="text-sm text-muted-foreground">
+                {claim.display_name} · {claim.name}
+              </p>
+              <p className="text-xs text-primary">核准後此頁會自動進入本場裁判介面。</p>
+            </>
+          ) : (
+            <>
+              <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
+              <p className="font-display text-lg">
+                {claim.status === "rejected" ? "申請未核准" : "裁判權限已撤銷"}
+              </p>
+              <p className="text-sm text-muted-foreground">如仍需協助計分，請聯絡本場管理者。</p>
+            </>
+          )}
+        </section>
+      ) : (
+        <section className="panel space-y-3 p-4">
+          <p className="text-sm text-muted-foreground">
+            輸入現場可辨識的裁判名稱。送出後須由本場管理者核准；此權限僅限本場賽事。
+          </p>
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            maxLength={40}
+            placeholder="裁判名稱"
+            autoComplete="off"
+            className="min-h-14 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+          />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <button
+            disabled={!name.trim() || busy}
+            onClick={() => void submit()}
+            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-40"
+          >
+            {busy ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-5 w-5" />
+            )}
+            申請本場裁判權限
+          </button>
+        </section>
+      )}
+    </main>
+  );
+}
+
+function PlayerRegisterPage() {
   const { t: code } = Route.useSearch();
   const navigate = useNavigate();
   const [tournament, setTournament] = useState<TournamentRow | null>(null);

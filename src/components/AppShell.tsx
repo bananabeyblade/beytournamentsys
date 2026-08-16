@@ -130,7 +130,11 @@ export function AppShell({ title }: { title?: string }) {
 
   const liveCount = matches.filter((m) => m.status === "live").length;
 
-  const tabs = spectator ? TABS.filter((t) => t.id !== "settings") : TABS;
+  const tabs = currentAdmin?.isReferee
+    ? TABS.filter((t) => t.id === "live" || t.id === "bracket")
+    : spectator
+      ? TABS.filter((t) => t.id !== "settings")
+      : TABS;
   const activeTab = tabs.some((t) => t.id === tab) ? tab : "live";
 
   // While the auth check is still in flight we don't yet know whether to
@@ -159,7 +163,11 @@ export function AppShell({ title }: { title?: string }) {
               <h1 className="truncate font-display text-lg neon-text">
                 {title ?? "竹塹陀螺集會所"}
               </h1>
-              {joinedName && !isSuper ? (
+              {currentAdmin?.isReferee ? (
+                <p className="truncate text-xs text-primary">
+                  裁判 · <span className="font-semibold">{currentAdmin.email}</span>
+                </p>
+              ) : joinedName && !isSuper ? (
                 <p className="truncate text-xs text-primary">
                   參賽者 · <span className="font-semibold">{joinedName}</span>
                 </p>
@@ -180,7 +188,7 @@ export function AppShell({ title }: { title?: string }) {
             >
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
-            {!isSuper && (currentAdmin || joinedName) && (
+            {!isSuper && !currentAdmin?.isReferee && (currentAdmin || joinedName) && (
               <button
                 onClick={() => setRole(role === "admin" ? "player" : "admin")}
                 disabled={role === "player" && !currentAdmin}

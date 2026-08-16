@@ -7,6 +7,7 @@ import { QrRegisterCard } from "./QrRegisterCard";
 import { AdminLoginQrCard } from "./AdminLoginQrCard";
 import { TournamentHistory } from "./TournamentHistory";
 import { AuditLogCard } from "./AuditLogCard";
+import { SystemStatusCard } from "./SystemStatusCard";
 import { AdminPlayerRegistration } from "./AdminPlayerRegistration";
 import { RefereeAccessCard } from "./RefereeAccessCard";
 
@@ -166,6 +167,8 @@ export function SettingsTab() {
       {currentAdmin?.isSuper && <AdminLoginQrCard />}
 
       {role === "admin" && <TournamentHistory />}
+
+      {currentAdmin?.isSuper && <SystemStatusCard />}
 
       <AuditLogCard />
 

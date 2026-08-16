@@ -49,6 +49,7 @@ import { buildBracket } from "./bracket";
 
 const ACTIVE_KEY = "beyx-active-tournament";
 const STATE_KEY = "beyx-live-state";
+const STATE_KEY_PREFIX = `${STATE_KEY}:`;
 
 /** Realtime carries the updates; polling is only a slow safety net. */
 const SLOW_POLL_MS = 25000;
@@ -65,16 +66,57 @@ export type SyncStatus = "idle" | "syncing" | "synced" | "error";
 
 const isVisible = () => typeof document === "undefined" || document.visibilityState === "visible";
 
+/**
+ * Tournament selection is tab-scoped. localStorage is only a reload/new-tab
+ * fallback; polling must prefer sessionStorage so two events can be operated
+ * in separate tabs without continually switching each other to the newest one.
+ */
+function readActiveTournamentCode(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const tabCode = sessionStorage.getItem(ACTIVE_KEY);
+    if (tabCode) return tabCode;
+    const fallback = localStorage.getItem(ACTIVE_KEY);
+    if (fallback) sessionStorage.setItem(ACTIVE_KEY, fallback);
+    return fallback;
+  } catch {
+    return null;
+  }
+}
+
+function writeActiveTournamentCode(code: string) {
+  if (typeof window === "undefined") return;
+  const normalized = code.trim().toUpperCase();
+  try {
+    sessionStorage.setItem(ACTIVE_KEY, normalized);
+    localStorage.setItem(ACTIVE_KEY, normalized);
+  } catch {
+    // Storage can be unavailable in hardened/private browser contexts.
+  }
+}
+
+function clearActiveTournamentCode() {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(ACTIVE_KEY);
+    localStorage.removeItem(ACTIVE_KEY);
+  } catch {
+    // Storage can be unavailable in hardened/private browser contexts.
+  }
+}
+
+const persistedStateKey = (code: string) => `${STATE_KEY_PREFIX}${code.trim().toUpperCase()}`;
+
 interface PersistedState {
   players: Player[];
   matches: Match[];
   tableCount: number;
 }
 
-function readPersisted(): PersistedState | null {
-  if (typeof window === "undefined") return null;
+function readPersisted(code: string | null): PersistedState | null {
+  if (typeof window === "undefined" || !code) return null;
   try {
-    const raw = localStorage.getItem(STATE_KEY);
+    const raw = localStorage.getItem(persistedStateKey(code));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedState;
     if (!Array.isArray(parsed.players) || !Array.isArray(parsed.matches)) return null;
@@ -173,7 +215,7 @@ export function TournamentProvider({
       setHydrated(true);
       return;
     }
-    const saved = readPersisted();
+    const saved = readPersisted(readActiveTournamentCode());
     if (saved) {
       setPlayers(saved.players);
       setMatches(saved.matches);
@@ -183,9 +225,12 @@ export function TournamentProvider({
   }, [spectator]);
 
   useEffect(() => {
-    if (!hydrated || spectator || typeof window === "undefined") return;
-    localStorage.setItem(STATE_KEY, JSON.stringify({ players, matches, tableCount }));
-  }, [hydrated, spectator, players, matches, tableCount]);
+    if (!hydrated || spectator || !currentTournament || typeof window === "undefined") return;
+    localStorage.setItem(
+      persistedStateKey(currentTournament.code),
+      JSON.stringify({ players, matches, tableCount }),
+    );
+  }, [hydrated, spectator, currentTournament, players, matches, tableCount]);
 
   // Spectator mode: follow the published bracket of the scanned tournament.
   // Realtime pushes the new row directly (no extra fetch); polling is only a
@@ -473,8 +518,11 @@ export function TournamentProvider({
     // Wipe every trace of the event on this device: the next admin to sign in
     // here must not inherit (or republish) the previous admin's roster.
     if (typeof window !== "undefined") {
-      localStorage.removeItem(ACTIVE_KEY);
-      localStorage.removeItem(STATE_KEY);
+      clearActiveTournamentCode();
+      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index);
+        if (key === STATE_KEY || key?.startsWith(STATE_KEY_PREFIX)) localStorage.removeItem(key);
+      }
     }
     followedId.current = "";
     abandonedId.current = "";
@@ -791,7 +839,10 @@ export function TournamentProvider({
     removedPlayers.current = {};
     // Forget the followed event too, otherwise the sync loop re-adopts the
     // same tournament (it is still "open" in the cloud) and it reappears.
-    if (typeof window !== "undefined") localStorage.removeItem(ACTIVE_KEY);
+    if (typeof window !== "undefined") {
+      clearActiveTournamentCode();
+      if (active) localStorage.removeItem(persistedStateKey(active.code));
+    }
     followedId.current = "";
     if (active) abandonedId.current = active.id;
     playersRef.current = [];
@@ -817,7 +868,8 @@ export function TournamentProvider({
     try {
       const row = await createTournament(clean, logoUrl);
       setCurrentTournament(row);
-      if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      writeActiveTournamentCode(row.code);
+      if (typeof window !== "undefined") localStorage.removeItem(persistedStateKey(row.code));
       removedPlayers.current = {};
       // Reset the echo guards so the fresh (empty) event is definitely
       // published once — otherwise other devices keep the old snapshot.
@@ -856,7 +908,7 @@ export function TournamentProvider({
       const row = await fetchTournamentByCode(code);
       if (!row) return "找不到該賽事";
       setCurrentTournament(row);
-      if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      writeActiveTournamentCode(row.code);
       // Switching events: previous event's delete tombstones no longer apply.
       removedPlayers.current = {};
       followedId.current = row.id;
@@ -933,12 +985,12 @@ export function TournamentProvider({
   // Restore the last created tournament so the QR card survives reloads.
   useEffect(() => {
     if (spectator) return;
-    const code = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_KEY) : null;
+    const code = readActiveTournamentCode();
     if (!code) return;
     let alive = true;
     fetchTournamentByCode(code)
       .then((row) => {
-        if (alive && row) setCurrentTournament(row);
+        if (alive && row && readActiveTournamentCode() === code) setCurrentTournament(row);
       })
       .catch(() => undefined);
     return () => {
@@ -946,8 +998,8 @@ export function TournamentProvider({
     };
   }, [spectator]);
 
-  // Every signed-in admin (not just the creator) follows the current event:
-  // pick up the newest open tournament and mirror its published bracket.
+  // Every signed-in admin follows the event explicitly selected in this tab.
+  // Only a tab without a selection adopts the newest open event once.
   const lastPublishedStamp = useRef<string>("");
   const lastAppliedStamp = useRef<string>("");
   const followedId = useRef<string>("");
@@ -1001,7 +1053,7 @@ export function TournamentProvider({
       setCurrentTournament((prev) =>
         prev && prev.id === row.id && prev.status === row.status ? prev : row,
       );
-      if (typeof window !== "undefined") localStorage.setItem(ACTIVE_KEY, row.code);
+      writeActiveTournamentCode(row.code);
       // Only treat it as a switch once we've already followed another event —
       // never wipe local edits on the first pull after login.
       const switched = followedId.current !== "" && followedId.current !== row.id;
@@ -1063,13 +1115,16 @@ export function TournamentProvider({
     };
 
     const pull = async () => {
-      let row = await fetchLatestOpenTournament().catch(() => null);
-      if (!row) {
-        // No open event: keep following the active one so a force-finish
-        // (which closes the event) still propagates to every admin device.
-        const code = typeof window !== "undefined" ? localStorage.getItem(ACTIVE_KEY) : null;
-        if (code) row = await fetchTournamentByCode(code).catch(() => null);
-      }
+      const selectedCode = readActiveTournamentCode();
+      const row = selectedCode
+        ? await fetchTournamentByCode(selectedCode).catch(() => null)
+        : await fetchLatestOpenTournament().catch(() => null);
+
+      // Ignore an in-flight response when this tab selected another event while
+      // the request was running. This closes the create/resume versus poll race.
+      const currentCode = readActiveTournamentCode();
+      if (selectedCode ? currentCode !== selectedCode : currentCode && currentCode !== row?.code)
+        return;
       if (row) apply(row);
       hasSyncedOnce.current = true;
     };

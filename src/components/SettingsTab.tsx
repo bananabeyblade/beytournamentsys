@@ -10,7 +10,7 @@ import { AuditLogCard } from "./AuditLogCard";
 import { AdminPlayerRegistration } from "./AdminPlayerRegistration";
 import { RefereeAccessCard } from "./RefereeAccessCard";
 
-export function SettingsTab({ onOpenDeveloper }: { onOpenDeveloper?: () => void }) {
+export function SettingsTab() {
   const {
     role,
     setRole,
@@ -155,7 +155,7 @@ export function SettingsTab({ onOpenDeveloper }: { onOpenDeveloper?: () => void 
         </button>
       </div>
 
-      <AccountSettings onOpenDeveloper={onOpenDeveloper} />
+      <AccountSettings />
 
       <AdminPlayerRegistration />
 

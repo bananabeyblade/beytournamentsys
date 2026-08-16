@@ -243,7 +243,7 @@ export function AppShell({ title }: { title?: string }) {
             {activeTab === "live" && <LiveTab />}
             {activeTab === "bracket" && <BracketTab />}
             {activeTab === "players" && <PlayersTab />}
-            {activeTab === "settings" && <SettingsTab onOpenDeveloper={() => setTab("platform")} />}
+            {activeTab === "settings" && <SettingsTab />}
             {activeTab === "platform" && <PlatformOwnerTab />}
           </>
         )}

@@ -413,7 +413,10 @@ export function TournamentProvider({
         writeActiveTournamentCode(user.tournamentCode);
       setCurrentAdmin({
         id: user.id,
-        email: user.displayName || displayAccount(user.email),
+        // Keep the stable account identifier here. Google display names are for
+        // presentation only; using one for `email` hides owner-only settings
+        // because the ownership check must compare the real signed-in email.
+        email: displayAccount(user.email),
         isSuper: user.role === "superadmin",
         isGoogle: user.isGoogle,
         isReferee: user.role === "referee",

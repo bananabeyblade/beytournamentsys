@@ -31,6 +31,10 @@ export async function listCreatedSuperadminsFn() {
   if (!railwayAuthEnabled) return legacyListAdmins();
   return (await railwayApi<{ admins: unknown[] }>("/api/admin/created-superadmins")).admins;
 }
+export async function listDeveloperAccountsFn() {
+  if (!railwayAuthEnabled) return [];
+  return (await railwayApi<{ accounts: unknown[] }>("/api/admin/developer-accounts")).accounts;
+}
 export async function createAdminFn({ data }: { data: { username: string; password: string } }) {
   if (!railwayAuthEnabled) return legacyCreateAdmin({ data });
   await railwayApi("/api/admin/create-admin", {

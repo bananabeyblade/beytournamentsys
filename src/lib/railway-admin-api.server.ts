@@ -116,6 +116,7 @@ export async function railwayAdminGet(request: Request, action: string) {
     request,
     action === "admins" ||
       action === "created-superadmins" ||
+      action === "developer-accounts" ||
       action === "audit" ||
       action === "admin-password",
   );
@@ -307,6 +308,33 @@ export async function railwayAdminGet(request: Request, action: string) {
       [owner.id],
     );
     return { admins: result.rows };
+  }
+  if (action === "developer-accounts") {
+    await requireRailwayOwner(request);
+    const result = await queryPostgres<{
+      id: string;
+      email: string;
+      display_name: string | null;
+      google_subject: string | null;
+      role: "admin" | "superadmin" | null;
+      created_at: string;
+      last_login_at: string | null;
+      created_by_email: string | null;
+    }>(
+      `SELECT u.id,u.email,u.display_name,u.google_subject,u.created_at,u.last_login_at,
+              role_row.role,creator.email AS created_by_email
+       FROM app_users u
+       LEFT JOIN LATERAL (
+         SELECT r.role,r.created_by_user_id
+         FROM admin_roles r
+         WHERE r.user_id=u.id
+         ORDER BY CASE r.role WHEN 'superadmin' THEN 0 ELSE 1 END, r.created_at
+         LIMIT 1
+       ) role_row ON true
+       LEFT JOIN app_users creator ON creator.id=role_row.created_by_user_id
+       ORDER BY u.created_at DESC, lower(u.email)`,
+    );
+    return { accounts: result.rows };
   }
   if (action === "admin-password") {
     const userId = uuid(url.searchParams.get("userId"), "USER_ID");

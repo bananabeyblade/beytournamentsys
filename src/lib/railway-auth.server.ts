@@ -19,6 +19,8 @@ export interface RailwaySessionUser {
   displayName: string | null;
   role: AppRole | null;
   isGoogle: boolean;
+  /** The single Google-authenticated platform developer account. */
+  isDeveloper: boolean;
   tournamentId?: string;
   tournamentCode?: string;
   refereeStatus?: "pending" | "approved" | "rejected" | "revoked";
@@ -295,6 +297,7 @@ export async function readRailwaySession(request: Request): Promise<RailwaySessi
         displayName: row.display_name,
         role: row.role,
         isGoogle: Boolean(row.google_subject),
+        isDeveloper: row.email.trim().toLowerCase() === OWNER_EMAIL && Boolean(row.google_subject),
       };
       if (row.role) return signedInUser;
     }
@@ -327,6 +330,7 @@ export async function readRailwaySession(request: Request): Promise<RailwaySessi
     displayName: row.display_name,
     role: "referee",
     isGoogle: false,
+    isDeveloper: false,
     tournamentId: row.tournament_id,
     tournamentCode: row.code,
     refereeStatus: "approved",

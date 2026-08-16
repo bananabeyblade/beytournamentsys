@@ -70,6 +70,8 @@ export interface CloudAdmin {
   email: string;
   isSuper: boolean;
   isGoogle: boolean;
+  /** Verified server-side for the single Google platform developer account. */
+  isDeveloper: boolean;
   /** Event-scoped referee approved through a tournament QR invitation. */
   isReferee?: boolean;
   tournamentId?: string;

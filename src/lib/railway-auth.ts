@@ -4,6 +4,7 @@ export interface RailwayAuthUser {
   displayName: string | null;
   role: "admin" | "superadmin" | "referee" | null;
   isGoogle: boolean;
+  isDeveloper: boolean;
   tournamentId?: string;
   tournamentCode?: string;
 }

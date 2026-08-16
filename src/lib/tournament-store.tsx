@@ -361,6 +361,10 @@ export function TournamentProvider({
           isGoogle:
             user.app_metadata.provider === "google" ||
             user.identities?.some((identity) => identity.provider === "google") === true,
+          isDeveloper:
+            isOwnerEmail(user.email) &&
+            (user.app_metadata.provider === "google" ||
+              user.identities?.some((identity) => identity.provider === "google") === true),
         });
         setRoleState("admin");
         setAuthIssue(null);
@@ -413,9 +417,16 @@ export function TournamentProvider({
         writeActiveTournamentCode(user.tournamentCode);
       setCurrentAdmin({
         id: user.id,
-        email: user.displayName || displayAccount(user.email),
+        // Keep the login identity as the account value. A Google display name
+        // is only presentation data; using it here made account ownership and
+        // role screens appear to point at the wrong account.
+        email:
+          user.role === "referee"
+            ? user.displayName || displayAccount(user.email)
+            : displayAccount(user.email),
         isSuper: user.role === "superadmin",
         isGoogle: user.isGoogle,
+        isDeveloper: user.isDeveloper,
         isReferee: user.role === "referee",
         tournamentId: user.tournamentId,
         tournamentCode: user.tournamentCode,
@@ -1449,7 +1460,7 @@ export function TournamentProvider({
     syncStatus,
     lastSyncedAt,
     retrySync,
-    isOwner: !spectator && isOwnerEmail(currentAdmin?.email),
+    isOwner: !spectator && currentAdmin?.isDeveloper === true,
     resetTournament,
     loadSample,
     spectator,

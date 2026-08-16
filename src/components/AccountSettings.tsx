@@ -12,7 +12,7 @@ import {
   revealAdminPasswordFn,
   setAdminPasswordFn,
 } from "@/lib/admin-client";
-import { USERNAME_RE, displayAccount, isOwnerEmail } from "@/lib/account-id";
+import { USERNAME_RE, displayAccount } from "@/lib/account-id";
 import { railwayAuthEnabled } from "@/lib/railway-api";
 
 type Msg = { ok: boolean; text: string } | null;
@@ -55,7 +55,7 @@ function MyAccount({ onOpenDeveloper }: { onOpenDeveloper?: () => void }) {
           已透過 Google 登入：<span className="text-primary">{currentAdmin?.email}</span>
         </p>
         <p className="text-xs text-muted-foreground">此帳號的登入與密碼設定由 Google 管理。</p>
-        {isOwnerEmail(currentAdmin?.email) && onOpenDeveloper && (
+        {currentAdmin?.isDeveloper && onOpenDeveloper && (
           <button
             type="button"
             onClick={onOpenDeveloper}
@@ -607,7 +607,7 @@ export function AccountSettings({ onOpenDeveloper }: { onOpenDeveloper?: () => v
   return (
     <div className="space-y-4">
       <MyAccount key={currentAdmin.email} onOpenDeveloper={onOpenDeveloper} />
-      {isOwnerEmail(currentAdmin.email) && <ManageSuperadmins />}
+      {currentAdmin.isDeveloper && <ManageSuperadmins />}
       {currentAdmin.isSuper && <ManageAdmins />}
     </div>
   );

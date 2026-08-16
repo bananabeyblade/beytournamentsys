@@ -33,7 +33,7 @@ function displayDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("zh-TW", { hour12: false });
 }
 
-function MyAccount() {
+function MyAccount({ onOpenDeveloper }: { onOpenDeveloper?: () => void }) {
   const { currentAdmin, refreshRole } = useTournament();
   const isSuper = !!currentAdmin?.isSuper;
   const isGoogle = currentAdmin?.isGoogle === true;
@@ -55,6 +55,15 @@ function MyAccount() {
           已透過 Google 登入：<span className="text-primary">{currentAdmin?.email}</span>
         </p>
         <p className="text-xs text-muted-foreground">此帳號的登入與密碼設定由 Google 管理。</p>
+        {isOwnerEmail(currentAdmin?.email) && onOpenDeveloper && (
+          <button
+            type="button"
+            onClick={onOpenDeveloper}
+            className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/30 font-display text-sm text-primary"
+          >
+            <ShieldPlus className="h-4 w-4" /> 前往開發者介面
+          </button>
+        )}
       </div>
     );
   }
@@ -592,12 +601,12 @@ function ManageSuperadmins() {
   );
 }
 
-export function AccountSettings() {
+export function AccountSettings({ onOpenDeveloper }: { onOpenDeveloper?: () => void }) {
   const { currentAdmin } = useTournament();
   if (!currentAdmin) return null;
   return (
     <div className="space-y-4">
-      <MyAccount key={currentAdmin.email} />
+      <MyAccount key={currentAdmin.email} onOpenDeveloper={onOpenDeveloper} />
       {isOwnerEmail(currentAdmin.email) && <ManageSuperadmins />}
       {currentAdmin.isSuper && <ManageAdmins />}
     </div>

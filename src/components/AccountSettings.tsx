@@ -541,7 +541,7 @@ function ManageSuperadmins() {
               </button>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              建立：{displayDate(a.created_at)} / 最近登入：{displayDate(a.last_login_at)}
+              建立：{displayDate(a.created_at)}　最近登入：{displayDate(a.last_login_at)}
             </p>
             {revealed[a.user_id] && (
               <div className="mt-2 rounded-lg border border-primary/30 bg-background/70 px-3 py-2 font-mono text-sm">

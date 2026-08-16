@@ -6,7 +6,6 @@ import {
   createAdminFn,
   createSuperadminFn,
   listAdminsFn,
-  listCreatedSuperadminsFn,
   removeSuperadminFn,
   removeAdminFn,
   revealAdminPasswordFn,
@@ -22,18 +21,9 @@ interface AdminRow {
   user_id: string;
   email: string | null;
   role: string;
-  created_at?: string | null;
-  last_login_at?: string | null;
-  created_by_user_id?: string | null;
 }
 
-function displayDate(value?: string | null) {
-  if (!value) return "尚未登入";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("zh-TW", { hour12: false });
-}
-
-function MyAccount({ onOpenDeveloper }: { onOpenDeveloper?: () => void }) {
+function MyAccount() {
   const { currentAdmin, refreshRole } = useTournament();
   const isSuper = !!currentAdmin?.isSuper;
   const isGoogle = currentAdmin?.isGoogle === true;
@@ -55,15 +45,6 @@ function MyAccount({ onOpenDeveloper }: { onOpenDeveloper?: () => void }) {
           已透過 Google 登入：<span className="text-primary">{currentAdmin?.email}</span>
         </p>
         <p className="text-xs text-muted-foreground">此帳號的登入與密碼設定由 Google 管理。</p>
-        {isOwnerEmail(currentAdmin?.email) && onOpenDeveloper && (
-          <button
-            type="button"
-            onClick={onOpenDeveloper}
-            className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/30 font-display text-sm text-primary"
-          >
-            <ShieldPlus className="h-4 w-4" /> 前往開發者介面
-          </button>
-        )}
       </div>
     );
   }
@@ -406,12 +387,10 @@ function ManageSuperadmins() {
   const [busy, setBusy] = useState(false);
   const [revealed, setRevealed] = useState<Record<string, string>>({});
   const [revealingId, setRevealingId] = useState<string | null>(null);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [newPass, setNewPass] = useState("");
 
   const load = useCallback(() => {
-    listCreatedSuperadminsFn()
-      .then((data) => setRows((data as AdminRow[]).filter((row) => row.role === "superadmin")))
+    listAdminsFn()
+      .then((data) => setRows(data as AdminRow[]))
       .catch(() => undefined);
   }, []);
 
@@ -477,25 +456,7 @@ function ManageSuperadmins() {
     }
   };
 
-  const resetPassword = async (userId: string) => {
-    if (newPass.length < 8) {
-      setMsg({ ok: false, text: "密碼至少需 8 碼" });
-      return;
-    }
-    try {
-      await setAdminPasswordFn({ data: { userId, password: newPass } });
-      setNewPass("");
-      setEditId(null);
-      setRevealed((current) => {
-        const next = { ...current };
-        delete next[userId];
-        return next;
-      });
-      setMsg({ ok: true, text: "已更新該總管理者密碼" });
-    } catch (error) {
-      setMsg({ ok: false, text: error instanceof Error ? error.message : "更新失敗" });
-    }
-  };
+  const supers = rows.filter((r) => r.role === "superadmin");
 
   return (
     <div className="panel space-y-3 p-3">
@@ -503,70 +464,51 @@ function ManageSuperadmins() {
         <ShieldPlus className="h-4 w-4" /> 總管理者帳號 SUPERADMINS
       </h2>
       <p className="text-xs text-muted-foreground">
-        只顯示由你建立的總管理者。可新增、重設密碼或移除，帳號可用自訂名稱或信箱。
+        僅擁有者（{currentAdmin?.email}）可新增或刪除，帳號可用自訂名稱或信箱。
       </p>
-      {rows.length === 0 && <p className="text-xs text-muted-foreground">尚未建立其他總管理者。</p>}
       <ul className="space-y-2">
-        {rows.map((a) => (
-          <li key={a.id} className="rounded-lg border border-border bg-secondary/40 p-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-2">
-              <span className="truncate text-sm">{displayAccount(a.email) || a.user_id}</span>
-              {railwayAuthEnabled && (
-                <button
-                  type="button"
-                  disabled={revealingId === a.user_id}
-                  aria-label={revealed[a.user_id] ? "隱藏密碼" : "查看密碼"}
-                  onClick={() => void togglePassword(a.user_id)}
-                  className="grid h-10 w-10 place-items-center rounded-lg text-primary disabled:opacity-50"
-                >
-                  {revealed[a.user_id] ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
+        {supers.map((a) => {
+          const owner = isOwnerEmail(a.email);
+          return (
+            <li key={a.id} className="rounded-lg border border-border bg-secondary/40 p-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
+                <span className="truncate text-sm">
+                  {displayAccount(a.email) || a.user_id}
+                  {owner && <span className="ml-1 text-[10px] text-primary">擁有者</span>}
+                </span>
+                {!owner && railwayAuthEnabled && (
+                  <button
+                    type="button"
+                    disabled={revealingId === a.user_id}
+                    aria-label={revealed[a.user_id] ? "隱藏密碼" : "查看密碼"}
+                    onClick={() => void togglePassword(a.user_id)}
+                    className="grid h-10 w-10 place-items-center rounded-lg text-primary disabled:opacity-50"
+                  >
+                    {revealed[a.user_id] ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                )}
+                {!owner && (
+                  <button
+                    aria-label={`移除總管理者 ${displayAccount(a.email) || a.user_id}`}
+                    onClick={() => remove(a.user_id)}
+                    className="grid h-10 w-10 place-items-center rounded-lg text-destructive"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+              {revealed[a.user_id] && (
+                <div className="mt-2 rounded-lg border border-primary/30 bg-background/70 px-3 py-2 font-mono text-sm">
+                  密碼：{revealed[a.user_id]}
+                </div>
               )}
-              <button
-                onClick={() => setEditId(editId === a.user_id ? null : a.user_id)}
-                className="min-h-10 shrink-0 rounded-lg px-2 text-xs text-primary"
-              >
-                {editId === a.user_id ? "收合" : "重設密碼"}
-              </button>
-              <button
-                aria-label={`移除總管理者 ${displayAccount(a.email) || a.user_id}`}
-                onClick={() => remove(a.user_id)}
-                className="grid h-10 w-10 place-items-center rounded-lg text-destructive"
-              >
-                <Trash2 className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              建立：{displayDate(a.created_at)} / 最近登入：{displayDate(a.last_login_at)}
-            </p>
-            {revealed[a.user_id] && (
-              <div className="mt-2 rounded-lg border border-primary/30 bg-background/70 px-3 py-2 font-mono text-sm">
-                密碼：{revealed[a.user_id]}
-              </div>
-            )}
-            {editId === a.user_id && (
-              <div className="mt-3 space-y-2 border-t border-border pt-3">
-                <input
-                  value={newPass}
-                  type="password"
-                  onChange={(e) => setNewPass(e.target.value)}
-                  placeholder="新密碼（至少 8 碼）"
-                  className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
-                />
-                <button
-                  onClick={() => void resetPassword(a.user_id)}
-                  className="min-h-12 w-full rounded-xl bg-primary font-display text-primary-foreground"
-                >
-                  更新密碼
-                </button>
-              </div>
-            )}
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
       <div className="space-y-2 border-t border-border pt-3">
         <input
@@ -601,12 +543,12 @@ function ManageSuperadmins() {
   );
 }
 
-export function AccountSettings({ onOpenDeveloper }: { onOpenDeveloper?: () => void }) {
+export function AccountSettings() {
   const { currentAdmin } = useTournament();
   if (!currentAdmin) return null;
   return (
     <div className="space-y-4">
-      <MyAccount key={currentAdmin.email} onOpenDeveloper={onOpenDeveloper} />
+      <MyAccount key={currentAdmin.email} />
       {isOwnerEmail(currentAdmin.email) && <ManageSuperadmins />}
       {currentAdmin.isSuper && <ManageAdmins />}
     </div>

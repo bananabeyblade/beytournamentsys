@@ -7,10 +7,11 @@ import { QrRegisterCard } from "./QrRegisterCard";
 import { AdminLoginQrCard } from "./AdminLoginQrCard";
 import { TournamentHistory } from "./TournamentHistory";
 import { AuditLogCard } from "./AuditLogCard";
+import { SystemStatusCard } from "./SystemStatusCard";
 import { AdminPlayerRegistration } from "./AdminPlayerRegistration";
 import { RefereeAccessCard } from "./RefereeAccessCard";
 
-export function SettingsTab({ onOpenDeveloper }: { onOpenDeveloper?: () => void }) {
+export function SettingsTab() {
   const {
     role,
     setRole,
@@ -155,7 +156,7 @@ export function SettingsTab({ onOpenDeveloper }: { onOpenDeveloper?: () => void 
         </button>
       </div>
 
-      <AccountSettings onOpenDeveloper={onOpenDeveloper} />
+      <AccountSettings />
 
       <AdminPlayerRegistration />
 
@@ -166,6 +167,8 @@ export function SettingsTab({ onOpenDeveloper }: { onOpenDeveloper?: () => void 
       {currentAdmin?.isSuper && <AdminLoginQrCard />}
 
       {role === "admin" && <TournamentHistory />}
+
+      {currentAdmin?.isSuper && <SystemStatusCard />}
 
       <AuditLogCard />
 

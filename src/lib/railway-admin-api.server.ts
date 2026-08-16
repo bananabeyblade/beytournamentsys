@@ -114,7 +114,10 @@ async function assertRefereeStateMutation(tournamentId: string, state: Body) {
 export async function railwayAdminGet(request: Request, action: string) {
   const user = await requireRailwayAdmin(
     request,
-    action === "admins" || action === "audit" || action === "admin-password",
+    action === "admins" ||
+      action === "created-superadmins" ||
+      action === "audit" ||
+      action === "admin-password",
   );
   const url = new URL(request.url);
   if (action === "referee-access")
@@ -286,8 +289,22 @@ export async function railwayAdminGet(request: Request, action: string) {
   }
   if (action === "admins") {
     const result = await queryPostgres(
-      `SELECT r.id,u.id AS user_id,u.email,u.display_name,r.role,r.created_at
+      `SELECT r.id,u.id AS user_id,u.email,u.display_name,r.role,r.created_at,
+              r.created_by_user_id,u.last_login_at
        FROM admin_roles r JOIN app_users u ON u.id=r.user_id ORDER BY r.created_at`,
+    );
+    return { admins: result.rows };
+  }
+  if (action === "created-superadmins") {
+    const owner = await requireRailwayOwner(request);
+    const result = await queryPostgres(
+      `SELECT r.id,u.id AS user_id,u.email,u.display_name,r.role,r.created_at,
+              r.created_by_user_id,u.last_login_at
+       FROM admin_roles r
+       JOIN app_users u ON u.id=r.user_id
+       WHERE r.role='superadmin' AND r.created_by_user_id=$1
+       ORDER BY r.created_at`,
+      [owner.id],
     );
     return { admins: result.rows };
   }
@@ -487,7 +504,7 @@ export async function railwayAdminPost(request: Request, action: string, body: B
         : !/^[a-z0-9_.-]{3,30}$/.test(rawAccount)
     )
       throw new AdminApiError(400, "ACCOUNT_INVALID");
-    if (role === "superadmin") await requireRailwayOwner(request);
+    const creator = role === "superadmin" ? await requireRailwayOwner(request) : user;
     if (role === "superadmin" && email === "john410403123@gmail.com")
       throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
     const password = text(body.password, "PASSWORD", 200);
@@ -514,8 +531,11 @@ export async function railwayAdminPost(request: Request, action: string, body: B
         ],
       );
       await client.query(
-        "INSERT INTO admin_roles(user_id,email,role) VALUES($1,$2,$3) ON CONFLICT(user_id,role) DO NOTHING",
-        [upserted.rows[0].id, email, role],
+        `INSERT INTO admin_roles(user_id,email,role,created_by_user_id) VALUES($1,$2,$3,$4)
+         ON CONFLICT(user_id,role) DO UPDATE SET
+           email=EXCLUDED.email,
+           created_by_user_id=COALESCE(admin_roles.created_by_user_id,EXCLUDED.created_by_user_id)`,
+        [upserted.rows[0].id, email, role, role === "superadmin" ? creator.id : null],
       );
       return upserted.rows[0];
     });

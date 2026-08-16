@@ -73,7 +73,7 @@ function Row({
  * mounted somewhere a regular referee account can reach.
  */
 export function SystemStatusCard() {
-  const { role, spectator, currentAdmin, syncStatus, lastSyncedAt, retrySync } = useTournament();
+  const { role, spectator, isOwner, syncStatus, lastSyncedAt, retrySync } = useTournament();
   const { online, justReconnected } = useConnection();
 
   const [status, setStatus] = useState<SystemStatus | null>(null);
@@ -81,7 +81,7 @@ export function SystemStatusCard() {
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const aliveRef = useRef(true);
 
-  const visible = !spectator && role === "admin" && !!currentAdmin?.isSuper;
+  const visible = !spectator && role === "admin" && isOwner;
 
   const check = useCallback(async () => {
     setBusy(true);

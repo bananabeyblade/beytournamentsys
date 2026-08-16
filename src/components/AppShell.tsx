@@ -1,11 +1,23 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Swords, GitBranch, Users, Settings, Shield, Eye, Moon, Sun, Loader2 } from "lucide-react";
+import {
+  Swords,
+  GitBranch,
+  Users,
+  Settings,
+  Shield,
+  Eye,
+  Moon,
+  Sun,
+  Loader2,
+  Crown,
+} from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { LiveTab } from "@/components/LiveTab";
 import { BracketTab } from "@/components/BracketTab";
 import { PlayersTab } from "@/components/PlayersTab";
 import { SettingsTab } from "@/components/SettingsTab";
+import { PlatformOwnerTab } from "@/components/PlatformOwnerTab";
 import { LandingPage } from "@/components/LandingPage";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { SyncStatusBadge } from "@/components/SyncStatusBadge";
@@ -24,6 +36,7 @@ const TABS = [
   { id: "bracket", label: "賽程", icon: GitBranch },
   { id: "players", label: "選手", icon: Users },
   { id: "settings", label: "設定", icon: Settings },
+  { id: "platform", label: "開發者", icon: Crown },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -49,7 +62,7 @@ export function AppShell({ title }: { title?: string }) {
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabId>("live");
   const [theme, setTheme] = useState<Theme>("dark");
-  const { role, setRole, currentAdmin, authReady, matches, spectator, currentTournament } =
+  const { role, setRole, currentAdmin, authReady, matches, spectator, currentTournament, isOwner } =
     useTournament();
   const [showLogin, setShowLogin] = useState(false);
   // Spectators arrive via the QR flow; surface the name they registered with.
@@ -133,8 +146,8 @@ export function AppShell({ title }: { title?: string }) {
   const tabs = currentAdmin?.isReferee
     ? TABS.filter((t) => t.id === "live" || t.id === "bracket")
     : spectator
-      ? TABS.filter((t) => t.id !== "settings")
-      : TABS;
+      ? TABS.filter((t) => t.id !== "settings" && t.id !== "platform")
+      : TABS.filter((t) => t.id !== "platform" || isOwner);
   const activeTab = tabs.some((t) => t.id === tab) ? tab : "live";
 
   // While the auth check is still in flight we don't yet know whether to
@@ -231,6 +244,7 @@ export function AppShell({ title }: { title?: string }) {
             {activeTab === "bracket" && <BracketTab />}
             {activeTab === "players" && <PlayersTab />}
             {activeTab === "settings" && <SettingsTab />}
+            {activeTab === "platform" && <PlatformOwnerTab />}
           </>
         )}
       </main>

@@ -48,10 +48,10 @@ const BracketMatchCard = memo(function BracketMatchCard({
       style={{ contain: "layout paint", height: CARD_H }}
       className={`relative w-full overflow-hidden rounded-md border text-left ${
         m.status === "live"
-          ? "danger-edge border-danger/70 bg-danger/10"
+          ? "danger-edge border-danger bg-danger/25"
           : done
             ? "border-primary/50 bg-accent/20"
-            : "border-border bg-secondary/40"
+            : "border-border/50 bg-secondary/15"
       } ${mine ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""}`}
     >
       {m.status === "live" && (
@@ -344,8 +344,12 @@ function PrelimLinks({
 }
 
 export function BracketTab() {
-  const { matches, players, playerName, roundName, currentTournament } = useTournament();
-  const joinedName = useJoinedName(currentTournament?.code);
+  const { matches, players, playerName, roundName, currentTournament, role, currentAdmin } =
+    useTournament();
+  const joinedNameRaw = useJoinedName(currentTournament?.code);
+  // Admins viewing as admin shouldn't see their own participant highlight —
+  // only the plain participant view (role === "player") shows "mine".
+  const joinedName = currentAdmin && role === "admin" ? "" : joinedNameRaw;
   const [openId, setOpenId] = useState<string | null>(null);
   const { viewportRef, contentRef, zoom, zoomBy, reset, fit, didMove, handlers } = usePanZoom();
 

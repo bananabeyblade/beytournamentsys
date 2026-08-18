@@ -103,7 +103,7 @@ export function QrRegisterCard() {
   return (
     <div className="panel space-y-3 p-3">
       <h2 className="flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
-        <QrCode className="h-4 w-4" /> 報名 QR CODE
+        <QrCode className="h-4 w-4" /> 賽事＆報名 QR CODE 生成
       </h2>
 
       {currentTournament && currentTournament.status === "open" ? (

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { listTournaments, deleteTournament, type TournamentRow } from "@/lib/tournaments";
 import { buildTournamentText, downloadText, exportFileName } from "@/lib/tournament-export";
 import { useTournament } from "@/lib/tournament-store";
+import { isOwnerEmail } from "@/lib/account-id";
 
 export function TournamentHistory() {
   const { currentAdmin, currentTournament, resumeTournament } = useTournament();
@@ -58,6 +59,7 @@ export function TournamentHistory() {
   }, []);
 
   if (!currentAdmin) return null;
+  const isDeveloper = isOwnerEmail(currentAdmin.email);
 
   return (
     <div className="panel space-y-3 p-3">
@@ -112,7 +114,7 @@ export function TournamentHistory() {
                 >
                   <Copy className="h-4 w-4" />
                 </button>
-                {currentAdmin.isSuper && (
+                {isDeveloper && (
                   <button
                     aria-label="刪除賽事"
                     onClick={() => void remove(r)}
@@ -129,7 +131,7 @@ export function TournamentHistory() {
       ) : (
         <p className="text-sm text-muted-foreground">尚無賽事紀錄。</p>
       )}
-      {currentAdmin.isSuper && (
+      {isDeveloper && (
         <p className="text-[11px] text-muted-foreground">使用中的賽事無法刪除，請先結束賽事。</p>
       )}
     </div>

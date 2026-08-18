@@ -343,11 +343,11 @@ export async function railwayAdminPost(request: Request, action: string, body: B
   }
   const superadminActions = new Set([
     "reset",
-    "delete-tournament",
     "create-admin",
     "remove-admin",
     "set-admin-password",
   ]);
+  const ownerOnlyActions = new Set(["delete-tournament"]);
   const operatorActions = new Set(["publish", "finish", "record-audit"]);
   const operatorTournamentId =
     action === "record-audit"
@@ -360,7 +360,9 @@ export async function railwayAdminPost(request: Request, action: string, body: B
   const user =
     operatorActions.has(action) && operatorTournamentId
       ? await requireRailwayOperator(request, operatorTournamentId)
-      : await requireRailwayAdmin(request, superadminActions.has(action));
+      : ownerOnlyActions.has(action)
+        ? await requireRailwayOwner(request)
+        : await requireRailwayAdmin(request, superadminActions.has(action));
   if (action === "record-audit") {
     const auditAction = text(body.action, "ACTION", 60);
     const tournamentId =

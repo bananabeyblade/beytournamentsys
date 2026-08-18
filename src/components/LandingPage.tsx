@@ -60,7 +60,7 @@ const STEPS = [
     number: "01",
     eyebrow: "CREATE QR CODE",
     title: "輸入新賽事名稱",
-    body: "在「報名 QR CODE」區塊先填入賽事名稱。這個名稱會出現在參賽者掃描後的報名頁面。",
+    body: "在「賽事＆報名 QR CODE 生成」區塊先填入賽事名稱。這個名稱會出現在參賽者掃描後的報名頁面。",
     icon: ClipboardCheck,
     screenshotFocus: "name",
   },
@@ -199,7 +199,7 @@ function EmbeddedQrCreation({ focus }: { focus: CreationFocusTarget }) {
       <div className="bg-background p-3">
         <div className="panel space-y-3 p-3">
           <h3 className="flex items-center gap-2 text-sm tracking-widest text-muted-foreground">
-            <QrCode className="h-4 w-4" /> 報名 QR CODE
+            <QrCode className="h-4 w-4" /> 賽事＆報名 QR CODE 生成
           </h3>
           <p className="text-xs text-muted-foreground">
             建立一場新賽事後即可產生專屬報名 QR Code。
@@ -269,7 +269,7 @@ function QrCreationStory() {
                 className={`landing-story-step ${isActive ? "landing-story-step-active" : ""}`}
               >
                 <p className="font-display text-sm tracking-[0.18em] text-primary">
-                  {step.number} · {step.eyebrow}
+                  步驟{Number(step.number)} · {step.eyebrow}
                 </p>
                 <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
                   {step.title}
@@ -375,7 +375,7 @@ function RegistrationStory() {
                 className={`landing-story-step ${isActive ? "landing-story-step-active" : ""}`}
               >
                 <p className="font-display text-sm tracking-[0.18em] text-primary">
-                  {step.number} · {step.eyebrow}
+                  步驟{Number(step.number)} · {step.eyebrow}
                 </p>
                 <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
                   {step.title}
@@ -508,7 +508,7 @@ function BracketStory() {
                 className={`landing-story-step ${isActive ? "landing-story-step-active" : ""}`}
               >
                 <p className="font-display text-sm tracking-[0.18em] text-primary">
-                  {step.number} · {step.eyebrow}
+                  步驟{Number(step.number)} · {step.eyebrow}
                 </p>
                 <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
                   {step.title}
@@ -572,7 +572,7 @@ function ScoringStory() {
           />
         </div>
         <div className="mt-8">
-          <p className="font-display text-sm tracking-[0.2em] text-primary">10 · LIVE SCORING</p>
+          <p className="font-display text-sm tracking-[0.2em] text-primary">步驟10 · LIVE SCORING</p>
           <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
             多位裁判，同步掌握賽況
           </h2>
@@ -821,7 +821,7 @@ export function LandingPage({ onAdminLogin }: LandingPageProps) {
                 <ProductPreview step={step} />
                 <div className="mt-8">
                   <p className="font-display text-sm tracking-[0.2em] text-primary">
-                    {step.number} · {step.eyebrow}
+                    步驟{Number(step.number)} · {step.eyebrow}
                   </p>
                   <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
                     {step.title}

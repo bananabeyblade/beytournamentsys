@@ -13,6 +13,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { railwayAuthEnabled } from "@/lib/railway-api";
 import { DeckStatisticsCard } from "./DeckStatisticsCard";
+import { QrRegisterCard } from "./QrRegisterCard";
 
 /** Coalescing window for bursts of sign-ups (e.g. 64 phones scanning at once). */
 const REFRESH_THROTTLE_MS = 1000;
@@ -24,6 +25,7 @@ const APPROVE_BATCH = 25;
 export function PlayersTab() {
   const { players, addPlayers, removePlayer, role, currentAdmin, currentTournament, rosterLocked } =
     useTournament();
+  const noQrYet = !currentTournament;
   const [single, setSingle] = useState("");
   const [bulk, setBulk] = useState("");
   const [pending, setPending] = useState<Registration[]>([]);
@@ -149,43 +151,50 @@ export function PlayersTab() {
 
   return (
     <div className="space-y-4">
+      {role === "admin" && <QrRegisterCard />}
+
       {role === "admin" && (
         <div className="panel space-y-3 p-3">
           <h2 className="text-sm tracking-widest text-muted-foreground">新增選手 ADD PLAYER</h2>
+          {noQrYet && (
+            <p className="rounded-xl border border-primary/50 bg-accent/20 p-3 text-xs text-primary">
+              請先在上方建立賽事並產生報名 QR Code，才能新增參賽者。
+            </p>
+          )}
           <div className="flex gap-2">
             <input
               value={single}
-              disabled={rosterLocked}
+              disabled={rosterLocked || noQrYet}
               onChange={(e) => setSingle(e.target.value)}
               placeholder="選手名稱"
               className="min-h-12 min-w-0 flex-1 rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
             />
             <button
-              disabled={rosterLocked}
+              disabled={rosterLocked || noQrYet}
               onClick={() => {
                 addPlayers(newNames([single]));
                 setSingle("");
               }}
-              className="grid min-h-12 w-14 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"
+              className="grid min-h-12 w-14 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40"
             >
               <Plus className="h-5 w-5" />
             </button>
           </div>
           <textarea
             value={bulk}
-            disabled={rosterLocked}
+            disabled={rosterLocked || noQrYet}
             onChange={(e) => setBulk(e.target.value)}
             rows={4}
             placeholder={"批次新增：一行一位選手\n例如：\n阿翔\n小凱"}
             className="w-full rounded-xl border border-input bg-input/40 p-3 text-sm outline-none focus:border-primary"
           />
           <button
-            disabled={rosterLocked}
+            disabled={rosterLocked || noQrYet}
             onClick={() => {
               addPlayers(newNames(bulk.split("\n")));
               setBulk("");
             }}
-            className="min-h-12 w-full rounded-xl border border-primary/60 bg-accent/40 font-display text-primary"
+            className="min-h-12 w-full rounded-xl border border-primary/60 bg-accent/40 font-display text-primary disabled:opacity-40"
           >
             批次匯入 BULK ADD
           </button>

@@ -22,3 +22,10 @@ export const OWNER_EMAIL = "john410403123@gmail.com";
 export function isOwnerEmail(email: string | null | undefined): boolean {
   return (email ?? "").trim().toLowerCase() === OWNER_EMAIL;
 }
+
+/** The developer account — same identity as the owner, used for developer-only UI/features. */
+export const DEVELOPER_EMAIL = OWNER_EMAIL;
+
+export function isDeveloperEmail(email: string | null | undefined): boolean {
+  return isOwnerEmail(email);
+}

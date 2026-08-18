@@ -598,6 +598,10 @@ export function TournamentProvider({
         toast.error("賽程已產生，請先重置賽事後再調整選手名單。");
         return;
       }
+      if (!currentTournament) {
+        toast.error("請先建立賽事並產生報名 QR Code，才能新增參賽者。");
+        return;
+      }
       const clean = names.map((n) => n.trim()).filter(Boolean);
       if (!clean.length) return;
       setPlayers((prev) => [
@@ -606,7 +610,7 @@ export function TournamentProvider({
       ]);
       log("player_add", { names: clean, count: clean.length });
     },
-    [log],
+    [log, currentTournament],
   );
 
   const removePlayer = useCallback(
@@ -885,9 +889,13 @@ export function TournamentProvider({
       toast.error("賽程已產生，請先重置賽事後才能載入示範選手。");
       return;
     }
+    if (!currentTournament) {
+      toast.error("請先建立賽事並產生報名 QR Code，才能載入示範選手。");
+      return;
+    }
     setMatches([]);
     setPlayers(SAMPLE_NAMES.map((name, i) => ({ id: uid(), name, seed: i + 1 })));
-  }, []);
+  }, [currentTournament]);
 
   const startNewTournament = useCallback(async (name: string, logoUrl?: string | null) => {
     const clean = name.trim();

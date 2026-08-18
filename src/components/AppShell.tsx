@@ -22,7 +22,7 @@ import logoAsset from "@/assets/beyx-logo.png";
 const TABS = [
   { id: "live", label: "對戰", icon: Swords },
   { id: "bracket", label: "賽程", icon: GitBranch },
-  { id: "players", label: "選手", icon: Users },
+  { id: "players", label: "賽事管理", icon: Users },
   { id: "settings", label: "設定", icon: Settings },
 ] as const;
 

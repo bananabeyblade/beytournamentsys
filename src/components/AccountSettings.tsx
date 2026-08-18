@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { Eye, EyeOff, KeyRound, Save, ShieldPlus, Trash2, UserCog, UserPlus } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import {
+  Eye,
+  EyeOff,
+  KeyRound,
+  Save,
+  ShieldPlus,
+  Terminal,
+  Trash2,
+  UserCog,
+  UserPlus,
+} from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -11,7 +22,7 @@ import {
   revealAdminPasswordFn,
   setAdminPasswordFn,
 } from "@/lib/admin-client";
-import { USERNAME_RE, displayAccount, isOwnerEmail } from "@/lib/account-id";
+import { USERNAME_RE, displayAccount, isDeveloperEmail, isOwnerEmail } from "@/lib/account-id";
 import { railwayAuthEnabled } from "@/lib/railway-api";
 
 type Msg = { ok: boolean; text: string } | null;
@@ -155,7 +166,7 @@ function MyAccount() {
   );
 }
 
-function ManageAdmins() {
+export function ManageAdmins() {
   const [rows, setRows] = useState<AdminRow[]>([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -378,7 +389,7 @@ function ManageAdmins() {
   );
 }
 
-function ManageSuperadmins() {
+export function ManageSuperadmins() {
   const { currentAdmin } = useTournament();
   const [rows, setRows] = useState<AdminRow[]>([]);
   const [email, setEmail] = useState("");
@@ -549,6 +560,14 @@ export function AccountSettings() {
   return (
     <div className="space-y-4">
       <MyAccount key={currentAdmin.email} />
+      {isDeveloperEmail(currentAdmin.email) && (
+        <Link
+          to="/developer"
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 font-display text-primary"
+        >
+          <Terminal className="h-4 w-4" /> 開發者控制台
+        </Link>
+      )}
       {isOwnerEmail(currentAdmin.email) && <ManageSuperadmins />}
       {currentAdmin.isSuper && <ManageAdmins />}
     </div>

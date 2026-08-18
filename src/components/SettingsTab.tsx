@@ -3,8 +3,6 @@ import { LogIn, LogOut, Shuffle, RotateCcw, Shield, Eye } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { AccountSettings } from "./AccountSettings";
 import { FirstTimeSetup } from "./FirstTimeSetup";
-import { QrRegisterCard } from "./QrRegisterCard";
-import { AdminLoginQrCard } from "./AdminLoginQrCard";
 import { TournamentHistory } from "./TournamentHistory";
 import { AuditLogCard } from "./AuditLogCard";
 import { SystemStatusCard } from "./SystemStatusCard";
@@ -160,11 +158,7 @@ export function SettingsTab() {
 
       <AdminPlayerRegistration />
 
-      {role === "admin" && <QrRegisterCard />}
-
       {role === "admin" && <RefereeAccessCard />}
-
-      {currentAdmin?.isSuper && <AdminLoginQrCard />}
 
       {role === "admin" && <TournamentHistory />}
 
@@ -201,9 +195,9 @@ export function SettingsTab() {
             <Shuffle className="h-5 w-5" /> 隨機產生賽程 RANDOM BRACKET
           </button>
           <button
-            disabled={rosterLocked}
+            disabled={rosterLocked || !currentTournament}
             onClick={loadSample}
-            className="min-h-12 w-full rounded-xl border border-primary/50 bg-accent/30 text-primary"
+            className="min-h-12 w-full rounded-xl border border-primary/50 bg-accent/30 text-primary disabled:opacity-40"
           >
             載入 16 位示範選手
           </button>

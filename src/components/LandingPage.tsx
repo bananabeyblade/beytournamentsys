@@ -572,7 +572,9 @@ function ScoringStory() {
           />
         </div>
         <div className="mt-8">
-          <p className="font-display text-sm tracking-[0.2em] text-primary">步驟10 · LIVE SCORING</p>
+          <p className="font-display text-sm tracking-[0.2em] text-primary">
+            步驟10 · LIVE SCORING
+          </p>
           <h2 className="mt-3 font-display text-3xl leading-tight sm:text-4xl">
             多位裁判，同步掌握賽況
           </h2>

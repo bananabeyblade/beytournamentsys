@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Terminal } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { ArrowLeft, Terminal } from "lucide-react";
 import { TournamentProvider, useTournament } from "@/lib/tournament-store";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { ManageAdmins, ManageSuperadmins } from "@/components/AccountSettings";
@@ -21,6 +21,7 @@ export const Route = createFileRoute("/developer")({
 
 function DeveloperConsolePage() {
   const { currentAdmin, setRole } = useTournament();
+  const navigate = useNavigate();
 
   // This console is only reachable by the developer; ensure SystemStatusCard's
   // internal admin-role gate is satisfied even though this route mounts a
@@ -30,12 +31,24 @@ function DeveloperConsolePage() {
   }, [currentAdmin, setRole]);
 
   return (
-    <main className="mx-auto max-w-md space-y-4 px-4 py-6">
+    <main className="mx-auto max-w-md space-y-4 px-4 pb-6">
       <ConnectionBanner />
-      <h1 className="flex items-center gap-2 font-display text-2xl neon-text">
-        <Terminal className="h-6 w-6" /> 開發者控制台
-      </h1>
-      <p className="mb-4 text-[11px] tracking-widest text-muted-foreground">DEVELOPER CONSOLE</p>
+      <div className="sticky top-0 z-30 -mx-4 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md">
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1) window.history.back();
+            else void navigate({ to: "/" });
+          }}
+          className="mb-2 flex min-h-10 items-center gap-2 rounded-xl border border-border bg-secondary px-3 text-sm"
+        >
+          <ArrowLeft className="h-4 w-4" /> 返回
+        </button>
+        <h1 className="flex items-center gap-2 font-display text-2xl neon-text">
+          <Terminal className="h-6 w-6" /> 開發者控制台
+        </h1>
+        <p className="text-[11px] tracking-widest text-muted-foreground">DEVELOPER CONSOLE</p>
+      </div>
 
       {!currentAdmin ? (
         <div className="panel space-y-3 p-3">

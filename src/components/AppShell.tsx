@@ -75,6 +75,10 @@ export function AppShell({ title }: { title?: string }) {
     void fetchTournamentByCode(code)
       .then((event) => {
         if (!alive) return;
+        if (!event || event.status !== "open") {
+          clearJoinedRegistration();
+          return;
+        }
         const exists = event?.live_state?.players.some((player) => {
           const value = player as { name?: unknown };
           return typeof value.name === "string" && isSameName(value.name, name);
@@ -90,6 +94,13 @@ export function AppShell({ title }: { title?: string }) {
       alive = false;
     };
   }, [authReady, currentAdmin, navigate, spectator]);
+
+  // Finished QR events should not trap a participant in an obsolete event.
+  useEffect(() => {
+    if (!spectator || currentTournament?.status !== "finished") return;
+    clearJoinedRegistration();
+    void navigate({ to: "/", replace: true });
+  }, [currentTournament?.status, navigate, spectator]);
 
   // Clear a browser's old QR identity when the event has started and that
   // name is not in its published roster. This prevents a stale label from

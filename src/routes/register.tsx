@@ -244,12 +244,20 @@ function PlayerRegisterPage() {
       return;
     }
     fetchTournamentByCode(code)
-      .then((row) => alive && setTournament(row))
+      .then((row) => {
+        if (!alive) return;
+        if (row?.status === "finished") {
+          clearJoinedRegistration();
+          void navigate({ to: "/", replace: true });
+          return;
+        }
+        setTournament(row);
+      })
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
-  }, [code]);
+  }, [code, navigate]);
 
   const submit = async () => {
     if (!tournament) return;

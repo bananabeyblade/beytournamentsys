@@ -4,6 +4,7 @@ import { useTournament } from "@/lib/tournament-store";
 import { addRegistration, isNameTaken } from "@/lib/registration";
 import { supabase } from "@/integrations/supabase/client";
 import { railwayAuthEnabled } from "@/lib/railway-api";
+import { writeJoinedName, writeJoinedTournamentCode } from "@/lib/joined-name";
 
 const RAILWAY_PLAYER_NAME = "beyx_admin_player_name";
 
@@ -83,6 +84,10 @@ export function AdminPlayerRegistration() {
         return;
       }
       await addRegistration(currentTournament.id, clean);
+      // Use the same browser identity as the public QR flow so the bracket can
+      // mark this administrator's player position after approval.
+      writeJoinedTournamentCode(currentTournament.code);
+      writeJoinedName(clean);
       setMessage({ ok: true, text: "已送出報名，請到「選手」頁審核後加入名單。" });
     } catch (error) {
       setMessage({

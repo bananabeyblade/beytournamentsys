@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Eye,
@@ -554,7 +554,7 @@ export function ManageSuperadmins() {
   );
 }
 
-export function AccountSettings() {
+export function AccountSettings({ beforeAdminAccounts }: { beforeAdminAccounts?: ReactNode }) {
   const { currentAdmin } = useTournament();
   if (!currentAdmin) return null;
   return (
@@ -568,6 +568,7 @@ export function AccountSettings() {
           <Terminal className="h-4 w-4" /> 開發者控制台
         </Link>
       )}
+      {beforeAdminAccounts}
       {isOwnerEmail(currentAdmin.email) && <ManageSuperadmins />}
       {currentAdmin.isSuper && <ManageAdmins />}
     </div>

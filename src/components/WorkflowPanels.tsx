@@ -241,16 +241,18 @@ export function ScoringPanel({
           </button>
         ))}
       </div>
-      {winner && (
-        <div className="landing-winner-reveal mt-4 rounded-xl border-2 border-primary bg-accent/40 p-4 text-center neon-edge">
-          <Trophy className="mx-auto h-8 w-8 text-primary" />
-          <p className="mt-2 font-display text-lg neon-text">選手 {winner} Wins!</p>
-          <p className="text-xs text-muted-foreground">確認後將自動晉級下一輪</p>
-          <button className="mt-3 min-h-14 w-full rounded-xl bg-primary font-display text-lg text-primary-foreground">
-            確認勝利 CONFIRM
-          </button>
-        </div>
-      )}
+      <div className="mt-4 min-h-48">
+        {winner && (
+          <div className="landing-winner-reveal rounded-xl border-2 border-primary bg-accent/40 p-4 text-center neon-edge">
+            <Trophy className="mx-auto h-8 w-8 text-primary" />
+            <p className="mt-2 font-display text-lg neon-text">選手 {winner} Wins!</p>
+            <p className="text-xs text-muted-foreground">確認後將自動晉級下一輪</p>
+            <button className="mt-3 min-h-14 w-full rounded-xl bg-primary font-display text-lg text-primary-foreground">
+              確認勝利 CONFIRM
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

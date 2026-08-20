@@ -787,7 +787,7 @@ export function LandingPage({ onAdminLogin }: LandingPageProps) {
             </button>
             <a
               href="#flow"
-              className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border font-bold text-foreground"
+              className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-secondary px-5 font-bold text-secondary-foreground transition-colors hover:bg-secondary/80"
             >
               查看操作流程 <ArrowDown className="h-4 w-4" />
             </a>

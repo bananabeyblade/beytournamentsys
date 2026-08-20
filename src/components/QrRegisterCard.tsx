@@ -215,21 +215,22 @@ export function QrRegisterCard() {
         <p className="text-xs text-muted-foreground">建立一場新賽事後即可產生專屬報名 QR Code。</p>
       )}
 
-      {currentAdmin?.isSuper ? (
-        <TournamentCreationForm
-          name={name}
-          onNameChange={setName}
-          logoPreview={logoPreview}
-          onLogoChange={pickLogo}
-          error={err}
-          busy={busy}
-          onCreate={() => void create()}
-        />
-      ) : (
-        <p className="border-t border-border pt-3 text-xs text-muted-foreground">
-          僅總管理者可以建立新賽事。
-        </p>
-      )}
+      {!currentTournament &&
+        (currentAdmin?.isSuper ? (
+          <TournamentCreationForm
+            name={name}
+            onNameChange={setName}
+            logoPreview={logoPreview}
+            onLogoChange={pickLogo}
+            error={err}
+            busy={busy}
+            onCreate={() => void create()}
+          />
+        ) : (
+          <p className="border-t border-border pt-3 text-xs text-muted-foreground">
+            僅總管理者可以建立新賽事。
+          </p>
+        ))}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Eye, EyeOff, KeyRound, Save, ShieldPlus, Trash2, UserCog, UserPlus } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { supabase } from "@/integrations/supabase/client";
@@ -601,12 +601,19 @@ function ManageSuperadmins() {
   );
 }
 
-export function AccountSettings({ onOpenDeveloper }: { onOpenDeveloper?: () => void }) {
+export function AccountSettings({
+  onOpenDeveloper,
+  beforeAdminAccounts,
+}: {
+  onOpenDeveloper?: () => void;
+  beforeAdminAccounts?: ReactNode;
+}) {
   const { currentAdmin } = useTournament();
   if (!currentAdmin) return null;
   return (
     <div className="space-y-4">
       <MyAccount key={currentAdmin.email} onOpenDeveloper={onOpenDeveloper} />
+      {beforeAdminAccounts}
       {currentAdmin.isDeveloper && <ManageSuperadmins />}
       {currentAdmin.isSuper && <ManageAdmins />}
     </div>

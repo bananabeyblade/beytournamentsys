@@ -1,4 +1,4 @@
-import { Crown, RefreshCw, UserRound } from "lucide-react";
+import { ArrowLeft, Crown, RefreshCw, UserRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { listDeveloperAccountsFn } from "@/lib/admin-client";
 import { displayAccount } from "@/lib/account-id";
@@ -34,7 +34,7 @@ function roleLabel(account: DeveloperAccount) {
  * Platform diagnostics are deliberately kept outside the normal event
  * settings area. Only the Google platform owner can open this tab.
  */
-export function PlatformOwnerTab() {
+export function PlatformOwnerTab({ onBack }: { onBack: () => void }) {
   const { isOwner } = useTournament();
   const [accounts, setAccounts] = useState<DeveloperAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,12 +52,20 @@ export function PlatformOwnerTab() {
 
   return (
     <div className="space-y-4">
-      <div className="panel flex items-start gap-3 p-3">
+      <div className="panel sticky top-[61px] z-20 -mx-1 flex items-center gap-3 bg-card/95 p-3 backdrop-blur-md">
+        <button
+          type="button"
+          onClick={onBack}
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border bg-secondary text-foreground"
+          aria-label="返回上一頁"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-primary/60 bg-accent/30 text-primary">
           <Crown className="h-5 w-5" />
         </div>
-        <div>
-          <h2 className="font-display text-sm text-foreground">開發者 DEVELOPER</h2>
+        <div className="min-w-0">
+          <h2 className="font-display text-sm text-foreground">開發者控制台 DEVELOPER CONSOLE</h2>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             john410403123@gmail.com 的 Google 登入帳號是唯一開發者，可使用完整平台功能。
           </p>

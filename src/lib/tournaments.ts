@@ -221,7 +221,7 @@ export async function fetchLatestOpenTournament(): Promise<TournamentRow | null>
   return (data as unknown as TournamentRow) ?? null;
 }
 
-/** Superadmin-only (enforced by row-level policies). Removes a tournament and its registrations. */
+/** Owner/developer-only (enforced by row-level policies). Removes a tournament and its registrations. */
 export async function deleteTournament(id: string) {
   if (railwayAuthEnabled) {
     await railwayApi("/api/admin/delete-tournament", {
@@ -231,5 +231,5 @@ export async function deleteTournament(id: string) {
     return;
   }
   const { error } = await supabase.from("tournaments").delete().eq("id", id);
-  if (error) throw new Error("刪除賽事失敗（需要總管理者權限）");
+  if (error) throw new Error("刪除賽事失敗（僅限開發者操作）");
 }

@@ -114,11 +114,7 @@ async function assertRefereeStateMutation(tournamentId: string, state: Body) {
 export async function railwayAdminGet(request: Request, action: string) {
   const user = await requireRailwayAdmin(
     request,
-    action === "admins" ||
-      action === "created-superadmins" ||
-      action === "developer-accounts" ||
-      action === "audit" ||
-      action === "admin-password",
+    action === "admins" || action === "audit" || action === "admin-password",
   );
   const url = new URL(request.url);
   if (action === "referee-access")
@@ -290,51 +286,10 @@ export async function railwayAdminGet(request: Request, action: string) {
   }
   if (action === "admins") {
     const result = await queryPostgres(
-      `SELECT r.id,u.id AS user_id,u.email,u.display_name,r.role,r.created_at,
-              r.created_by_user_id,u.last_login_at
+      `SELECT r.id,u.id AS user_id,u.email,u.display_name,r.role,r.created_at
        FROM admin_roles r JOIN app_users u ON u.id=r.user_id ORDER BY r.created_at`,
     );
     return { admins: result.rows };
-  }
-  if (action === "created-superadmins") {
-    const owner = await requireRailwayOwner(request);
-    const result = await queryPostgres(
-      `SELECT r.id,u.id AS user_id,u.email,u.display_name,r.role,r.created_at,
-              r.created_by_user_id,u.last_login_at
-       FROM admin_roles r
-       JOIN app_users u ON u.id=r.user_id
-       WHERE r.role='superadmin' AND r.created_by_user_id=$1
-       ORDER BY r.created_at`,
-      [owner.id],
-    );
-    return { admins: result.rows };
-  }
-  if (action === "developer-accounts") {
-    await requireRailwayOwner(request);
-    const result = await queryPostgres<{
-      id: string;
-      email: string;
-      display_name: string | null;
-      google_subject: string | null;
-      role: "admin" | "superadmin" | null;
-      created_at: string;
-      last_login_at: string | null;
-      created_by_email: string | null;
-    }>(
-      `SELECT u.id,u.email,u.display_name,u.google_subject,u.created_at,u.last_login_at,
-              role_row.role,creator.email AS created_by_email
-       FROM app_users u
-       LEFT JOIN LATERAL (
-         SELECT r.role,r.created_by_user_id
-         FROM admin_roles r
-         WHERE r.user_id=u.id
-         ORDER BY CASE r.role WHEN 'superadmin' THEN 0 ELSE 1 END, r.created_at
-         LIMIT 1
-       ) role_row ON true
-       LEFT JOIN app_users creator ON creator.id=role_row.created_by_user_id
-       ORDER BY u.created_at DESC, lower(u.email)`,
-    );
-    return { accounts: result.rows };
   }
   if (action === "admin-password") {
     const userId = uuid(url.searchParams.get("userId"), "USER_ID");
@@ -388,11 +343,11 @@ export async function railwayAdminPost(request: Request, action: string, body: B
   }
   const superadminActions = new Set([
     "reset",
-    "delete-tournament",
     "create-admin",
     "remove-admin",
     "set-admin-password",
   ]);
+  const ownerOnlyActions = new Set(["delete-tournament"]);
   const operatorActions = new Set(["publish", "finish", "record-audit"]);
   const operatorTournamentId =
     action === "record-audit"
@@ -405,7 +360,9 @@ export async function railwayAdminPost(request: Request, action: string, body: B
   const user =
     operatorActions.has(action) && operatorTournamentId
       ? await requireRailwayOperator(request, operatorTournamentId)
-      : await requireRailwayAdmin(request, superadminActions.has(action));
+      : ownerOnlyActions.has(action)
+        ? await requireRailwayOwner(request)
+        : await requireRailwayAdmin(request, superadminActions.has(action));
   if (action === "record-audit") {
     const auditAction = text(body.action, "ACTION", 60);
     const tournamentId =
@@ -532,7 +489,7 @@ export async function railwayAdminPost(request: Request, action: string, body: B
         : !/^[a-z0-9_.-]{3,30}$/.test(rawAccount)
     )
       throw new AdminApiError(400, "ACCOUNT_INVALID");
-    const creator = role === "superadmin" ? await requireRailwayOwner(request) : user;
+    if (role === "superadmin") await requireRailwayOwner(request);
     if (role === "superadmin" && email === "john410403123@gmail.com")
       throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
     const password = text(body.password, "PASSWORD", 200);
@@ -559,11 +516,8 @@ export async function railwayAdminPost(request: Request, action: string, body: B
         ],
       );
       await client.query(
-        `INSERT INTO admin_roles(user_id,email,role,created_by_user_id) VALUES($1,$2,$3,$4)
-         ON CONFLICT(user_id,role) DO UPDATE SET
-           email=EXCLUDED.email,
-           created_by_user_id=COALESCE(admin_roles.created_by_user_id,EXCLUDED.created_by_user_id)`,
-        [upserted.rows[0].id, email, role, role === "superadmin" ? creator.id : null],
+        "INSERT INTO admin_roles(user_id,email,role) VALUES($1,$2,$3) ON CONFLICT(user_id,role) DO NOTHING",
+        [upserted.rows[0].id, email, role],
       );
       return upserted.rows[0];
     });

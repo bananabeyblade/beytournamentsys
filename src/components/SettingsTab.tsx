@@ -3,8 +3,6 @@ import { LogIn, LogOut, Shuffle, RotateCcw, Shield, Eye } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { AccountSettings } from "./AccountSettings";
 import { FirstTimeSetup } from "./FirstTimeSetup";
-import { QrRegisterCard } from "./QrRegisterCard";
-import { AdminLoginQrCard } from "./AdminLoginQrCard";
 import { TournamentHistory } from "./TournamentHistory";
 import { AuditLogCard } from "./AuditLogCard";
 import { AdminPlayerRegistration } from "./AdminPlayerRegistration";
@@ -57,7 +55,7 @@ function TournamentSettingsPanel() {
         <Shuffle className="h-5 w-5" /> 隨機產生賽程 RANDOM BRACKET
       </button>
       <button
-        disabled={rosterLocked}
+        disabled={rosterLocked || !currentTournament}
         onClick={loadSample}
         className="min-h-12 w-full rounded-xl border border-primary/50 bg-accent/30 text-primary"
       >
@@ -121,7 +119,7 @@ function TournamentSettingsPanel() {
   );
 }
 
-export function SettingsTab({ onOpenDeveloper }: { onOpenDeveloper?: () => void }) {
+export function SettingsTab() {
   const { role, setRole, currentAdmin, authIssue, signIn, signInWithGoogle, logout } =
     useTournament();
 
@@ -248,18 +246,11 @@ export function SettingsTab({ onOpenDeveloper }: { onOpenDeveloper?: () => void 
         </button>
       </div>
 
-      <AccountSettings
-        onOpenDeveloper={onOpenDeveloper}
-        beforeAdminAccounts={<TournamentSettingsPanel />}
-      />
+      <AccountSettings beforeAdminAccounts={<TournamentSettingsPanel />} />
 
       <AdminPlayerRegistration />
 
-      {role === "admin" && <QrRegisterCard />}
-
       {role === "admin" && <RefereeAccessCard />}
-
-      {currentAdmin?.isSuper && <AdminLoginQrCard />}
 
       {role === "admin" && <TournamentHistory />}
 

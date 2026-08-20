@@ -361,10 +361,6 @@ export function TournamentProvider({
           isGoogle:
             user.app_metadata.provider === "google" ||
             user.identities?.some((identity) => identity.provider === "google") === true,
-          isDeveloper:
-            isOwnerEmail(user.email) &&
-            (user.app_metadata.provider === "google" ||
-              user.identities?.some((identity) => identity.provider === "google") === true),
         });
         setRoleState("admin");
         setAuthIssue(null);
@@ -417,16 +413,12 @@ export function TournamentProvider({
         writeActiveTournamentCode(user.tournamentCode);
       setCurrentAdmin({
         id: user.id,
-        // Keep the login identity as the account value. A Google display name
-        // is only presentation data; using it here made account ownership and
-        // role screens appear to point at the wrong account.
-        email:
-          user.role === "referee"
-            ? user.displayName || displayAccount(user.email)
-            : displayAccount(user.email),
+        // Keep the stable account identifier here. Google display names are for
+        // presentation only; using one for `email` hides owner-only settings
+        // because the ownership check must compare the real signed-in email.
+        email: displayAccount(user.email),
         isSuper: user.role === "superadmin",
         isGoogle: user.isGoogle,
-        isDeveloper: user.isDeveloper,
         isReferee: user.role === "referee",
         tournamentId: user.tournamentId,
         tournamentCode: user.tournamentCode,
@@ -606,6 +598,10 @@ export function TournamentProvider({
         toast.error("賽程已產生，請先重置賽事後再調整選手名單。");
         return;
       }
+      if (!currentTournament) {
+        toast.error("請先建立賽事並產生報名 QR Code，才能新增參賽者。");
+        return;
+      }
       const clean = names.map((n) => n.trim()).filter(Boolean);
       if (!clean.length) return;
       setPlayers((prev) => [
@@ -614,7 +610,7 @@ export function TournamentProvider({
       ]);
       log("player_add", { names: clean, count: clean.length });
     },
-    [log],
+    [log, currentTournament],
   );
 
   const removePlayer = useCallback(
@@ -893,9 +889,13 @@ export function TournamentProvider({
       toast.error("賽程已產生，請先重置賽事後才能載入示範選手。");
       return;
     }
+    if (!currentTournament) {
+      toast.error("請先建立賽事並產生報名 QR Code，才能載入示範選手。");
+      return;
+    }
     setMatches([]);
     setPlayers(SAMPLE_NAMES.map((name, i) => ({ id: uid(), name, seed: i + 1 })));
-  }, []);
+  }, [currentTournament]);
 
   const startNewTournament = useCallback(async (name: string, logoUrl?: string | null) => {
     const clean = name.trim();
@@ -1460,7 +1460,7 @@ export function TournamentProvider({
     syncStatus,
     lastSyncedAt,
     retrySync,
-    isOwner: !spectator && currentAdmin?.isDeveloper === true,
+    isOwner: !spectator && isOwnerEmail(currentAdmin?.email),
     resetTournament,
     loadSample,
     spectator,

@@ -1,11 +1,24 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Swords, GitBranch, Users, Settings, Shield, Eye, Moon, Sun, Loader2 } from "lucide-react";
+import {
+  Swords,
+  GitBranch,
+  Users,
+  Settings,
+  Shield,
+  Eye,
+  Moon,
+  Sun,
+  Loader2,
+  Layers3,
+  KeyRound,
+} from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { LiveTab } from "@/components/LiveTab";
 import { BracketTab } from "@/components/BracketTab";
 import { PlayersTab } from "@/components/PlayersTab";
 import { SettingsTab } from "@/components/SettingsTab";
+import { DeckRegistrationPanel } from "@/components/DeckRegistrationPanel";
 import { LandingPage } from "@/components/LandingPage";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { SyncStatusBadge } from "@/components/SyncStatusBadge";
@@ -13,6 +26,7 @@ import {
   clearJoinedRegistration,
   isSameName,
   readJoinedTournamentCode,
+  readJoinedRecoveryCodeForTournament,
   readJoinedNameForTournament,
   useJoinedName,
 } from "@/lib/joined-name";
@@ -23,6 +37,7 @@ const TABS = [
   { id: "live", label: "對戰", icon: Swords },
   { id: "bracket", label: "賽程", icon: GitBranch },
   { id: "players", label: "賽事管理", icon: Users },
+  { id: "deck", label: "對戰組合", icon: Layers3 },
   { id: "settings", label: "設定", icon: Settings },
 ] as const;
 
@@ -57,6 +72,7 @@ export function AppShell({ title }: { title?: string }) {
   // the QR identity so the participant label is present immediately.
   const participantCode = currentTournament?.code ?? (spectator ? readJoinedTournamentCode() : "");
   const joinedName = useJoinedName(participantCode);
+  const participantRecoveryCode = readJoinedRecoveryCodeForTournament(participantCode);
 
   // Restore a participant only when the saved QR identity still exists in the
   // event's live roster. A lone old code must never trap the browser in
@@ -145,7 +161,7 @@ export function AppShell({ title }: { title?: string }) {
     ? TABS.filter((t) => t.id === "live" || t.id === "bracket")
     : spectator
       ? TABS.filter((t) => t.id !== "settings")
-      : TABS;
+      : TABS.filter((t) => t.id !== "deck");
   const activeTab = tabs.some((t) => t.id === tab) ? tab : "live";
 
   // While the auth check is still in flight we don't yet know whether to
@@ -241,6 +257,15 @@ export function AppShell({ title }: { title?: string }) {
             {activeTab === "live" && <LiveTab />}
             {activeTab === "bracket" && <BracketTab />}
             {activeTab === "players" && <PlayersTab />}
+            {activeTab === "deck" && (
+              <ParticipantDeckTab
+                tournamentId={currentTournament?.id}
+                tournamentCode={participantCode}
+                participantName={joinedName}
+                recoveryCode={participantRecoveryCode}
+                tournamentFinished={currentTournament?.status === "finished"}
+              />
+            )}
             {activeTab === "settings" && <SettingsTab />}
           </>
         )}
@@ -276,6 +301,65 @@ export function AppShell({ title }: { title?: string }) {
           </div>
         </nav>
       )}
+    </div>
+  );
+}
+
+function ParticipantDeckTab({
+  tournamentId,
+  tournamentCode,
+  participantName,
+  recoveryCode,
+  tournamentFinished,
+}: {
+  tournamentId?: string;
+  tournamentCode: string;
+  participantName: string;
+  recoveryCode: string;
+  tournamentFinished: boolean;
+}) {
+  if (!tournamentId || tournamentFinished) {
+    return (
+      <section className="panel space-y-2 p-4 text-center">
+        <Layers3 className="mx-auto h-8 w-8 text-muted-foreground" />
+        <h2 className="font-display text-lg">對戰組合 COMBO & DECK</h2>
+        <p className="text-sm text-muted-foreground">目前沒有可編輯的進行中賽事。</p>
+      </section>
+    );
+  }
+
+  if (!participantName || !recoveryCode) {
+    return (
+      <section className="panel space-y-3 p-4 text-center">
+        <KeyRound className="mx-auto h-8 w-8 text-primary" />
+        <h2 className="font-display text-lg">對戰組合 COMBO & DECK</h2>
+        <p className="text-sm text-muted-foreground">
+          請以本場的參賽名稱與 8 碼驗證碼找回身分後，再登錄或修改 Deck。
+        </p>
+        <a
+          href={`/register?t=${encodeURIComponent(tournamentCode)}`}
+          className="flex min-h-12 items-center justify-center rounded-xl bg-primary font-display text-primary-foreground"
+        >
+          找回參賽身分
+        </a>
+      </section>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <section className="panel p-3">
+        <h2 className="font-display text-lg text-primary">對戰組合 COMBO & DECK</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {participantName}，可於賽程進行中隨時更新本場的組合。變更只會影響目前的 Deck
+          資料，不會回寫已完成對戰的紀錄。
+        </p>
+      </section>
+      <DeckRegistrationPanel
+        tournamentId={tournamentId}
+        participantName={participantName}
+        recoveryCode={recoveryCode}
+      />
     </div>
   );
 }

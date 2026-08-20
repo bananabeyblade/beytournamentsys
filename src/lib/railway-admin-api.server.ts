@@ -150,9 +150,20 @@ export async function railwayAdminGet(request: Request, action: string) {
       player_id: string;
       participant_name: string;
       combos: DeckCombo[];
+      current_combos: DeckCombo[];
     }>(
-      `SELECT player_id,participant_name,combos
-       FROM tournament_deck_snapshots WHERE tournament_id=$1 ORDER BY captured_at`,
+      `SELECT snapshot.player_id,
+              snapshot.participant_name,
+              snapshot.combos,
+              COALESCE(current_deck.combos, snapshot.combos, '[]'::jsonb) AS current_combos
+       FROM tournament_deck_snapshots snapshot
+       LEFT JOIN participant_recovery_codes recovery
+         ON recovery.tournament_id = snapshot.tournament_id
+        AND lower(btrim(recovery.name)) = lower(btrim(snapshot.participant_name))
+       LEFT JOIN participant_decks current_deck
+         ON current_deck.recovery_code_id = COALESCE(snapshot.recovery_code_id, recovery.id)
+       WHERE snapshot.tournament_id=$1
+       ORDER BY snapshot.captured_at`,
       [tournamentId],
     );
     const tournament = await queryPostgres<{ live_state: unknown; results: unknown }>(
@@ -255,6 +266,7 @@ export async function railwayAdminGet(request: Request, action: string) {
         playerId: snapshot.player_id,
         participantName: snapshot.participant_name,
         combos: Array.isArray(snapshot.combos) ? snapshot.combos : [],
+        currentCombos: Array.isArray(snapshot.current_combos) ? snapshot.current_combos : [],
         comboLabels: (Array.isArray(snapshot.combos) ? snapshot.combos : []).map((combo) =>
           comboPartFields
             .map((field) => combo[field])

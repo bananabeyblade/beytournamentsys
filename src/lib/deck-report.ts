@@ -4,7 +4,10 @@ import { railwayApi } from "./railway-api";
 export interface DeckSnapshot {
   playerId: string;
   participantName: string;
+  /** Deck frozen at Top 8 qualification, used for historical reports. */
   combos: DeckCombo[];
+  /** Player's latest saved Deck, used by referees while the event is live. */
+  currentCombos: DeckCombo[];
   comboLabels: string[];
   rank?: number;
 }

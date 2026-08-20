@@ -106,20 +106,31 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   useEffect(() => {
     if (!top8Tracking || !currentTournament?.id) return;
     let alive = true;
-    fetchDeckReport(currentTournament.id)
-      .then((report) => {
-        if (!alive) return;
-        const next: Record<string, DeckCombo[]> = {};
-        for (const snapshot of report.snapshots) next[snapshot.playerId] = snapshot.combos;
-        setDeckByPlayer(next);
-        const p1 = match.p1 ? (next[match.p1] ?? []) : [];
-        const p2 = match.p2 ? (next[match.p2] ?? []) : [];
-        setCombo1Slot((current) => current ?? p1[0]?.slot);
-        setCombo2Slot((current) => current ?? p2[0]?.slot);
-      })
-      .catch(() => undefined);
+    const refreshDecks = () => {
+      void fetchDeckReport(currentTournament.id)
+        .then((report) => {
+          if (!alive) return;
+          const next: Record<string, DeckCombo[]> = {};
+          for (const snapshot of report.snapshots) {
+            next[snapshot.playerId] = snapshot.currentCombos ?? snapshot.combos;
+          }
+          setDeckByPlayer(next);
+          const p1 = match.p1 ? (next[match.p1] ?? []) : [];
+          const p2 = match.p2 ? (next[match.p2] ?? []) : [];
+          setCombo1Slot((current) =>
+            p1.some((combo) => combo.slot === current) ? current : p1[0]?.slot,
+          );
+          setCombo2Slot((current) =>
+            p2.some((combo) => combo.slot === current) ? current : p2[0]?.slot,
+          );
+        })
+        .catch(() => undefined);
+    };
+    refreshDecks();
+    const refreshInterval = window.setInterval(refreshDecks, 3000);
     return () => {
       alive = false;
+      window.clearInterval(refreshInterval);
     };
   }, [currentTournament?.id, match.p1, match.p2, top8Tracking]);
 

@@ -290,9 +290,7 @@ export async function loadPublicParticipantDeck(
       [recoveryCodeId],
     );
     const lock = await client.query<{ locked: boolean }>(
-      `SELECT status <> 'open'
-          OR jsonb_array_length(COALESCE(live_state->'matches', '[]'::jsonb)) > 0 AS locked
-       FROM tournaments WHERE id = $1`,
+      "SELECT status <> 'open' AS locked FROM tournaments WHERE id = $1",
       [tournamentId],
     );
     return {
@@ -314,9 +312,7 @@ export async function savePublicParticipantDeck(
   return withPostgresTransaction(async (client) => {
     const recoveryCodeId = await participantIdentity(client, tournamentId, name, code);
     const lock = await client.query<{ locked: boolean }>(
-      `SELECT status <> 'open'
-          OR jsonb_array_length(COALESCE(live_state->'matches', '[]'::jsonb)) > 0 AS locked
-       FROM tournaments WHERE id = $1 FOR SHARE`,
+      "SELECT status <> 'open' AS locked FROM tournaments WHERE id = $1 FOR SHARE",
       [tournamentId],
     );
     if (lock.rows[0]?.locked) throw new ApiError(409, "DECK_LOCKED");
@@ -330,6 +326,18 @@ export async function savePublicParticipantDeck(
          combos = EXCLUDED.combos,
          updated_at = now()`,
       [recoveryCodeId, tournamentId, name, JSON.stringify(combos)],
+    );
+    // A Top 8 player can submit their Deck after qualifying. Preserve any
+    // non-empty historical snapshot, but repair the empty one immediately so
+    // referees can see the newly registered choices in the current match.
+    await client.query(
+      `UPDATE tournament_deck_snapshots
+       SET recovery_code_id = COALESCE(recovery_code_id, $2),
+           combos = $3::jsonb
+       WHERE tournament_id = $1
+         AND recovery_code_id = $2
+         AND jsonb_array_length(COALESCE(combos, '[]'::jsonb)) = 0`,
+      [tournamentId, recoveryCodeId, JSON.stringify(combos)],
     );
     return { saved: true };
   });

@@ -11,6 +11,7 @@ import { DeckRegistrationPanel } from "@/components/DeckRegistrationPanel";
 import {
   clearJoinedRegistration,
   readJoinedNameForTournament,
+  writeJoinedRecoveryCode,
   writeJoinedName,
   writeJoinedTournamentCode,
 } from "@/lib/joined-name";
@@ -276,6 +277,7 @@ function PlayerRegisterPage() {
       setJoinedParticipantName(joinedName);
       writeJoinedTournamentCode(tournament.code);
       writeJoinedName(joinedName);
+      writeJoinedRecoveryCode(generatedCode);
 
       setDone(true);
     } catch (e) {
@@ -302,6 +304,7 @@ function PlayerRegisterPage() {
       writeJoinedTournamentCode(tournament.code);
       const recoveredName = name.trim();
       writeJoinedName(recoveredName);
+      writeJoinedRecoveryCode(recoveryCode.trim());
       setParticipantCredential(recoveryCode.trim());
       setJoinedParticipantName(recoveredName);
       setRecoveryCode("");

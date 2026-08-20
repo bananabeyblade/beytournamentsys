@@ -160,7 +160,7 @@ export function DeckRegistrationPanel({
     setMessage(null);
     try {
       await saveParticipantDeck(tournamentId, participantName, recoveryCode, combos);
-      setMessage("Deck 已儲存，可使用同一組驗證碼再次修改。 ");
+      setMessage("Deck 已儲存；賽程進行中也可使用同一組驗證碼更新。 ");
     } catch {
       setMessage("Deck 儲存失敗，請確認每組均已選擇必要零件。 ");
     } finally {
@@ -179,14 +179,14 @@ export function DeckRegistrationPanel({
   return (
     <section className="space-y-3 rounded-xl border border-primary/40 bg-background/40 p-3 text-left">
       <div>
-        <p className="font-display text-base text-primary">賽前 Deck 登錄（選填）</p>
+        <p className="font-display text-base text-primary">Deck 登錄（選填）</p>
         <p className="text-xs text-muted-foreground">
-          最多登錄三組 Combo，之後可用驗證碼回來修改。
+          最多登錄三組 Combo；賽程進行中也可用驗證碼回來修改。
         </p>
       </div>
       {locked && (
         <p className="rounded-xl border border-primary/50 bg-accent/20 p-3 text-xs text-primary">
-          賽程已產生，Deck 已鎖定。若需更正，請聯絡管理者並留下異動紀錄。
+          賽事已結束，Deck 已封存，無法再修改。
         </p>
       )}
       <fieldset disabled={locked || saving} className="space-y-3 disabled:opacity-75">

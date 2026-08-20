@@ -6,6 +6,11 @@ import { fetchDeckReport } from "@/lib/deck-report";
 import type { DeckCombo } from "@/lib/deck";
 import { isTop8Match } from "@/lib/top8";
 
+type RefereeDeckChoice = {
+  combos: DeckCombo[];
+  bladeLabels: string[];
+};
+
 const toneClass: Record<string, string> = {
   spin: "bg-spin/20 border-spin text-spin",
   over: "bg-over/20 border-over text-over",
@@ -40,12 +45,14 @@ function SlotCard({
 function ComboPicker({
   label,
   combos,
+  bladeLabels,
   value,
   onChange,
   disabled,
 }: {
   label: string;
   combos: DeckCombo[];
+  bladeLabels: string[];
   value?: 1 | 2 | 3;
   onChange: (slot: 1 | 2 | 3) => void;
   disabled: boolean;
@@ -54,26 +61,23 @@ function ComboPicker({
     return <p className="text-center text-[11px] text-muted-foreground">{label} 未登記 Deck</p>;
   }
   return (
-    <div>
-      <p className="mb-1 text-center text-[11px] text-muted-foreground">{label} 本局 Combo</p>
-      <div className="grid grid-cols-3 gap-1">
-        {combos.map((combo) => (
-          <button
-            key={combo.slot}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(combo.slot)}
-            className={`min-h-10 rounded-lg border font-display text-xs ${
-              value === combo.slot
-                ? "border-primary bg-accent/50 text-primary neon-edge"
-                : "border-border bg-secondary text-muted-foreground"
-            }`}
-          >
-            {String.fromCharCode(64 + combo.slot)}
-          </button>
+    <label className="block">
+      <span className="mb-1 block text-center text-[11px] text-muted-foreground">
+        {label} 本局戰刃
+      </span>
+      <select
+        value={value ?? ""}
+        disabled={disabled}
+        onChange={(event) => onChange(Number(event.target.value) as 1 | 2 | 3)}
+        className="min-h-10 w-full rounded-lg border border-border bg-secondary px-2 text-center text-sm text-foreground disabled:opacity-50"
+      >
+        {combos.map((combo, index) => (
+          <option key={combo.slot} value={combo.slot}>
+            {bladeLabels[index] || "未指定戰刃"}
+          </option>
         ))}
-      </div>
-    </div>
+      </select>
+    </label>
   );
 }
 
@@ -97,7 +101,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
     currentTournament,
   } = useTournament();
   const [slot, setSlot] = useState<1 | 2>(1);
-  const [deckByPlayer, setDeckByPlayer] = useState<Record<string, DeckCombo[]>>({});
+  const [deckByPlayer, setDeckByPlayer] = useState<Record<string, RefereeDeckChoice>>({});
   const previous = match.events.at(-1);
   const [combo1Slot, setCombo1Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo1Slot);
   const [combo2Slot, setCombo2Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo2Slot);
@@ -110,13 +114,25 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
       void fetchDeckReport(currentTournament.id)
         .then((report) => {
           if (!alive) return;
-          const next: Record<string, DeckCombo[]> = {};
+          const next: Record<string, RefereeDeckChoice> = {};
+          for (const deck of report.refereeDecks ?? []) {
+            next[deck.playerId] = {
+              combos: deck.currentCombos,
+              bladeLabels: deck.comboBladeLabels,
+            };
+          }
+          // Compatibility fallback for data imported before live roster Deck
+          // identities existed.
           for (const snapshot of report.snapshots) {
-            next[snapshot.playerId] = snapshot.currentCombos ?? snapshot.combos;
+            if (next[snapshot.playerId]) continue;
+            next[snapshot.playerId] = {
+              combos: snapshot.currentCombos ?? snapshot.combos,
+              bladeLabels: [],
+            };
           }
           setDeckByPlayer(next);
-          const p1 = match.p1 ? (next[match.p1] ?? []) : [];
-          const p2 = match.p2 ? (next[match.p2] ?? []) : [];
+          const p1 = match.p1 ? (next[match.p1]?.combos ?? []) : [];
+          const p2 = match.p2 ? (next[match.p2]?.combos ?? []) : [];
           setCombo1Slot((current) =>
             p1.some((combo) => combo.slot === current) ? current : p1[0]?.slot,
           );
@@ -153,8 +169,10 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   const reached = match.score1 >= WIN_TARGET || match.score2 >= WIN_TARGET;
   const frozen = reached || locked || heldByOther;
   const winnerName = match.score1 >= WIN_TARGET ? playerName(match.p1) : playerName(match.p2);
-  const p1Combos = match.p1 ? (deckByPlayer[match.p1] ?? []) : [];
-  const p2Combos = match.p2 ? (deckByPlayer[match.p2] ?? []) : [];
+  const p1Deck = match.p1 ? deckByPlayer[match.p1] : undefined;
+  const p2Deck = match.p2 ? deckByPlayer[match.p2] : undefined;
+  const p1Combos = p1Deck?.combos ?? [];
+  const p2Combos = p2Deck?.combos ?? [];
   const comboSelectionRequired = top8Tracking && p1Combos.length > 0 && p2Combos.length > 0;
   const comboSelectionReady = !comboSelectionRequired || (!!combo1Slot && !!combo2Slot);
 
@@ -207,6 +225,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
               <ComboPicker
                 label={playerName(match.p1)}
                 combos={p1Combos}
+                bladeLabels={p1Deck?.bladeLabels ?? []}
                 value={combo1Slot}
                 onChange={setCombo1Slot}
                 disabled={frozen}
@@ -214,6 +233,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
               <ComboPicker
                 label={playerName(match.p2)}
                 combos={p2Combos}
+                bladeLabels={p2Deck?.bladeLabels ?? []}
                 value={combo2Slot}
                 onChange={setCombo2Slot}
                 disabled={frozen}

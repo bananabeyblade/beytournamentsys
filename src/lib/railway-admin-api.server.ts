@@ -166,6 +166,32 @@ export async function railwayAdminGet(request: Request, action: string) {
        ORDER BY snapshot.captured_at`,
       [tournamentId],
     );
+    // Statistics use immutable Top 8 snapshots. Referees, however, must be
+    // able to use the participant's latest saved Deck even before a snapshot
+    // exists (or when a legacy snapshot has no recovery-code identity).
+    const refereeDecks = await queryPostgres<{
+      player_id: string;
+      current_combos: DeckCombo[];
+    }>(
+      `WITH roster AS (
+         SELECT player->>'id' AS player_id, player->>'name' AS participant_name
+         FROM tournaments tournament
+         CROSS JOIN LATERAL jsonb_array_elements(
+           COALESCE(tournament.live_state->'players', '[]'::jsonb)
+         ) AS player
+         WHERE tournament.id = $1
+       )
+       SELECT roster.player_id,
+              COALESCE(deck.combos, '[]'::jsonb) AS current_combos
+       FROM roster
+       LEFT JOIN participant_recovery_codes recovery
+         ON recovery.tournament_id = $1
+        AND lower(btrim(recovery.name)) = lower(btrim(roster.participant_name))
+       LEFT JOIN participant_decks deck
+         ON deck.recovery_code_id = recovery.id
+       WHERE roster.player_id IS NOT NULL`,
+      [tournamentId],
+    );
     const tournament = await queryPostgres<{ live_state: unknown; results: unknown }>(
       "SELECT live_state,results FROM tournaments WHERE id=$1 LIMIT 1",
       [tournamentId],
@@ -197,6 +223,16 @@ export async function railwayAdminGet(request: Request, action: string) {
         }
       }
     }
+    for (const refereeDeck of refereeDecks.rows) {
+      const combos = Array.isArray(refereeDeck.current_combos) ? refereeDeck.current_combos : [];
+      for (const combo of combos) {
+        for (const field of comboPartFields) {
+          const partId = combo[field];
+          if (!partId) continue;
+          if (!partParticipants.has(partId)) partParticipants.set(partId, new Set<string>());
+        }
+      }
+    }
     const partIds = [...partParticipants.keys()];
     const parts = partIds.length
       ? await queryPostgres<{
@@ -210,6 +246,16 @@ export async function railwayAdminGet(request: Request, action: string) {
     const partLabels = new Map(
       parts.rows.map((part) => [part.id, part.name || part.name_en || part.code]),
     );
+    const comboBladeLabel = (combo: DeckCombo) => {
+      const bladeId =
+        combo.bladeId ??
+        combo.mainBladeId ??
+        combo.overBladeId ??
+        combo.metalBladeId ??
+        combo.assistBladeId ??
+        combo.lockChipId;
+      return (bladeId && partLabels.get(bladeId)) || "未指定戰刃";
+    };
     const resultValue = tournament.rows[0]?.results;
     const top4 =
       resultValue &&
@@ -276,7 +322,16 @@ export async function railwayAdminGet(request: Request, action: string) {
         ),
         rank: ranks.get(snapshot.participant_name.trim().toLowerCase()),
       })),
+      refereeDecks: refereeDecks.rows.map((deck) => {
+        const currentCombos = Array.isArray(deck.current_combos) ? deck.current_combos : [];
+        return {
+          playerId: deck.player_id,
+          currentCombos,
+          comboBladeLabels: currentCombos.map(comboBladeLabel),
+        };
+      }),
       partUsage: parts.rows
+        .filter((part) => (partParticipants.get(part.id)?.size ?? 0) > 0)
         .map((part) => ({
           id: part.id,
           name: part.name,

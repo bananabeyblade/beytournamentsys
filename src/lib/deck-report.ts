@@ -12,6 +12,14 @@ export interface DeckSnapshot {
   rank?: number;
 }
 
+/** A player's current Deck, matched to the live bracket player id for referees. */
+export interface RefereeDeck {
+  playerId: string;
+  currentCombos: DeckCombo[];
+  /** One Chinese Blade name for each combo, in the same order as currentCombos. */
+  comboBladeLabels: string[];
+}
+
 export interface DeckReportPart {
   id: string;
   name: string;
@@ -32,6 +40,7 @@ export interface DeckReport {
   registeredComboCount: number;
   trackedBattleCount: number;
   snapshots: DeckSnapshot[];
+  refereeDecks: RefereeDeck[];
   partUsage: DeckReportPart[];
   comboUsage: ComboUsageEntry[];
 }

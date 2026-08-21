@@ -16,7 +16,10 @@ export interface DeckSnapshot {
 
 /** A player's current Deck, matched to the live bracket player id for referees. */
 export interface RefereeDeck {
-  playerId: string;
+  /** Bracket player id when the current roster can be matched. */
+  playerId: string | null;
+  /** Kept even when a bracket player id is unavailable, so referees can match by name. */
+  participantName: string;
   currentCombos: DeckCombo[];
   /** One Chinese Blade name for each combo, in the same order as currentCombos. */
   comboBladeLabels: string[];

@@ -170,11 +170,14 @@ export async function railwayAdminGet(request: Request, action: string) {
        ORDER BY snapshot.captured_at`,
       [tournamentId],
     );
-    // Statistics use immutable Top 8 snapshots. Referees, however, must be
-    // able to use the participant's latest saved Deck even before a snapshot
-    // exists (or when a legacy snapshot has no recovery-code identity).
+    // Statistics use immutable Top 8 snapshots. Referees instead use every
+    // participant's latest saved Deck directly.  Do not make this depend on
+    // a snapshot or on a recovery-code join: older brackets can have a live
+    // player id that no longer matches that identity, while the displayed
+    // participant name remains stable.
     const refereeDecks = await queryPostgres<{
-      player_id: string;
+      player_id: string | null;
+      participant_name: string;
       current_combos: DeckCombo[];
     }>(
       `WITH roster AS (
@@ -186,25 +189,13 @@ export async function railwayAdminGet(request: Request, action: string) {
          WHERE tournament.id = $1
        )
        SELECT roster.player_id,
+              deck.participant_name,
               COALESCE(deck.combos, '[]'::jsonb) AS current_combos
-       FROM roster
-       LEFT JOIN participant_recovery_codes recovery
-         ON recovery.tournament_id = $1
-        AND lower(btrim(recovery.name)) = lower(btrim(roster.participant_name))
-       LEFT JOIN LATERAL (
-         SELECT candidate.combos
-         FROM participant_decks candidate
-         WHERE candidate.tournament_id = $1
-           AND (
-             candidate.recovery_code_id = recovery.id
-             OR lower(btrim(candidate.participant_name)) = lower(btrim(roster.participant_name))
-           )
-         ORDER BY
-           CASE WHEN candidate.recovery_code_id = recovery.id THEN 0 ELSE 1 END,
-           candidate.updated_at DESC
-         LIMIT 1
-       ) deck ON TRUE
-       WHERE roster.player_id IS NOT NULL`,
+       FROM participant_decks deck
+       LEFT JOIN roster
+         ON lower(btrim(roster.participant_name)) = lower(btrim(deck.participant_name))
+       WHERE deck.tournament_id = $1
+       ORDER BY deck.updated_at DESC`,
       [tournamentId],
     );
     const tournament = await queryPostgres<{ live_state: unknown; results: unknown }>(
@@ -345,6 +336,7 @@ export async function railwayAdminGet(request: Request, action: string) {
         const currentCombos = Array.isArray(deck.current_combos) ? deck.current_combos : [];
         return {
           playerId: deck.player_id,
+          participantName: deck.participant_name,
           currentCombos,
           comboBladeLabels: currentCombos.map(comboBladeLabel),
         };

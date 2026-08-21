@@ -11,6 +11,9 @@ type RefereeDeckChoice = {
   bladeLabels: string[];
 };
 
+const playerDeckKey = (playerId: string) => `id:${playerId}`;
+const participantDeckKey = (name: string) => `name:${name.trim().toLocaleLowerCase()}`;
+
 const toneClass: Record<string, string> = {
   spin: "bg-spin/20 border-spin text-spin",
   over: "bg-over/20 border-over text-over",
@@ -117,30 +120,32 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
           const next: Record<string, RefereeDeckChoice> = {};
           for (const deck of report.refereeDecks ?? []) {
             if (!deck.currentCombos.length) continue;
-            next[deck.playerId] = {
+            const choice = {
               combos: deck.currentCombos,
               bladeLabels: deck.comboBladeLabels,
             };
+            // A completed bracket can retain an old player id, so always
+            // index by name as well as by the currently resolved id.
+            next[participantDeckKey(deck.participantName)] = choice;
+            if (deck.playerId) next[playerDeckKey(deck.playerId)] = choice;
           }
           // Compatibility fallback for data imported before live roster Deck
           // identities existed.
           for (const snapshot of report.snapshots) {
             const fallbackCombos = snapshot.currentCombos ?? snapshot.combos;
-            if (next[snapshot.playerId] || !fallbackCombos.length) continue;
-            next[snapshot.playerId] = {
+            if (!fallbackCombos.length) continue;
+            const choice = {
               combos: fallbackCombos,
               bladeLabels: snapshot.comboBladeLabels ?? [],
             };
+            if (!next[playerDeckKey(snapshot.playerId)]) {
+              next[playerDeckKey(snapshot.playerId)] = choice;
+            }
+            if (!next[participantDeckKey(snapshot.participantName)]) {
+              next[participantDeckKey(snapshot.participantName)] = choice;
+            }
           }
           setDeckByPlayer(next);
-          const p1 = match.p1 ? (next[match.p1]?.combos ?? []) : [];
-          const p2 = match.p2 ? (next[match.p2]?.combos ?? []) : [];
-          setCombo1Slot((current) =>
-            p1.some((combo) => combo.slot === current) ? current : p1[0]?.slot,
-          );
-          setCombo2Slot((current) =>
-            p2.some((combo) => combo.slot === current) ? current : p2[0]?.slot,
-          );
         })
         .catch(() => undefined);
     };
@@ -171,10 +176,25 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   const reached = match.score1 >= WIN_TARGET || match.score2 >= WIN_TARGET;
   const frozen = reached || locked || heldByOther;
   const winnerName = match.score1 >= WIN_TARGET ? playerName(match.p1) : playerName(match.p2);
-  const p1Deck = match.p1 ? deckByPlayer[match.p1] : undefined;
-  const p2Deck = match.p2 ? deckByPlayer[match.p2] : undefined;
+  const findDeck = (playerId: string | null) => {
+    if (!playerId) return undefined;
+    return (
+      deckByPlayer[playerDeckKey(playerId)] ??
+      deckByPlayer[participantDeckKey(playerName(playerId))]
+    );
+  };
+  const p1Deck = findDeck(match.p1);
+  const p2Deck = findDeck(match.p2);
   const p1Combos = p1Deck?.combos ?? [];
   const p2Combos = p2Deck?.combos ?? [];
+  useEffect(() => {
+    setCombo1Slot((current) =>
+      p1Combos.some((combo) => combo.slot === current) ? current : p1Combos[0]?.slot,
+    );
+    setCombo2Slot((current) =>
+      p2Combos.some((combo) => combo.slot === current) ? current : p2Combos[0]?.slot,
+    );
+  }, [p1Combos, p2Combos]);
   const comboSelectionRequired = top8Tracking && p1Combos.length > 0 && p2Combos.length > 0;
   const comboSelectionReady = !comboSelectionRequired || (!!combo1Slot && !!combo2Slot);
 

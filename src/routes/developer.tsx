@@ -6,6 +6,7 @@ import {
   ChevronRight,
   ClipboardList,
   Database,
+  Power,
   Shield,
   Terminal,
   Users,
@@ -18,6 +19,7 @@ import { SystemStatusCard } from "@/components/SystemStatusCard";
 import { isDeveloperEmail } from "@/lib/account-id";
 import { listTournaments, type TournamentRow } from "@/lib/tournaments";
 import { fetchDeckReport, type DeckReport } from "@/lib/deck-report";
+import { railwayApi } from "@/lib/railway-api";
 
 export const Route = createFileRoute("/developer")({
   head: () => ({
@@ -48,6 +50,7 @@ function DeveloperConsolePage() {
       { id: "superadmins", label: "總管理者", icon: Shield, content: <ManageSuperadmins /> },
       { id: "admins", label: "管理者", icon: Users, content: <ManageAdmins /> },
       { id: "status", label: "系統狀態", icon: Database, content: <SystemStatusCard /> },
+      { id: "features", label: "功能開關", icon: Power, content: <DeveloperFeatureFlags /> },
       { id: "stats", label: "Combo／Deck 統計", icon: BarChart3, content: <DeveloperDeckStats /> },
     ],
     [],
@@ -130,6 +133,77 @@ function DeveloperConsolePage() {
         </div>
       )}
     </main>
+  );
+}
+
+function DeveloperFeatureFlags() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void railwayApi<{ flags: Array<{ key: string; enabled: boolean }> }>("/api/admin/feature-flags")
+      .then(({ flags }) => {
+        if (alive)
+          setEnabled(flags.find((flag) => flag.key === "deck_registration")?.enabled ?? true);
+      })
+      .catch(() => alive && setError("無法讀取功能開關。"));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const toggle = async () => {
+    if (enabled === null || saving) return;
+    const next = !enabled;
+    setSaving(true);
+    setError(null);
+    try {
+      await railwayApi("/api/admin/set-feature-flag", {
+        method: "POST",
+        body: JSON.stringify({ key: "deck_registration", enabled: next }),
+      });
+      setEnabled(next);
+    } catch {
+      setError("更新失敗，請稍後重試。");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="panel space-y-4 p-4">
+      <div>
+        <h2 className="font-display text-lg neon-text">功能開關</h2>
+        <p className="text-xs text-muted-foreground">變更會立即套用到所有選手端。</p>
+      </div>
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border p-3">
+        <div>
+          <p className="font-semibold">Deck 登錄</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {enabled === null
+              ? "讀取設定中…"
+              : enabled
+                ? "目前開放選手填寫與更新 Deck。"
+                : "目前已關閉；既有 Deck 不會被刪除。"}
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled === true}
+          disabled={enabled === null || saving}
+          onClick={() => void toggle()}
+          className={`relative h-8 w-14 rounded-full transition ${enabled ? "bg-primary" : "bg-muted"} disabled:opacity-50`}
+        >
+          <span
+            className={`absolute top-1 h-6 w-6 rounded-full bg-background shadow transition ${enabled ? "left-7" : "left-1"}`}
+          />
+        </button>
+      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </section>
   );
 }
 

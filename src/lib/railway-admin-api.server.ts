@@ -124,6 +124,13 @@ export async function railwayAdminGet(request: Request, action: string) {
   if (action === "referee-access")
     return getRefereeAccess(request, url.searchParams.get("tournamentId"));
   if (action === "role") return { role: user.role, user };
+  if (action === "feature-flags") {
+    await requireRailwayOwner(request);
+    const flags = await queryPostgres<{ key: string; enabled: boolean; updated_at: string }>(
+      "SELECT key,enabled,updated_at FROM app_feature_flags ORDER BY key",
+    );
+    return { flags: flags.rows };
+  }
   if (action === "tournaments") {
     const latest = url.searchParams.get("latest") === "open";
     const result = await queryPostgres(
@@ -427,7 +434,7 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     "remove-admin",
     "set-admin-password",
   ]);
-  const ownerOnlyActions = new Set(["delete-tournament"]);
+  const ownerOnlyActions = new Set(["delete-tournament", "set-feature-flag"]);
   const operatorActions = new Set(["publish", "finish", "record-audit"]);
   const operatorTournamentId =
     action === "record-audit"
@@ -465,6 +472,17 @@ export async function railwayAdminPost(request: Request, action: string, body: B
       typeof body.tournamentName === "string" ? body.tournamentName.slice(0, 200) : undefined,
     );
     return { ok: true };
+  }
+  if (action === "set-feature-flag") {
+    if (body.key !== "deck_registration" || typeof body.enabled !== "boolean")
+      throw new AdminApiError(400, "FEATURE_FLAG_INVALID");
+    await queryPostgres(
+      `INSERT INTO app_feature_flags (key,enabled,updated_at,updated_by) VALUES ($1,$2,now(),$3)
+       ON CONFLICT (key) DO UPDATE SET enabled=EXCLUDED.enabled,updated_at=EXCLUDED.updated_at,updated_by=EXCLUDED.updated_by`,
+      [body.key, body.enabled, user.email],
+    );
+    await audit(user, "set_feature_flag", { key: body.key, enabled: body.enabled });
+    return { ok: true, enabled: body.enabled };
   }
   if (action === "create-tournament") {
     const name = text(body.name, "NAME", 60);

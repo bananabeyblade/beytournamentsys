@@ -152,8 +152,12 @@ export function DeckRegistrationPanel({
     try {
       await saveParticipantDeck(tournamentId, participantName, recoveryCode, combos);
       setMessage("Deck 已儲存；賽程進行中也可使用同一組驗證碼更新。 ");
-    } catch {
-      setMessage("Deck 儲存失敗，請確認每組均已選擇必要零件。 ");
+    } catch (error) {
+      setMessage(
+        error instanceof Error && error.message === "DECK_REGISTRATION_DISABLED"
+          ? "Deck 登錄目前已關閉。"
+          : "Deck 儲存失敗，請確認每組均已選擇必要零件。 ",
+      );
     } finally {
       setSaving(false);
     }

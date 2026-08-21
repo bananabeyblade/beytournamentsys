@@ -202,6 +202,13 @@ export async function listActiveParts() {
   };
 }
 
+export async function deckRegistrationEnabled() {
+  const { rows } = await queryPostgres<{ enabled: boolean }>(
+    "SELECT enabled FROM app_feature_flags WHERE key='deck_registration' LIMIT 1",
+  );
+  return rows[0]?.enabled ?? true;
+}
+
 function recoveryCode(value: unknown): string {
   if (typeof value !== "string" || !/^\d{8}$/.test(value.trim())) {
     throw new ApiError(400, "RECOVERY_CODE_INVALID");
@@ -315,6 +322,7 @@ export async function savePublicParticipantDeck(
   codeInput: unknown,
   combosInput: unknown,
 ) {
+  if (!(await deckRegistrationEnabled())) throw new ApiError(403, "DECK_REGISTRATION_DISABLED");
   const tournamentId = uuid(tournamentIdInput, "tournament_id");
   const name = cleanName(nameInput);
   const code = recoveryCode(codeInput);

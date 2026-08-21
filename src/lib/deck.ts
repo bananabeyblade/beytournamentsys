@@ -44,6 +44,11 @@ export async function fetchDeckParts(): Promise<BeybladePart[]> {
   return (await railwayApi<{ parts: BeybladePart[] }>("/api/registrations?parts=1")).parts;
 }
 
+export async function fetchDeckRegistrationEnabled(): Promise<boolean> {
+  if (!railwayAuthEnabled) return true;
+  return (await railwayApi<{ enabled: boolean }>("/api/registrations?deck-registration=1")).enabled;
+}
+
 export async function loadParticipantDeck(
   tournamentId: string,
   name: string,

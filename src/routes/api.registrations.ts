@@ -3,6 +3,7 @@ import type {} from "@tanstack/react-start";
 import {
   ApiError,
   createPublicRegistration,
+  deckRegistrationEnabled,
   listActiveParts,
   loadPublicParticipantDeck,
   registrationNameTaken,
@@ -75,6 +76,9 @@ export const Route = createFileRoute("/api/registrations")({
           const url = new URL(request.url);
           if (url.searchParams.get("parts") === "1") {
             return Response.json(await listActiveParts());
+          }
+          if (url.searchParams.get("deck-registration") === "1") {
+            return Response.json({ enabled: await deckRegistrationEnabled() });
           }
           return Response.json(
             await registrationNameTaken(

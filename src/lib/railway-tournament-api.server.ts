@@ -176,6 +176,12 @@ export async function listActiveParts() {
             '' AS source_part_id, code AS functional_code, '' AS package_id, '' AS set_id,
             '' AS color, 'canonical' AS brand_source
      FROM canonical_parts WHERE active = TRUE
+     UNION ALL
+     SELECT id, name, name_en, code, part_type, system,
+            source_part_id, functional_code, package_id, set_id, color, brand_source
+     FROM parts
+     WHERE active = TRUE
+       AND NOT EXISTS (SELECT 1 FROM canonical_parts WHERE active = TRUE)
      ORDER BY part_type, release_date DESC NULLS LAST, name_en, code`,
   );
   return {

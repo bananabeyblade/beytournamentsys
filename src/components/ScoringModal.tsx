@@ -105,6 +105,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   } = useTournament();
   const [slot, setSlot] = useState<1 | 2>(1);
   const [deckByPlayer, setDeckByPlayer] = useState<Record<string, RefereeDeckChoice>>({});
+  const [deckLoadError, setDeckLoadError] = useState<string | null>(null);
   const previous = match.events.at(-1);
   const [combo1Slot, setCombo1Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo1Slot);
   const [combo2Slot, setCombo2Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo2Slot);
@@ -146,8 +147,15 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
             }
           }
           setDeckByPlayer(next);
+          setDeckLoadError(null);
         })
-        .catch(() => undefined);
+        .catch((error: unknown) => {
+          if (!alive) return;
+          // Do not clear a previously loaded Deck map during a transient
+          // polling failure. Showing the failure is safer than incorrectly
+          // labelling a registered player as having no Deck.
+          setDeckLoadError(error instanceof Error ? error.message : "DECK_REPORT_UNAVAILABLE");
+        });
     };
     refreshDecks();
     const refreshInterval = window.setInterval(refreshDecks, 3000);
@@ -261,6 +269,11 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
                 disabled={frozen}
               />
             </div>
+            {deckLoadError && (
+              <p className="mt-2 text-center text-[11px] text-destructive">
+                Deck 資料同步失敗（{deckLoadError}）；請重新整理後再選擇組合。
+              </p>
+            )}
             <p className="mt-2 text-center text-[11px] text-muted-foreground">
               每局可重新選擇；第四局起仍可重複使用 A／B／C。未登記 Deck 不會阻擋計分。
             </p>

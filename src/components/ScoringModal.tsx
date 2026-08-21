@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RotateCcw, X, Trophy, Lock, Unlock, Flag } from "lucide-react";
 import { FINISHES, WIN_TARGET, type Match } from "@/lib/tournament-types";
 import { useTournament } from "@/lib/tournament-store";
@@ -193,8 +193,8 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   };
   const p1Deck = findDeck(match.p1);
   const p2Deck = findDeck(match.p2);
-  const p1Combos = p1Deck?.combos ?? [];
-  const p2Combos = p2Deck?.combos ?? [];
+  const p1Combos = useMemo(() => p1Deck?.combos ?? [], [p1Deck?.combos]);
+  const p2Combos = useMemo(() => p2Deck?.combos ?? [], [p2Deck?.combos]);
   useEffect(() => {
     setCombo1Slot((current) =>
       p1Combos.some((combo) => combo.slot === current) ? current : p1Combos[0]?.slot,

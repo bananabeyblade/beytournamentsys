@@ -1,12 +1,23 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Terminal } from "lucide-react";
+import {
+  ArrowLeft,
+  BarChart3,
+  ChevronRight,
+  ClipboardList,
+  Database,
+  Shield,
+  Terminal,
+  Users,
+} from "lucide-react";
 import { TournamentProvider, useTournament } from "@/lib/tournament-store";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { ManageAdmins, ManageSuperadmins } from "@/components/AccountSettings";
 import { TournamentHistory } from "@/components/TournamentHistory";
 import { SystemStatusCard } from "@/components/SystemStatusCard";
 import { isDeveloperEmail } from "@/lib/account-id";
+import { listTournaments, type TournamentRow } from "@/lib/tournaments";
+import { fetchDeckReport, type DeckReport } from "@/lib/deck-report";
 
 export const Route = createFileRoute("/developer")({
   head: () => ({
@@ -29,6 +40,18 @@ function DeveloperConsolePage() {
   useEffect(() => {
     if (currentAdmin && isDeveloperEmail(currentAdmin.email)) setRole("admin");
   }, [currentAdmin, setRole]);
+
+  const [activeTab, setActiveTab] = useState<string | null>(null);
+  const tabs = useMemo(
+    () => [
+      { id: "history", label: "賽事歷史", icon: ClipboardList, content: <TournamentHistory /> },
+      { id: "superadmins", label: "總管理者", icon: Shield, content: <ManageSuperadmins /> },
+      { id: "admins", label: "管理者", icon: Users, content: <ManageAdmins /> },
+      { id: "status", label: "系統狀態", icon: Database, content: <SystemStatusCard /> },
+      { id: "stats", label: "Combo／Deck 統計", icon: BarChart3, content: <DeveloperDeckStats /> },
+    ],
+    [],
+  );
 
   return (
     <main className="mx-auto max-w-md space-y-4 px-4 pb-6">
@@ -72,12 +95,188 @@ function DeveloperConsolePage() {
         </div>
       ) : (
         <div className="space-y-4">
-          <TournamentHistory />
-          <ManageSuperadmins />
-          <ManageAdmins />
-          <SystemStatusCard />
+          {activeTab ? (
+            <section className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setActiveTab(null)}
+                className="flex min-h-10 items-center gap-2 rounded-xl border border-border bg-secondary px-3 text-sm"
+              >
+                <ArrowLeft className="h-4 w-4" /> 返回開發者控制台
+              </button>
+              {tabs.find((tab) => tab.id === activeTab)?.content}
+            </section>
+          ) : (
+            <div className="grid gap-3">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className="panel flex min-h-16 items-center justify-between px-4 text-left transition hover:border-primary/70"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Icon className="h-5 w-5 text-primary" />
+                      <span className="font-semibold">{tab.label}</span>
+                    </span>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </main>
+  );
+}
+
+function DeveloperDeckStats() {
+  const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
+  const [reports, setReports] = useState<Array<{ tournament: TournamentRow; report: DeckReport }>>(
+    [],
+  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    void listTournaments()
+      .then((rows) => {
+        if (!alive) return;
+        setTournaments(rows);
+        return Promise.all(
+          rows.slice(0, 50).map(async (tournament) => ({
+            tournament,
+            report: await fetchDeckReport(tournament.id),
+          })),
+        );
+      })
+      .then((next) => {
+        if (alive && next) setReports(next);
+      })
+      .catch((cause: unknown) => {
+        if (alive) setError(cause instanceof Error ? cause.message : "統計資料讀取失敗");
+      })
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const aggregate = useMemo(() => {
+    const parts = new Map<
+      string,
+      { name: string; count: number; upperCount: number; participants: Set<string> }
+    >();
+    let samples = 0;
+    let trackedBattles = 0;
+    for (const { report } of reports) {
+      samples += report.qualifierCount;
+      trackedBattles += report.trackedBattleCount;
+      const partNames = new Map(report.partUsage.map((part) => [part.id, part.name]));
+      for (const snapshot of report.snapshots) {
+        const partIds = new Set<string>();
+        for (const combo of snapshot.combos) {
+          for (const field of [
+            "bladeId",
+            "lockChipId",
+            "mainBladeId",
+            "assistBladeId",
+            "metalBladeId",
+            "overBladeId",
+            "ratchetId",
+            "bitId",
+          ] as const) {
+            const id = combo[field];
+            if (id) partIds.add(id);
+          }
+        }
+        for (const id of partIds) {
+          const current = parts.get(id) ?? {
+            name: partNames.get(id) ?? id,
+            count: 0,
+            upperCount: 0,
+            participants: new Set<string>(),
+          };
+          const participantKey = snapshot.participantName.trim().toLowerCase();
+          if (!current.participants.has(participantKey)) {
+            current.participants.add(participantKey);
+            current.count += 1;
+            if (snapshot.rank !== undefined && snapshot.rank <= 4) current.upperCount += 1;
+          }
+          parts.set(id, current);
+        }
+      }
+    }
+    return {
+      samples,
+      trackedBattles,
+      parts: [...parts.values()]
+        .map(({ participants, ...part }) => ({
+          ...part,
+          usageRate: samples ? (part.count / samples) * 100 : 0,
+          upperPlacementRate: part.count ? (part.upperCount / part.count) * 100 : 0,
+          participantCount: participants.size,
+        }))
+        .sort((a, b) => b.count - a.count),
+    };
+  }, [reports]);
+
+  return (
+    <div className="panel space-y-4 p-4">
+      <div>
+        <h2 className="font-display text-lg neon-text">COMBO／DECK STATISTICS</h2>
+        <p className="text-xs text-muted-foreground">
+          跨賽事彙總；只讀取已保存的 Deck 與八強戰鬥紀錄。
+        </p>
+      </div>
+      {loading && <p className="text-sm text-muted-foreground">讀取統計中…</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {!loading && !error && (
+        <>
+          <div className="grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="rounded-lg border border-border p-2">
+              <b className="block text-lg">{tournaments.length}</b>賽事樣本
+            </div>
+            <div className="rounded-lg border border-border p-2">
+              <b className="block text-lg">{aggregate.samples}</b>八強選手
+            </div>
+            <div className="rounded-lg border border-border p-2">
+              <b className="block text-lg">{aggregate.trackedBattles}</b>已追蹤局數
+            </div>
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-semibold">零件使用率／樣本數／上位率</h3>
+            {aggregate.parts.length ? (
+              <ul className="space-y-2 text-xs">
+                {aggregate.parts.slice(0, 20).map((part) => (
+                  <li
+                    key={part.name}
+                    className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
+                  >
+                    <span>{part.name}</span>
+                    <span className="text-right text-muted-foreground">
+                      <span className="block">
+                        {part.count} 人次 · {part.usageRate.toFixed(1)}%
+                      </span>
+                      <span className="block">上位 {part.upperPlacementRate.toFixed(1)}%</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground">尚無可統計的 Deck。</p>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            後續可加入：四強／冠軍上位率、每局勝率、同組合勝率與樣本信賴區間。
+          </p>
+        </>
+      )}
+    </div>
   );
 }

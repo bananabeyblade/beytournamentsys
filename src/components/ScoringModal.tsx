@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { RotateCcw, X, Trophy, Lock, Unlock } from "lucide-react";
+import { RotateCcw, X, Trophy, Lock, Unlock, Flag } from "lucide-react";
 import { FINISHES, WIN_TARGET, type Match } from "@/lib/tournament-types";
 import { useTournament } from "@/lib/tournament-store";
 import { fetchDeckReport } from "@/lib/deck-report";
@@ -302,6 +302,30 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
         >
           <RotateCcw className="h-5 w-5" /> 復原上一步 Undo
         </button>
+
+        {!reached && !locked && !heldByOther && role === "admin" && (
+          <div className="mt-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3">
+            <p className="mb-2 text-center text-[11px] text-muted-foreground">
+              參賽者棄權或未到場時，可直接判定勝者（不新增比分）。
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {[1, 2].map((winnerSlot) => (
+                <button
+                  key={winnerSlot}
+                  type="button"
+                  onClick={() => {
+                    confirmWinner(match.id, winnerSlot as 1 | 2);
+                    onClose();
+                  }}
+                  className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-destructive/50 bg-background/60 px-2 text-xs font-semibold text-destructive"
+                >
+                  <Flag className="h-4 w-4" /> 判定{" "}
+                  {playerName(winnerSlot === 1 ? match.p1 : match.p2)} 勝
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {heldByOther && (
           <div className="mt-3 rounded-xl border border-destructive/60 bg-destructive/10 p-3 text-xs">

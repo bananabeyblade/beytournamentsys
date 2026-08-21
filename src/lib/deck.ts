@@ -38,6 +38,20 @@ export interface DeckCombo {
   bitId: string;
 }
 
+/** The compact, player-facing part label used in Deck pickers and referee logs.
+ * Raw catalogue names include revision/colour/system suffixes; those are useful
+ * for imports, but make a phone-sized picker hard to scan. */
+export function partModelLabel(
+  part: Pick<BeybladePart, "partType" | "code" | "functionalCode" | "name">,
+) {
+  const raw = (part.functionalCode || part.code || "").trim();
+  const match = raw.match(/^([A-Za-z]+(?:[A-Za-z]+)?-\d{2})/);
+  const model = match?.[1] ?? raw.replace(/[-\s].*$/, "");
+  return part.partType === "blade" || part.partType.endsWith("blade")
+    ? `${model} ${part.name}`.trim()
+    : model;
+}
+
 export async function fetchDeckParts(): Promise<BeybladePart[]> {
   if (!railwayAuthEnabled) return [];
   return (await railwayApi<{ parts: BeybladePart[] }>("/api/registrations?parts=1")).parts;

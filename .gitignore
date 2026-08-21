@@ -23,6 +23,10 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Generated local cache of third-party BEYBLADE X part images. Upload only
+# selected, reviewed assets to object storage; do not commit this full cache.
+database/local-assets/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

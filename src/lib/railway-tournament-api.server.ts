@@ -49,7 +49,7 @@ export async function listPublicTournaments(code?: string): Promise<PublicTourna
   const normalizedCode = code?.trim().toUpperCase();
   if (!normalizedCode) throw new ApiError(400, "TOURNAMENT_CODE_REQUIRED");
   const result = await queryPostgres<PublicTournament>(
-    `SELECT ${tournamentColumns} FROM tournaments WHERE code = $1 LIMIT 1`,
+    `SELECT ${tournamentColumns} FROM tournaments WHERE code = $1 AND status <> 'archived' LIMIT 1`,
     [normalizedCode],
   );
   return result.rows;

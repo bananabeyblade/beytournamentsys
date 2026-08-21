@@ -161,15 +161,9 @@ export async function railwayAdminGet(request: Request, action: string) {
               snapshot.combos,
               COALESCE(current_deck.combos, snapshot.combos, '[]'::jsonb) AS current_combos
        FROM tournament_deck_snapshots snapshot
-       LEFT JOIN participant_recovery_codes recovery
-         ON recovery.tournament_id::text = snapshot.tournament_id::text
-        AND lower(btrim(recovery.name)) = lower(btrim(snapshot.participant_name))
        LEFT JOIN participant_decks current_deck
-         ON current_deck.recovery_code_id::text = COALESCE(
-           snapshot.recovery_code_id::text,
-           recovery.id::text
-         )
-       WHERE snapshot.tournament_id::text = $1::text
+         ON current_deck.recovery_code_id = snapshot.recovery_code_id
+       WHERE snapshot.tournament_id = $1::uuid
        ORDER BY snapshot.captured_at`,
       [tournamentId],
     );
@@ -189,7 +183,7 @@ export async function railwayAdminGet(request: Request, action: string) {
          CROSS JOIN LATERAL jsonb_array_elements(
            COALESCE(tournament.live_state->'players', '[]'::jsonb)
          ) AS player
-         WHERE tournament.id::text = $1::text
+         WHERE tournament.id = $1::uuid
        )
        SELECT roster.player_id,
               deck.participant_name,
@@ -197,12 +191,12 @@ export async function railwayAdminGet(request: Request, action: string) {
        FROM participant_decks deck
        LEFT JOIN roster
          ON lower(btrim(roster.participant_name)) = lower(btrim(deck.participant_name))
-       WHERE deck.tournament_id::text = $1::text
+       WHERE deck.tournament_id = $1::uuid
        ORDER BY deck.updated_at DESC`,
       [tournamentId],
     );
     const tournament = await queryPostgres<{ live_state: unknown; results: unknown }>(
-      "SELECT live_state,results FROM tournaments WHERE id::text=$1::text LIMIT 1",
+      "SELECT live_state,results FROM tournaments WHERE id=$1::uuid LIMIT 1",
       [tournamentId],
     );
     if (!tournament.rowCount) throw new AdminApiError(404, "TOURNAMENT_NOT_FOUND");
@@ -250,9 +244,7 @@ export async function railwayAdminGet(request: Request, action: string) {
           name_en: string;
           code: string;
           part_type: PartType;
-        }>("SELECT id,name,name_en,code,part_type FROM parts WHERE id::text=ANY($1::text[])", [
-          partIds,
-        ])
+        }>("SELECT id,name,name_en,code,part_type FROM parts WHERE id = ANY($1::uuid[])", [partIds])
       : { rows: [] };
     const partLabels = new Map(
       parts.rows.map((part) => [part.id, part.name || part.name_en || part.code]),
@@ -531,7 +523,7 @@ export async function railwayAdminPost(request: Request, action: string, body: B
   if (action === "delete-tournament") {
     const id = uuid(body.id);
     const result = await queryPostgres<{ name: string }>(
-      "DELETE FROM tournaments WHERE id=$1 RETURNING name",
+      "UPDATE tournaments SET status='archived', finished_at=COALESCE(finished_at, now()) WHERE id=$1 RETURNING name",
       [id],
     );
     if (!result.rowCount) throw new AdminApiError(404, "TOURNAMENT_NOT_FOUND");

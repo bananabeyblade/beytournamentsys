@@ -15,7 +15,7 @@ export interface TournamentRow {
   id: string;
   code: string;
   name: string;
-  status: "open" | "finished";
+  status: "open" | "finished" | "archived";
   results: TournamentResults | null;
   created_at: string;
   finished_at: string | null;
@@ -221,7 +221,7 @@ export async function fetchLatestOpenTournament(): Promise<TournamentRow | null>
   return (data as unknown as TournamentRow) ?? null;
 }
 
-/** Owner/developer-only (enforced by row-level policies). Removes a tournament and its registrations. */
+/** Owner/developer-only. Archives an event so Deck/Combo history remains available. */
 export async function deleteTournament(id: string) {
   if (railwayAuthEnabled) {
     await railwayApi("/api/admin/delete-tournament", {

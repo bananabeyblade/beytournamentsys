@@ -7,6 +7,7 @@ import {
   type BeybladePart,
   type DeckCombo,
   type PartType,
+  partModelLabel,
 } from "@/lib/deck";
 
 const emptyCombo = (slot: 1 | 2 | 3): DeckCombo => ({
@@ -36,11 +37,10 @@ function PartSelect({
   const [query, setQuery] = useState("");
   const options = useMemo(() => parts.filter((part) => part.partType === type), [parts, type]);
   const selected = options.find((part) => part.id === value);
-  const labelFor = (part: BeybladePart) =>
-    `${part.name} · ${part.functionalCode || part.code}（${part.system}）`;
+  const labelFor = (part: BeybladePart) => partModelLabel(part);
   const normalizedQuery = query.toLowerCase().replace(/[\s-]/g, "");
   const matches = options.filter((part) =>
-    `${part.name} ${part.nameEn} ${part.code} ${part.sourcePartId} ${part.packageId} ${part.setId} ${part.color} ${part.system}`
+    `${partModelLabel(part)} ${part.name} ${part.nameEn} ${part.code} ${part.functionalCode} ${part.sourcePartId} ${part.packageId} ${part.setId} ${part.color} ${part.system}`
       .toLowerCase()
       .replace(/[\s-]/g, "")
       .includes(normalizedQuery),
@@ -101,9 +101,6 @@ function PartSelect({
               className="min-h-10 w-full rounded-lg px-3 text-left text-sm hover:bg-accent"
             >
               {labelFor(part)}
-              {part.nameEn.toLowerCase() !== part.name.toLowerCase() && (
-                <span className="ml-2 text-xs text-muted-foreground">{part.nameEn}</span>
-              )}
             </button>
           ))}
           {!matches.length && (

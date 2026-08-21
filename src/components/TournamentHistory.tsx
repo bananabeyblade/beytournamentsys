@@ -28,7 +28,12 @@ export function TournamentHistory() {
   }, [currentAdmin, currentTournament]);
 
   const remove = useCallback(async (row: TournamentRow) => {
-    if (!window.confirm(`確定刪除「${row.name}」？此動作無法復原，報名紀錄也會一併刪除。`)) return;
+    if (
+      !window.confirm(
+        `確定封存「${row.name}」？賽事會從公開清單移除，但報名、比分、Deck／Combo 與操作紀錄會永久保留。`,
+      )
+    )
+      return;
     setBusy(row.id);
     setErr("");
     try {
@@ -78,7 +83,11 @@ export function TournamentHistory() {
                 <p className="truncate text-sm">{r.name}</p>
                 <p className="text-[11px] text-muted-foreground">
                   {new Date(r.created_at).toLocaleDateString("zh-TW")} · {r.code} ·{" "}
-                  {r.status === "finished" ? "已結束" : "進行中"}
+                  {r.status === "finished"
+                    ? "已結束"
+                    : r.status === "archived"
+                      ? "已封存"
+                      : "進行中"}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -132,7 +141,9 @@ export function TournamentHistory() {
         <p className="text-sm text-muted-foreground">尚無賽事紀錄。</p>
       )}
       {isDeveloper && (
-        <p className="text-[11px] text-muted-foreground">使用中的賽事無法刪除，請先結束賽事。</p>
+        <p className="text-[11px] text-muted-foreground">
+          刪除會改為封存賽事，Deck／Combo 與紀錄不會被刪除。
+        </p>
       )}
     </div>
   );

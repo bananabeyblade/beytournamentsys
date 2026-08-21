@@ -155,7 +155,7 @@ interface Ctx extends TournamentState {
     combo2Slot?: 1 | 2 | 3,
   ) => void;
   undoScore: (matchId: string) => void;
-  confirmWinner: (matchId: string) => void;
+  confirmWinner: (matchId: string, forcedWinner?: 1 | 2) => void;
   /** True when another device edited this bout moments ago (shared scoring). */
   scoringElsewhere: (match: Match) => boolean;
   /** Edit lock for a bout: who is scoring it right now (null when free). */
@@ -800,14 +800,23 @@ export function TournamentProvider({
   );
 
   const confirmWinner = useCallback(
-    (matchId: string) => {
+    (matchId: string, forcedWinner?: 1 | 2) => {
       markLocal(matchId);
       let logged: { matchup: string; winner: string } | null = null;
       setMatches((prev) => {
         const next = prev.map((m) => ({ ...m }));
         const m = next.find((x) => x.id === matchId);
         if (!m) return prev;
-        const winner = m.score1 >= WIN_TARGET ? m.p1 : m.score2 >= WIN_TARGET ? m.p2 : null;
+        const winner =
+          forcedWinner === 1
+            ? m.p1
+            : forcedWinner === 2
+              ? m.p2
+              : m.score1 >= WIN_TARGET
+                ? m.p1
+                : m.score2 >= WIN_TARGET
+                  ? m.p2
+                  : null;
         if (!winner) return prev;
         logged = {
           matchup: matchupOf(m),

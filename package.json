@@ -21,7 +21,9 @@
     "db:import:apply": "node scripts/import-from-supabase.mjs --apply",
     "parts:check": "node scripts/sync-beyblade-parts.mjs --check",
     "parts:update": "node scripts/sync-beyblade-parts.mjs --write",
-    "parts:database": "node scripts/sync-beyblade-parts.mjs --check-database"
+    "parts:database": "node scripts/sync-beyblade-parts.mjs --check-database",
+    "parts:canonical:dry-run": "node scripts/migrate-canonical-beyblade-parts.mjs",
+    "parts:canonical:apply": "node scripts/migrate-canonical-beyblade-parts.mjs --apply"
   },
   "dependencies": {
     "@lovable.dev/cloud-auth-js": "^1.1.2",

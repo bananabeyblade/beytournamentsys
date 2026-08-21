@@ -7,8 +7,8 @@ import {
   type BeybladePart,
   type DeckCombo,
   type PartType,
-  partModelLabel,
 } from "@/lib/deck";
+import { partDisplayLabel, partMatchesQuery } from "@/lib/partPresentation";
 
 const emptyCombo = (slot: 1 | 2 | 3): DeckCombo => ({
   slot,
@@ -37,14 +37,8 @@ function PartSelect({
   const [query, setQuery] = useState("");
   const options = useMemo(() => parts.filter((part) => part.partType === type), [parts, type]);
   const selected = options.find((part) => part.id === value);
-  const labelFor = (part: BeybladePart) => partModelLabel(part);
-  const normalizedQuery = query.toLowerCase().replace(/[\s-]/g, "");
-  const matches = options.filter((part) =>
-    `${partModelLabel(part)} ${part.name} ${part.nameEn} ${part.code} ${part.functionalCode} ${part.sourcePartId} ${part.packageId} ${part.setId} ${part.color} ${part.system}`
-      .toLowerCase()
-      .replace(/[\s-]/g, "")
-      .includes(normalizedQuery),
-  );
+  const labelFor = (part: BeybladePart) => partDisplayLabel(part);
+  const matches = options.filter((part) => partMatchesQuery(part, query));
 
   useEffect(() => {
     if (!open) setQuery(selected ? labelFor(selected) : "");

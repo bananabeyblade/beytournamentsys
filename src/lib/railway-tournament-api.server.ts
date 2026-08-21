@@ -173,8 +173,9 @@ type PartRow = {
 export async function listActiveParts() {
   const { rows } = await queryPostgres<PartRow>(
     `SELECT id, name, name_en, code, part_type, system,
-            source_part_id, functional_code, package_id, set_id, color, brand_source
-     FROM parts WHERE active = TRUE
+            '' AS source_part_id, code AS functional_code, '' AS package_id, '' AS set_id,
+            '' AS color, 'canonical' AS brand_source
+     FROM canonical_parts WHERE active = TRUE
      ORDER BY part_type, release_date DESC NULLS LAST, name_en, code`,
   );
   return {
@@ -265,7 +266,9 @@ async function validatedCombos(client: PoolClient, input: unknown): Promise<Deck
   }
   const ids = [...requested.keys()];
   const { rows } = await client.query<{ id: string; part_type: PartType }>(
-    "SELECT id, part_type FROM parts WHERE active = TRUE AND id = ANY($1::text[])",
+    `SELECT id, part_type FROM canonical_parts WHERE active = TRUE AND id = ANY($1::text[])
+     UNION ALL
+     SELECT id, part_type FROM parts WHERE active = TRUE AND id = ANY($1::text[])`,
     [ids],
   );
   const found = new Map(rows.map((row) => [row.id, row.part_type]));

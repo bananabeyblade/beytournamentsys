@@ -244,7 +244,12 @@ export async function railwayAdminGet(request: Request, action: string) {
           name_en: string;
           code: string;
           part_type: PartType;
-        }>("SELECT id,name,name_en,code,part_type FROM parts WHERE id = ANY($1::text[])", [partIds])
+        }>(
+          `SELECT id,name,name_en,code,part_type FROM parts WHERE id = ANY($1::text[])
+           UNION ALL
+           SELECT id,name,name_en,code,part_type FROM canonical_parts WHERE id = ANY($1::text[])`,
+          [partIds],
+        )
       : { rows: [] };
     const partLabels = new Map(
       parts.rows.map((part) => [part.id, part.name || part.name_en || part.code]),

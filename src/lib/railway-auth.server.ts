@@ -315,7 +315,7 @@ export async function readRailwaySession(request: Request): Promise<RailwaySessi
     `SELECT r.id,r.display_name,r.status,r.tournament_id,t.code
      FROM tournament_referees r
      JOIN tournament_referee_invites i ON i.id=r.invite_id
-     JOIN tournaments t ON t.id=r.tournament_id
+     JOIN tournaments t ON t.id::text=r.tournament_id::text
      WHERE r.session_token_hash=$1 AND r.status='approved' AND t.status='open'
        AND i.revoked_at IS NULL AND (i.expires_at IS NULL OR i.expires_at > now())
      LIMIT 1`,
@@ -349,7 +349,7 @@ export async function readRailwayRefereeClaim(request: Request) {
     name: string;
   }>(
     `SELECT r.id,r.display_name,r.status,r.tournament_id,t.code,t.name
-     FROM tournament_referees r JOIN tournaments t ON t.id=r.tournament_id
+     FROM tournament_referees r JOIN tournaments t ON t.id::text=r.tournament_id::text
      WHERE r.session_token_hash=$1 LIMIT 1`,
     [sha256(token)],
   );

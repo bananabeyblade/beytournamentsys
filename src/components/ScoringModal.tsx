@@ -116,6 +116,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
           if (!alive) return;
           const next: Record<string, RefereeDeckChoice> = {};
           for (const deck of report.refereeDecks ?? []) {
+            if (!deck.currentCombos.length) continue;
             next[deck.playerId] = {
               combos: deck.currentCombos,
               bladeLabels: deck.comboBladeLabels,
@@ -124,10 +125,11 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
           // Compatibility fallback for data imported before live roster Deck
           // identities existed.
           for (const snapshot of report.snapshots) {
-            if (next[snapshot.playerId]) continue;
+            const fallbackCombos = snapshot.currentCombos ?? snapshot.combos;
+            if (next[snapshot.playerId] || !fallbackCombos.length) continue;
             next[snapshot.playerId] = {
-              combos: snapshot.currentCombos ?? snapshot.combos,
-              bladeLabels: [],
+              combos: fallbackCombos,
+              bladeLabels: snapshot.comboBladeLabels ?? [],
             };
           }
           setDeckByPlayer(next);

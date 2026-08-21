@@ -112,11 +112,15 @@ async function assertRefereeStateMutation(tournamentId: string, state: Body) {
 }
 
 export async function railwayAdminGet(request: Request, action: string) {
-  const user = await requireRailwayAdmin(
-    request,
-    action === "admins" || action === "audit" || action === "admin-password",
-  );
   const url = new URL(request.url);
+  const deckReportTournamentId =
+    action === "deck-report" ? uuid(url.searchParams.get("tournamentId"), "TOURNAMENT_ID") : null;
+  const user = deckReportTournamentId
+    ? await requireRailwayOperator(request, deckReportTournamentId)
+    : await requireRailwayAdmin(
+        request,
+        action === "admins" || action === "audit" || action === "admin-password",
+      );
   if (action === "referee-access")
     return getRefereeAccess(request, url.searchParams.get("tournamentId"));
   if (action === "role") return { role: user.role, user };
@@ -145,7 +149,7 @@ export async function railwayAdminGet(request: Request, action: string) {
     return { recoveryCodes: result.rows };
   }
   if (action === "deck-report") {
-    const tournamentId = uuid(url.searchParams.get("tournamentId"), "TOURNAMENT_ID");
+    const tournamentId = deckReportTournamentId!;
     const snapshots = await queryPostgres<{
       player_id: string;
       participant_name: string;
@@ -187,8 +191,19 @@ export async function railwayAdminGet(request: Request, action: string) {
        LEFT JOIN participant_recovery_codes recovery
          ON recovery.tournament_id = $1
         AND lower(btrim(recovery.name)) = lower(btrim(roster.participant_name))
-       LEFT JOIN participant_decks deck
-         ON deck.recovery_code_id = recovery.id
+       LEFT JOIN LATERAL (
+         SELECT candidate.combos
+         FROM participant_decks candidate
+         WHERE candidate.tournament_id = $1
+           AND (
+             candidate.recovery_code_id = recovery.id
+             OR lower(btrim(candidate.participant_name)) = lower(btrim(roster.participant_name))
+           )
+         ORDER BY
+           CASE WHEN candidate.recovery_code_id = recovery.id THEN 0 ELSE 1 END,
+           candidate.updated_at DESC
+         LIMIT 1
+       ) deck ON TRUE
        WHERE roster.player_id IS NOT NULL`,
       [tournamentId],
     );
@@ -320,6 +335,10 @@ export async function railwayAdminGet(request: Request, action: string) {
             .map((partId) => partLabels.get(partId) ?? partId)
             .join(" / "),
         ),
+        comboBladeLabels: (Array.isArray(snapshot.current_combos)
+          ? snapshot.current_combos
+          : []
+        ).map(comboBladeLabel),
         rank: ranks.get(snapshot.participant_name.trim().toLowerCase()),
       })),
       refereeDecks: refereeDecks.rows.map((deck) => {

@@ -9,6 +9,8 @@ export interface DeckSnapshot {
   /** Player's latest saved Deck, used by referees while the event is live. */
   currentCombos: DeckCombo[];
   comboLabels: string[];
+  /** Chinese Blade-only labels used by the referee selector fallback. */
+  comboBladeLabels?: string[];
   rank?: number;
 }
 

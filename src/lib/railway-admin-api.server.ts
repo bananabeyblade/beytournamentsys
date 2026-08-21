@@ -162,11 +162,14 @@ export async function railwayAdminGet(request: Request, action: string) {
               COALESCE(current_deck.combos, snapshot.combos, '[]'::jsonb) AS current_combos
        FROM tournament_deck_snapshots snapshot
        LEFT JOIN participant_recovery_codes recovery
-         ON recovery.tournament_id = snapshot.tournament_id
+         ON recovery.tournament_id::text = snapshot.tournament_id::text
         AND lower(btrim(recovery.name)) = lower(btrim(snapshot.participant_name))
        LEFT JOIN participant_decks current_deck
-         ON current_deck.recovery_code_id = COALESCE(snapshot.recovery_code_id, recovery.id)
-       WHERE snapshot.tournament_id=$1
+         ON current_deck.recovery_code_id::text = COALESCE(
+           snapshot.recovery_code_id::text,
+           recovery.id::text
+         )
+       WHERE snapshot.tournament_id::text = $1::text
        ORDER BY snapshot.captured_at`,
       [tournamentId],
     );
@@ -186,7 +189,7 @@ export async function railwayAdminGet(request: Request, action: string) {
          CROSS JOIN LATERAL jsonb_array_elements(
            COALESCE(tournament.live_state->'players', '[]'::jsonb)
          ) AS player
-         WHERE tournament.id = $1
+         WHERE tournament.id::text = $1::text
        )
        SELECT roster.player_id,
               deck.participant_name,
@@ -194,12 +197,12 @@ export async function railwayAdminGet(request: Request, action: string) {
        FROM participant_decks deck
        LEFT JOIN roster
          ON lower(btrim(roster.participant_name)) = lower(btrim(deck.participant_name))
-       WHERE deck.tournament_id = $1
+       WHERE deck.tournament_id::text = $1::text
        ORDER BY deck.updated_at DESC`,
       [tournamentId],
     );
     const tournament = await queryPostgres<{ live_state: unknown; results: unknown }>(
-      "SELECT live_state,results FROM tournaments WHERE id=$1 LIMIT 1",
+      "SELECT live_state,results FROM tournaments WHERE id::text=$1::text LIMIT 1",
       [tournamentId],
     );
     if (!tournament.rowCount) throw new AdminApiError(404, "TOURNAMENT_NOT_FOUND");

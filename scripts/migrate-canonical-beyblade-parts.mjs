@@ -70,22 +70,34 @@ const byKey = new Map();
   } else {
     await client.query("BEGIN");
     try {
-      for (const part of master) {
-        await client.query(
-          `INSERT INTO canonical_parts (id,name,name_en,code,part_type,system,release_date,active,source_url)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-           ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,name_en=EXCLUDED.name_en,code=EXCLUDED.code,part_type=EXCLUDED.part_type,system=EXCLUDED.system,release_date=EXCLUDED.release_date,active=EXCLUDED.active,source_url=EXCLUDED.source_url`,
-          [part.id, part.name, part.name_en, part.code, part.part_type, part.system, part.release_date, part.active, part.source_url],
-        );
-      }
-      for (const [catalogId, canonicalId] of aliases) {
-        await client.query(
-          `INSERT INTO catalog_part_aliases (catalog_part_id, canonical_part_id, match_method)
-           VALUES ($1,$2,'type_and_code')
-           ON CONFLICT (catalog_part_id) DO UPDATE SET canonical_part_id=EXCLUDED.canonical_part_id, match_method=EXCLUDED.match_method`,
-          [catalogId, canonicalId],
-        );
-      }
+      await client.query(
+        `INSERT INTO canonical_parts (id,name,name_en,code,part_type,system,release_date,active,source_url)
+         SELECT id,name,name_en,code,part_type,system,release_date,active,source_url
+         FROM jsonb_to_recordset($1::jsonb) AS part(
+           id text,name text,name_en text,code text,part_type text,system text,
+           release_date date,active boolean,source_url text
+         )
+         ON CONFLICT (id) DO UPDATE SET
+           name=EXCLUDED.name,name_en=EXCLUDED.name_en,code=EXCLUDED.code,
+           part_type=EXCLUDED.part_type,system=EXCLUDED.system,release_date=EXCLUDED.release_date,
+           active=EXCLUDED.active,source_url=EXCLUDED.source_url`,
+        [JSON.stringify(master)],
+      );
+      await client.query(
+        `INSERT INTO catalog_part_aliases (catalog_part_id,canonical_part_id,match_method)
+         SELECT catalog_part_id,canonical_part_id,'type_and_code'
+         FROM jsonb_to_recordset($1::jsonb) AS alias(catalog_part_id text,canonical_part_id text)
+         ON CONFLICT (catalog_part_id) DO UPDATE SET
+           canonical_part_id=EXCLUDED.canonical_part_id,match_method=EXCLUDED.match_method`,
+        [
+          JSON.stringify(
+            aliases.map(([catalog_part_id, canonical_part_id]) => ({
+              catalog_part_id,
+              canonical_part_id,
+            })),
+          ),
+        ],
+      );
       for (const deck of affectedDecks) {
         const combos = deck.combos.map((combo) => Object.fromEntries(
           Object.entries(combo).map(([field, value]) => [field, typeof value === "string" ? aliasMap.get(value) || value : value]),

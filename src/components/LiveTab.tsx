@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
 import { Play, Swords, Radio, Trophy, Star } from "lucide-react";
@@ -6,6 +6,8 @@ import { useTournament } from "@/lib/tournament-store";
 import type { Match } from "@/lib/tournament-types";
 import { ScoringModal } from "./ScoringModal";
 import { useJoinedName, isSameName } from "@/lib/joined-name";
+import { fetchDeckReport, type DeckReport } from "@/lib/deck-report";
+import { buildPodiumDecks } from "@/lib/podium-decks";
 
 function MatchCard({
   match,
@@ -98,6 +100,39 @@ export function LiveTab() {
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [startId, setStartId] = useState<string | null>(null);
+  const [podiumReport, setPodiumReport] = useState<DeckReport | null>(null);
+  const [podiumLoading, setPodiumLoading] = useState(false);
+  const [podiumError, setPodiumError] = useState(false);
+
+  useEffect(() => {
+    if (!results?.top4.length || !currentTournament?.id || role !== "admin") {
+      setPodiumReport(null);
+      setPodiumLoading(false);
+      setPodiumError(false);
+      return;
+    }
+    let alive = true;
+    setPodiumLoading(true);
+    setPodiumError(false);
+    void fetchDeckReport(currentTournament.id)
+      .then((report) => {
+        if (alive) setPodiumReport(report);
+      })
+      .catch(() => {
+        if (alive) setPodiumError(true);
+      })
+      .finally(() => {
+        if (alive) setPodiumLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [currentTournament?.id, results?.top4.length, role]);
+
+  const podiumDecks = useMemo(
+    () => (results && podiumReport ? buildPodiumDecks(results.top4, podiumReport) : []),
+    [podiumReport, results],
+  );
 
   // Put the spectator's own match first so they see it without scrolling.
   const isMine = (m: Match) =>
@@ -173,6 +208,65 @@ export function LiveTab() {
               </li>
             ))}
           </ol>
+          {role === "admin" && (
+            <section className="rounded-xl border border-primary/40 bg-accent/15 p-3 text-left">
+              <p className="text-center font-display text-xs tracking-widest text-primary">
+                TOP 3 · DECK / COMBO
+              </p>
+              <p className="mt-1 text-center text-[10px] text-muted-foreground">
+                八強晉級時保存的 Deck；實戰局數依裁判逐局選擇紀錄計算。
+              </p>
+              {podiumLoading ? (
+                <p className="mt-3 text-center text-xs text-muted-foreground">讀取前三名 Deck…</p>
+              ) : podiumError ? (
+                <p className="mt-3 text-center text-xs text-destructive">
+                  暫時無法載入 Deck／Combo。
+                </p>
+              ) : (
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {podiumDecks.map((entry) => (
+                    <article
+                      key={entry.rank}
+                      className="rounded-lg border border-border bg-background/65 p-2.5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-primary/50 font-display text-primary">
+                          {entry.rank}
+                        </span>
+                        <p className="min-w-0 truncate text-sm font-semibold">{entry.name}</p>
+                      </div>
+                      {entry.combos.length ? (
+                        <ol className="mt-2 space-y-1.5">
+                          {entry.combos.map((combo) => (
+                            <li
+                              key={combo.slot}
+                              className="rounded-md border border-border/80 bg-secondary/45 px-2 py-1.5 text-[11px]"
+                            >
+                              <p className="break-words leading-relaxed">
+                                <span className="mr-1 font-display text-primary">
+                                  {String.fromCharCode(64 + combo.slot)}
+                                </span>
+                                {combo.label}
+                              </p>
+                              {combo.battles > 0 && (
+                                <p className="mt-0.5 text-right text-[10px] text-muted-foreground">
+                                  實戰 {combo.battles} 局
+                                </p>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      ) : (
+                        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                          未登錄 Deck 或無八強快照
+                        </p>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
           {currentTournament && (
             <Link
               to="/results/$code"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BeybladePart, PartType } from "./deck";
-import { partDisplayLabel, partMatchesQuery } from "./partPresentation";
+import { compareParts, partDisplayLabel, partMatchesQuery } from "./partPresentation";
 
 function part(partType: PartType, code: string, name = code): BeybladePart {
   return {
@@ -34,13 +34,42 @@ describe("fast Deck part presentation", () => {
   });
 
   it("matches Bit codes without searching English names or metadata", () => {
-    const options = [part("bit", "R"), part("bit", "E"), part("bit", "H"), part("bit", "FB")];
+    const options = [
+      part("bit", "R"),
+      part("bit", "RA"),
+      part("bit", "LR"),
+      part("bit", "NR"),
+      part("bit", "E"),
+      part("bit", "H"),
+      part("bit", "FB"),
+    ];
     expect(
       options.filter((option) => partMatchesQuery(option, "E")).map(({ code }) => code),
     ).toEqual(["E"]);
     expect(
       options.filter((option) => partMatchesQuery(option, "FB軸")).map(({ code }) => code),
     ).toEqual(["FB"]);
+    expect(
+      options
+        .sort(compareParts)
+        .filter((option) => partMatchesQuery(option, "R"))
+        .map(({ code }) => code),
+    ).toEqual(["LR", "NR", "R", "RA"]);
+  });
+
+  it("sorts Ratchets numerically and Bits alphabetically", () => {
+    expect(
+      ["8-80", "1-60", "8-70", "7-55", "1-50"]
+        .map((code) => part("ratchet", code))
+        .sort(compareParts)
+        .map(({ code }) => code),
+    ).toEqual(["1-50", "1-60", "7-55", "8-70", "8-80"]);
+    expect(
+      ["NR", "DS", "FF", "GU", "LR", "R", "RA"]
+        .map((code) => part("bit", code))
+        .sort(compareParts)
+        .map(({ code }) => code),
+    ).toEqual(["DS", "FF", "GU", "LR", "NR", "R", "RA"]);
   });
 
   it("searches blades by their functional Chinese name", () => {

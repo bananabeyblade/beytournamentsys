@@ -87,6 +87,34 @@ export function partDisplayLabel(part: BeybladePart) {
   return localizedName(part) || part.functionalCode || part.code;
 }
 
+function ratchetNumbers(part: BeybladePart) {
+  const match = ratchetValue(part).match(/^(\d+)-(\d+)$/);
+  return match ? [Number(match[1]), Number(match[2])] : null;
+}
+
+/** Stable player-facing order: Ratchets by both numbers, Bits alphabetically. */
+export function compareParts(left: BeybladePart, right: BeybladePart) {
+  if (left.partType === "ratchet" && right.partType === "ratchet") {
+    const leftNumbers = ratchetNumbers(left);
+    const rightNumbers = ratchetNumbers(right);
+    if (leftNumbers && rightNumbers) {
+      return leftNumbers[0] - rightNumbers[0] || leftNumbers[1] - rightNumbers[1];
+    }
+    if (leftNumbers) return -1;
+    if (rightNumbers) return 1;
+    return ratchetValue(left).localeCompare(ratchetValue(right), "en", { numeric: true });
+  }
+  if (left.partType === "bit" && right.partType === "bit") {
+    return bitValue(left).localeCompare(bitValue(right), "en", {
+      numeric: true,
+      sensitivity: "base",
+    });
+  }
+  return partDisplayLabel(left).localeCompare(partDisplayLabel(right), "zh-Hant", {
+    numeric: true,
+  });
+}
+
 /** Matches only player-facing functional names and codes, never hidden catalogue metadata. */
 export function partMatchesQuery(part: BeybladePart, query: string) {
   const normalizedQuery = normalize(query);
@@ -99,7 +127,7 @@ export function partMatchesQuery(part: BeybladePart, query: string) {
   }
   if (part.partType === "bit") {
     const codeQuery = normalizedQuery.replace(/軸$/, "").toUpperCase();
-    return /^[A-Z][A-Z0-9]*$/.test(codeQuery) && bitValue(part).startsWith(codeQuery);
+    return /^[A-Z][A-Z0-9]*$/.test(codeQuery) && bitValue(part).includes(codeQuery);
   }
   return [localizedName(part), part.functionalCode, part.code]
     .filter(Boolean)

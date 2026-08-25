@@ -8,7 +8,7 @@ import {
   type DeckCombo,
   type PartType,
 } from "@/lib/deck";
-import { partDisplayLabel, partMatchesQuery } from "@/lib/partPresentation";
+import { compareParts, partDisplayLabel, partMatchesQuery } from "@/lib/partPresentation";
 
 const emptyCombo = (slot: 1 | 2 | 3): DeckCombo => ({
   slot,
@@ -35,7 +35,10 @@ function PartSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const options = useMemo(() => parts.filter((part) => part.partType === type), [parts, type]);
+  const options = useMemo(
+    () => parts.filter((part) => part.partType === type).sort(compareParts),
+    [parts, type],
+  );
   const selected = options.find((part) => part.id === value);
   const labelFor = (part: BeybladePart) => partDisplayLabel(part);
   const matches = options.filter((part) => partMatchesQuery(part, query));

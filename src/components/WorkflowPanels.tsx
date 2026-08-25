@@ -3,6 +3,7 @@ import {
   CheckCheck,
   KeyRound,
   QrCode,
+  RotateCcw,
   Shuffle,
   Trash2,
   Trophy,
@@ -203,7 +204,7 @@ export function ScoringPanel({
   winner?: "A" | "B" | null;
 }) {
   return (
-    <div className="panel neon-edge p-4">
+    <div className="panel neon-edge relative overflow-hidden p-4">
       <p className="text-xs tracking-widest text-muted-foreground">裁判計分 · 第一輪 · 桌 1</p>
       <h2 className="text-lg neon-text">REFEREE SCORING</h2>
       <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
@@ -241,18 +242,22 @@ export function ScoringPanel({
           </button>
         ))}
       </div>
-      <div className="mt-4 min-h-48">
-        {winner && (
-          <div className="landing-winner-reveal rounded-xl border-2 border-primary bg-accent/40 p-4 text-center neon-edge">
+      <div className="mt-4 min-h-48" aria-hidden="true" />
+      {winner && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/65 p-4 backdrop-blur-[2px]">
+          <div className="landing-winner-reveal w-full max-w-sm rounded-xl border-2 border-primary bg-card p-4 text-center neon-edge">
             <Trophy className="mx-auto h-8 w-8 text-primary" />
             <p className="mt-2 font-display text-lg neon-text">選手 {winner} Wins!</p>
             <p className="text-xs text-muted-foreground">確認後將自動晉級下一輪</p>
             <button className="mt-3 min-h-14 w-full rounded-xl bg-primary font-display text-lg text-primary-foreground">
               確認勝利 CONFIRM
             </button>
+            <button className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary text-sm font-semibold">
+              <RotateCcw className="h-4 w-4" /> 返回修正比分
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

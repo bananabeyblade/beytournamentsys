@@ -13,6 +13,7 @@ import {
   decideReferee,
   getRefereeAccess,
 } from "./referee-access.server";
+import { adminTournamentListStatuses } from "./tournament-visibility";
 
 type Body = Record<string, unknown>;
 
@@ -143,9 +144,11 @@ export async function railwayAdminGet(request: Request, action: string) {
   }
   if (action === "tournaments") {
     const latest = url.searchParams.get("latest") === "open";
+    const statuses = adminTournamentListStatuses(latest);
     const result = await queryPostgres(
-      `SELECT ${tournamentColumns} FROM tournaments ${latest ? "WHERE status = 'open'" : ""}
+      `SELECT ${tournamentColumns} FROM tournaments WHERE status = ANY($1::text[])
        ORDER BY created_at DESC LIMIT ${latest ? 1 : 50}`,
+      [statuses],
     );
     return { tournaments: result.rows };
   }

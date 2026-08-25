@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Database,
   Power,
+  RotateCcw,
   Shield,
   Terminal,
   Users,
@@ -18,8 +19,33 @@ import { TournamentHistory } from "@/components/TournamentHistory";
 import { SystemStatusCard } from "@/components/SystemStatusCard";
 import { isDeveloperEmail } from "@/lib/account-id";
 import { listTournaments, type TournamentRow } from "@/lib/tournaments";
-import { fetchDeckReport, type DeckReport } from "@/lib/deck-report";
+import {
+  fetchDeckReport,
+  fetchDeckStatisticsState,
+  resetDeckStatistics,
+  type DeckReport,
+  type DeckStatisticsState,
+} from "@/lib/deck-report";
+import type { PartType } from "@/lib/deck";
 import { railwayApi } from "@/lib/railway-api";
+
+type StatisticsPartType = PartType | "unknown";
+
+const statisticsPartSections: Array<{
+  type: StatisticsPartType;
+  label: string;
+  labelEn: string;
+}> = [
+  { type: "blade", label: "戰刃", labelEn: "Blade" },
+  { type: "ratchet", label: "固鎖", labelEn: "Ratchet" },
+  { type: "bit", label: "軸心", labelEn: "Bit" },
+  { type: "lock_chip", label: "鎖定紋章", labelEn: "Lock Chip" },
+  { type: "main_blade", label: "主要戰刃", labelEn: "Main Blade" },
+  { type: "assist_blade", label: "輔助戰刃", labelEn: "Assist Blade" },
+  { type: "metal_blade", label: "金屬戰刃", labelEn: "Metal Blade" },
+  { type: "over_blade", label: "超越戰刃", labelEn: "Over Blade" },
+  { type: "unknown", label: "其他零件", labelEn: "Other" },
+];
 
 export const Route = createFileRoute("/developer")({
   head: () => ({
@@ -214,16 +240,25 @@ function DeveloperDeckStats() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statisticsState, setStatisticsState] = useState<DeckStatisticsState | null>(null);
+  const [resetStage, setResetStage] = useState<0 | 1 | 2>(0);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    void listTournaments()
-      .then((rows) => {
+    void Promise.all([listTournaments(), fetchDeckStatisticsState()])
+      .then(([rows, state]) => {
         if (!alive) return;
-        setTournaments(rows);
+        const resetTime = new Date(state.resetAt).getTime();
+        const eligibleRows = rows.filter(
+          (tournament) => new Date(tournament.created_at).getTime() >= resetTime,
+        );
+        setStatisticsState(state);
+        setTournaments(eligibleRows);
         return Promise.all(
-          rows.slice(0, 50).map(async (tournament) => ({
+          eligibleRows.slice(0, 50).map(async (tournament) => ({
             tournament,
             report: await fetchDeckReport(tournament.id),
           })),
@@ -241,11 +276,29 @@ function DeveloperDeckStats() {
     };
   }, []);
 
+  const confirmStatisticsReset = async () => {
+    if (resetBusy || resetStage !== 2) return;
+    setResetBusy(true);
+    setResetError(null);
+    try {
+      const state = await resetDeckStatistics();
+      setStatisticsState(state);
+      setTournaments([]);
+      setReports([]);
+      setResetStage(0);
+    } catch (cause) {
+      setResetError(cause instanceof Error ? cause.message : "統計歸零失敗");
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
   const aggregate = useMemo(() => {
     const parts = new Map<
       string,
       {
         name: string;
+        partType: StatisticsPartType;
         count: number;
         upperCount: number;
         confirmedVariantCount: number;
@@ -257,10 +310,11 @@ function DeveloperDeckStats() {
     for (const { tournament, report } of reports) {
       samples += report.qualifierCount;
       trackedBattles += report.trackedBattleCount;
-      const partNames = new Map(report.partUsage.map((part) => [part.id, part.name]));
+      const partDetails = new Map(report.partUsage.map((part) => [part.id, part]));
       for (const part of report.partUsage) {
         const current = parts.get(part.id) ?? {
           name: part.name,
+          partType: part.partType,
           count: 0,
           upperCount: 0,
           confirmedVariantCount: 0,
@@ -287,8 +341,10 @@ function DeveloperDeckStats() {
           }
         }
         for (const id of partIds) {
+          const partDetail = partDetails.get(id);
           const current = parts.get(id) ?? {
-            name: partNames.get(id) ?? id,
+            name: partDetail?.name ?? id,
+            partType: partDetail?.partType ?? "unknown",
             count: 0,
             upperCount: 0,
             confirmedVariantCount: 0,
@@ -346,26 +402,52 @@ function DeveloperDeckStats() {
           <div>
             <h3 className="mb-2 text-sm font-semibold">零件使用率／樣本數／上位率</h3>
             {aggregate.parts.length ? (
-              <ul className="space-y-2 text-xs">
-                {aggregate.parts.slice(0, 20).map((part) => (
-                  <li
-                    key={part.id}
-                    className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
-                  >
-                    <span>{part.name}</span>
-                    <span className="text-right text-muted-foreground">
-                      <span className="block">
-                        {part.count} 人次 · {part.usageRate.toFixed(1)}%
-                      </span>
-                      <span className="block">上位 {part.upperPlacementRate.toFixed(1)}%</span>
-                      <span className="block">
-                        詳細版本 {part.confirmedVariantCount}/{part.count}（
-                        {part.variantCoverageRate.toFixed(1)}%）
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-5">
+                {statisticsPartSections.map((section) => {
+                  const sectionParts = aggregate.parts.filter(
+                    (part) => part.partType === section.type,
+                  );
+                  if (!sectionParts.length) return null;
+
+                  return (
+                    <section key={section.type} className="space-y-2">
+                      <div className="flex items-end justify-between gap-3 border-b border-border pb-1">
+                        <h4 className="font-display text-sm text-primary">
+                          {section.label}
+                          <span className="ml-1 font-sans text-[10px] text-muted-foreground">
+                            ({section.labelEn})
+                          </span>
+                        </h4>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
+                          {sectionParts.length} 種零件
+                        </span>
+                      </div>
+                      <ul className="space-y-2 text-xs">
+                        {sectionParts.map((part) => (
+                          <li
+                            key={part.id}
+                            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border px-3 py-2"
+                          >
+                            <span className="break-words">{part.name}</span>
+                            <span className="text-right text-muted-foreground">
+                              <span className="block">
+                                {part.count} 人次 · {part.usageRate.toFixed(1)}%
+                              </span>
+                              <span className="block">
+                                上位 {part.upperPlacementRate.toFixed(1)}%
+                              </span>
+                              <span className="block">
+                                詳細版本 {part.confirmedVariantCount}/{part.count}（
+                                {part.variantCoverageRate.toFixed(1)}%）
+                              </span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  );
+                })}
+              </div>
             ) : (
               <p className="text-xs text-muted-foreground">尚無可統計的 Deck。</p>
             )}
@@ -373,6 +455,94 @@ function DeveloperDeckStats() {
           <p className="text-[11px] text-muted-foreground">
             後續可加入：四強／冠軍上位率、每局勝率、同組合勝率與樣本信賴區間。
           </p>
+          <div className="space-y-3 border-t border-border pt-4">
+            <div>
+              <h3 className="text-sm font-semibold text-destructive">統計資料管理</h3>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                歸零只會更新統計起算時間，不會刪除 Deck、Combo、賽事、比分或實戰紀錄。
+              </p>
+              {statisticsState && new Date(statisticsState.resetAt).getTime() > 0 && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  目前統計起算：
+                  {new Date(statisticsState.resetAt).toLocaleString("zh-TW", {
+                    timeZone: "Asia/Taipei",
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              )}
+            </div>
+
+            {resetStage === 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setResetError(null);
+                  setResetStage(1);
+                }}
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-destructive/60 text-sm text-destructive"
+              >
+                <RotateCcw className="h-4 w-4" /> 歸零統計資料
+              </button>
+            )}
+
+            {resetStage === 1 && (
+              <div className="space-y-3 rounded-xl border border-destructive/50 bg-destructive/10 p-3">
+                <p className="text-sm font-semibold text-destructive">第一次確認</p>
+                <p className="text-xs text-muted-foreground">
+                  歸零後，既有賽事不再列入目前統計；之後新建立的賽事會重新開始累積。
+                  所有原始紀錄仍會保留。
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setResetStage(0)}
+                    className="min-h-11 rounded-xl border border-border text-xs text-muted-foreground"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResetStage(2)}
+                    className="min-h-11 rounded-xl border border-destructive/60 text-xs text-destructive"
+                  >
+                    繼續第二次確認
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {resetStage === 2 && (
+              <div className="space-y-3 rounded-xl border border-destructive bg-destructive/15 p-3">
+                <p className="text-sm font-semibold text-destructive">第二次確認</p>
+                <p className="text-xs text-muted-foreground">
+                  確定要將目前統計歸零嗎？確認後畫面數據會立即從零重新累積。
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={resetBusy}
+                    onClick={() => setResetStage(1)}
+                    className="min-h-11 rounded-xl border border-border text-xs text-muted-foreground disabled:opacity-40"
+                  >
+                    返回
+                  </button>
+                  <button
+                    type="button"
+                    disabled={resetBusy}
+                    onClick={() => void confirmStatisticsReset()}
+                    className="min-h-11 rounded-xl bg-destructive px-2 text-xs font-semibold text-destructive-foreground disabled:opacity-40"
+                  >
+                    {resetBusy ? "歸零中…" : "確認歸零統計"}
+                  </button>
+                </div>
+              </div>
+            )}
+            {resetError && <p className="text-xs text-destructive">{resetError}</p>}
+          </div>
         </>
       )}
     </div>

@@ -14,6 +14,7 @@ export type AuditAction =
   | "tournament_create"
   | "tournament_force_finish"
   | "tournament_reset"
+  | "reset_deck_statistics"
   | "referee_invite_create"
   | "referee_quota_update"
   | "referee_request"
@@ -33,6 +34,7 @@ export const AUDIT_LABELS: Record<AuditAction, string> = {
   tournament_create: "建立賽事",
   tournament_force_finish: "強制結束賽事",
   tournament_reset: "重置賽事",
+  reset_deck_statistics: "歸零 Deck／Combo 統計",
   referee_invite_create: "建立／重發裁判 QR",
   referee_quota_update: "調整裁判名額",
   referee_request: "申請裁判權限",

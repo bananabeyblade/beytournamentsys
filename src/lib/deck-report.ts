@@ -53,8 +53,24 @@ export interface DeckReport {
   comboUsage: ComboUsageEntry[];
 }
 
+export interface DeckStatisticsState {
+  resetAt: string;
+  updatedBy: string | null;
+}
+
 export async function fetchDeckReport(tournamentId: string): Promise<DeckReport> {
   return railwayApi<DeckReport>(
     `/api/admin/deck-report?tournamentId=${encodeURIComponent(tournamentId)}`,
   );
+}
+
+export async function fetchDeckStatisticsState(): Promise<DeckStatisticsState> {
+  return railwayApi<DeckStatisticsState>("/api/admin/deck-statistics-state");
+}
+
+export async function resetDeckStatistics(): Promise<DeckStatisticsState> {
+  return railwayApi<DeckStatisticsState>("/api/admin/reset-deck-statistics", {
+    method: "POST",
+    body: JSON.stringify({ confirmed: true }),
+  });
 }

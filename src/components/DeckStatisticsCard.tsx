@@ -123,11 +123,14 @@ export function DeckStatisticsCard({ tournamentId }: { tournamentId: string }) {
               <ul className="space-y-1.5">
                 {report.comboUsage.map((entry) => (
                   <li
-                    key={`${entry.participantName}-${entry.slot}`}
+                    key={`${entry.participantName}-${entry.slot}-${entry.recorded ? JSON.stringify(entry.combo ?? entry.label) : "legacy"}`}
                     className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm"
                   >
                     <span className="truncate">
-                      {entry.participantName} · Combo {String.fromCharCode(64 + entry.slot)}
+                      {entry.participantName} ·{" "}
+                      {entry.recorded && entry.label
+                        ? entry.label
+                        : `Combo ${String.fromCharCode(64 + entry.slot)}（舊紀錄推估）`}
                     </span>
                     <span className="text-primary">{entry.battles} 局</span>
                   </li>

@@ -15,6 +15,7 @@ import {
   type Match,
   type Player,
   type Role,
+  type ScoreComboSnapshots,
   type TournamentState,
 } from "./tournament-types";
 import { SAMPLE_NAMES } from "./sample-names";
@@ -151,8 +152,7 @@ interface Ctx extends TournamentState {
     slot: 1 | 2,
     type: FinishType,
     points: number,
-    combo1Slot?: 1 | 2 | 3,
-    combo2Slot?: 1 | 2 | 3,
+    combos?: ScoreComboSnapshots,
   ) => void;
   undoScore: (matchId: string) => void;
   confirmWinner: (matchId: string, forcedWinner?: 1 | 2) => void;
@@ -749,8 +749,7 @@ export function TournamentProvider({
       slot: 1 | 2,
       type: FinishType,
       points: number,
-      combo1Slot?: 1 | 2 | 3,
-      combo2Slot?: 1 | 2 | 3,
+      combos?: ScoreComboSnapshots,
     ) => {
       markLocal(matchId);
       let logged: { matchup: string; score: string } | null = null;
@@ -761,7 +760,19 @@ export function TournamentProvider({
             ...m,
             score1: slot === 1 ? m.score1 + points : m.score1,
             score2: slot === 2 ? m.score2 + points : m.score2,
-            events: [...m.events, { slot, type, points, combo1Slot, combo2Slot }],
+            events: [
+              ...m.events,
+              {
+                slot,
+                type,
+                points,
+                combo1Slot: combos?.player1?.slot,
+                combo2Slot: combos?.player2?.slot,
+                combo1Snapshot: combos?.player1,
+                combo2Snapshot: combos?.player2,
+                recordedAt: Date.now(),
+              },
+            ],
           });
           logged = { matchup: matchupOf(m), score: `${next.score1} : ${next.score2}` };
           return next;

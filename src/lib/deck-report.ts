@@ -1,5 +1,8 @@
 import type { DeckCombo, PartType } from "./deck";
+import type { ComboUsageEntry } from "./combo-usage";
 import { railwayApi } from "./railway-api";
+
+export type { ComboUsageEntry } from "./combo-usage";
 
 export interface DeckSnapshot {
   playerId: string;
@@ -9,6 +12,7 @@ export interface DeckSnapshot {
   /** Player's latest saved Deck, used by referees while the event is live. */
   currentCombos: DeckCombo[];
   comboLabels: string[];
+  currentComboLabels?: string[];
   /** Chinese Blade-only labels used by the referee selector fallback. */
   comboBladeLabels?: string[];
   rank?: number;
@@ -21,6 +25,8 @@ export interface RefereeDeck {
   /** Kept even when a bracket player id is unavailable, so referees can match by name. */
   participantName: string;
   currentCombos: DeckCombo[];
+  /** Full immutable-ready labels in the same order as currentCombos. */
+  comboLabels: string[];
   /** One Chinese Blade name for each combo, in the same order as currentCombos. */
   comboBladeLabels: string[];
 }
@@ -33,12 +39,6 @@ export interface DeckReportPart {
   partType: PartType;
   participantCount: number;
   confirmedVariantParticipantCount: number;
-}
-
-export interface ComboUsageEntry {
-  participantName: string;
-  slot: 1 | 2 | 3;
-  battles: number;
 }
 
 export interface DeckReport {

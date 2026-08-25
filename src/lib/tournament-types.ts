@@ -1,3 +1,5 @@
+import type { DeckCombo } from "./deck";
+
 export type Role = "admin" | "player";
 
 export type FinishType = "spin" | "over" | "burst" | "xtreme";
@@ -25,6 +27,18 @@ export interface Player {
 
 export type MatchStatus = "waiting" | "ready" | "live" | "done";
 
+/** Immutable copy of the Combo selected when a score event was recorded. */
+export interface RecordedComboSnapshot {
+  slot: 1 | 2 | 3;
+  combo: DeckCombo;
+  label: string;
+}
+
+export interface ScoreComboSnapshots {
+  player1?: RecordedComboSnapshot;
+  player2?: RecordedComboSnapshot;
+}
+
 export interface ScoreEvent {
   slot: 1 | 2;
   type: FinishType;
@@ -32,6 +46,10 @@ export interface ScoreEvent {
   /** Top-eight tracking: both players' selected Combo for this battle. */
   combo1Slot?: 1 | 2 | 3;
   combo2Slot?: 1 | 2 | 3;
+  /** Exact Combo records. Optional so tournaments created before this field remain readable. */
+  combo1Snapshot?: RecordedComboSnapshot;
+  combo2Snapshot?: RecordedComboSnapshot;
+  recordedAt?: number;
 }
 
 export interface Match {

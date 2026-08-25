@@ -190,7 +190,7 @@ export function LiveTab() {
                 TOP 3 · DECK / COMBO
               </p>
               <p className="mt-1 text-center text-[10px] text-muted-foreground">
-                八強晉級時保存的 Deck；實戰局數依裁判逐局選擇紀錄計算。
+                分開顯示八強 Deck 快照與逐局實戰 Combo；舊紀錄會標示推估。
               </p>
               {podiumReport.isLoading ? (
                 <p className="mt-3 text-center text-xs text-muted-foreground">讀取前三名 Deck…</p>
@@ -211,8 +211,11 @@ export function LiveTab() {
                         </span>
                         <p className="min-w-0 truncate text-sm font-semibold">{entry.name}</p>
                       </div>
+                      <p className="mt-2 text-[10px] font-semibold tracking-widest text-muted-foreground">
+                        登錄 DECK
+                      </p>
                       {entry.combos.length ? (
-                        <ol className="mt-2 space-y-1.5">
+                        <ol className="mt-1 space-y-1.5">
                           {entry.combos.map((combo) => (
                             <li
                               key={combo.slot}
@@ -224,17 +227,35 @@ export function LiveTab() {
                                 </span>
                                 {combo.label}
                               </p>
-                              {combo.battles > 0 && (
-                                <p className="mt-0.5 text-right text-[10px] text-muted-foreground">
-                                  實戰 {combo.battles} 局
-                                </p>
-                              )}
                             </li>
                           ))}
                         </ol>
                       ) : (
                         <p className="mt-2 text-center text-[11px] text-muted-foreground">
                           未登錄 Deck 或無八強快照
+                        </p>
+                      )}
+                      <p className="mt-3 text-[10px] font-semibold tracking-widest text-muted-foreground">
+                        實戰 COMBO
+                      </p>
+                      {entry.playedCombos.length ? (
+                        <ul className="mt-1 space-y-1.5">
+                          {entry.playedCombos.map((combo) => (
+                            <li
+                              key={combo.key}
+                              className="rounded-md border border-primary/30 bg-accent/20 px-2 py-1.5 text-[11px]"
+                            >
+                              <p className="break-words leading-relaxed">{combo.label}</p>
+                              <p className="mt-0.5 text-right text-[10px] text-muted-foreground">
+                                {combo.battles} 局
+                                {combo.estimated ? " · 舊紀錄推估" : " · 實際快照"}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1 text-center text-[11px] text-muted-foreground">
+                          尚無逐局 Combo 紀錄
                         </p>
                       )}
                     </article>

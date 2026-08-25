@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/client.server";
 import { generateRecoveryCode } from "./recovery-code.server";
 import type { DeckCombo, PartType } from "./deck";
+import { sanitizePublicLiveState } from "./public-live-state";
 
 export type PublicTournament = {
   id: string;
@@ -52,7 +53,10 @@ export async function listPublicTournaments(code?: string): Promise<PublicTourna
     `SELECT ${tournamentColumns} FROM tournaments WHERE code = $1 AND status <> 'archived' LIMIT 1`,
     [normalizedCode],
   );
-  return result.rows;
+  return result.rows.map((tournament) => ({
+    ...tournament,
+    live_state: sanitizePublicLiveState(tournament.live_state),
+  }));
 }
 
 async function nameTaken(client: PoolClient, tournamentId: string, name: string): Promise<boolean> {

@@ -5,9 +5,11 @@ import { useTournament } from "@/lib/tournament-store";
 import { fetchDeckReport } from "@/lib/deck-report";
 import type { DeckCombo } from "@/lib/deck";
 import { isTop8Match } from "@/lib/top8";
+import { snapshotSelectedCombo } from "@/lib/recorded-combo";
 
 type RefereeDeckChoice = {
   combos: DeckCombo[];
+  comboLabels: string[];
   bladeLabels: string[];
 };
 
@@ -123,6 +125,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
             if (!deck.currentCombos.length) continue;
             const choice = {
               combos: deck.currentCombos,
+              comboLabels: deck.comboLabels,
               bladeLabels: deck.comboBladeLabels,
             };
             // A completed bracket can retain an old player id, so always
@@ -137,6 +140,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
             if (!fallbackCombos.length) continue;
             const choice = {
               combos: fallbackCombos,
+              comboLabels: snapshot.currentComboLabels ?? snapshot.comboLabels,
               bladeLabels: snapshot.comboBladeLabels ?? [],
             };
             if (!next[playerDeckKey(snapshot.playerId)]) {
@@ -205,6 +209,10 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   }, [p1Combos, p2Combos]);
   const comboSelectionRequired = top8Tracking && p1Combos.length > 0 && p2Combos.length > 0;
   const comboSelectionReady = !comboSelectionRequired || (!!combo1Slot && !!combo2Slot);
+  const selectedComboSnapshots = () => ({
+    player1: snapshotSelectedCombo(p1Combos, p1Deck?.comboLabels ?? [], combo1Slot),
+    player2: snapshotSelectedCombo(p2Combos, p2Deck?.comboLabels ?? [], combo2Slot),
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/85 p-0 backdrop-blur-sm sm:items-center sm:p-4">
@@ -285,7 +293,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
             <button
               key={f.type}
               disabled={frozen || !comboSelectionReady}
-              onClick={() => addScore(match.id, slot, f.type, f.points, combo1Slot, combo2Slot)}
+              onClick={() => addScore(match.id, slot, f.type, f.points, selectedComboSnapshots())}
               className={`min-h-20 rounded-xl border-2 px-3 py-3 text-left font-semibold disabled:opacity-40 ${toneClass[f.tone]}`}
             >
               <span className="font-display text-2xl">+{f.points}</span>

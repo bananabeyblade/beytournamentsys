@@ -8,6 +8,7 @@ import {
 } from "./railway-auth.server";
 import { decryptAdminPassword, encryptAdminPassword } from "./admin-password-vault.server";
 import type { DeckCombo, PartType } from "./deck";
+import { collectComboUsage } from "./combo-usage";
 import {
   createOrUpdateRefereeInvite,
   decideReferee,
@@ -342,6 +343,12 @@ export async function railwayAdminGet(request: Request, action: string) {
         combo.lockChipId;
       return (bladeId && partLabels.get(bladeId)) || "未指定戰刃";
     };
+    const comboLabel = (combo: DeckCombo) =>
+      comboPartFields
+        .map((field) => combo[field])
+        .filter((partId): partId is string => !!partId)
+        .map((partId) => partLabels.get(partId) ?? partId)
+        .join(" / ");
     const resultValue = tournament.rows[0]?.results;
     const top4 =
       resultValue &&
@@ -356,8 +363,6 @@ export async function railwayAdminGet(request: Request, action: string) {
     );
 
     type LivePlayer = { id?: unknown; name?: unknown };
-    type LiveEvent = { combo1Slot?: unknown; combo2Slot?: unknown };
-    type LiveMatch = { p1?: unknown; p2?: unknown; events?: unknown };
     const live =
       tournament.rows[0]?.live_state && typeof tournament.rows[0].live_state === "object"
         ? (tournament.rows[0].live_state as { players?: unknown; matches?: unknown })
@@ -368,27 +373,10 @@ export async function railwayAdminGet(request: Request, action: string) {
         .filter((player) => typeof player.id === "string" && typeof player.name === "string")
         .map((player) => [player.id as string, player.name as string]),
     );
-    const comboCounts = new Map<string, number>();
-    let trackedBattleCount = 0;
-    for (const match of Array.isArray(live.matches) ? (live.matches as LiveMatch[]) : []) {
-      const events = Array.isArray(match.events) ? (match.events as LiveEvent[]) : [];
-      for (const event of events) {
-        const slot1 = Number(event.combo1Slot);
-        const slot2 = Number(event.combo2Slot);
-        if (![1, 2, 3].includes(slot1) || ![1, 2, 3].includes(slot2)) continue;
-        trackedBattleCount += 1;
-        for (const [playerId, slot] of [
-          [match.p1, slot1],
-          [match.p2, slot2],
-        ] as const) {
-          if (typeof playerId !== "string") continue;
-          const name = playerNames.get(playerId);
-          if (!name) continue;
-          const key = `${name}\u0000${slot}`;
-          comboCounts.set(key, (comboCounts.get(key) ?? 0) + 1);
-        }
-      }
-    }
+    const { trackedBattleCount, comboUsage } = collectComboUsage(
+      Array.isArray(live.matches) ? live.matches : [],
+      playerNames,
+    );
 
     return {
       qualifierCount: snapshots.rowCount,
@@ -399,13 +387,11 @@ export async function railwayAdminGet(request: Request, action: string) {
         participantName: snapshot.participant_name,
         combos: Array.isArray(snapshot.combos) ? snapshot.combos : [],
         currentCombos: Array.isArray(snapshot.current_combos) ? snapshot.current_combos : [],
-        comboLabels: (Array.isArray(snapshot.combos) ? snapshot.combos : []).map((combo) =>
-          comboPartFields
-            .map((field) => combo[field])
-            .filter((partId): partId is string => !!partId)
-            .map((partId) => partLabels.get(partId) ?? partId)
-            .join(" / "),
-        ),
+        comboLabels: (Array.isArray(snapshot.combos) ? snapshot.combos : []).map(comboLabel),
+        currentComboLabels: (Array.isArray(snapshot.current_combos)
+          ? snapshot.current_combos
+          : []
+        ).map(comboLabel),
         comboBladeLabels: (Array.isArray(snapshot.current_combos)
           ? snapshot.current_combos
           : []
@@ -418,6 +404,7 @@ export async function railwayAdminGet(request: Request, action: string) {
           playerId: deck.player_id,
           participantName: deck.participant_name,
           currentCombos,
+          comboLabels: currentCombos.map(comboLabel),
           comboBladeLabels: currentCombos.map(comboBladeLabel),
         };
       }),
@@ -435,14 +422,7 @@ export async function railwayAdminGet(request: Request, action: string) {
         }))
         .sort((a, b) => b.participantCount - a.participantCount || a.name.localeCompare(b.name)),
       partCanonicalIds,
-      comboUsage: [...comboCounts.entries()]
-        .map(([key, battles]) => {
-          const [participantName, rawSlot] = key.split("\u0000");
-          return { participantName, slot: Number(rawSlot) as 1 | 2 | 3, battles };
-        })
-        .sort(
-          (a, b) => b.battles - a.battles || a.participantName.localeCompare(b.participantName),
-        ),
+      comboUsage,
     };
   }
   if (action === "admins") {

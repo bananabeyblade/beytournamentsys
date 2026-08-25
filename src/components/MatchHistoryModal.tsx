@@ -11,6 +11,16 @@ export function MatchHistoryModal({ match, onClose }: { match: Match; onClose: (
     if (e.slot === 1) s1 += e.points;
     else s2 += e.points;
     const f = FINISHES.find((x) => x.type === e.type);
+    const combo1 = e.combo1Snapshot?.label
+      ? `${playerName(match.p1)}：${e.combo1Snapshot.label}`
+      : e.combo1Slot
+        ? `${playerName(match.p1)}：Combo ${String.fromCharCode(64 + e.combo1Slot)}（舊資料推估）`
+        : null;
+    const combo2 = e.combo2Snapshot?.label
+      ? `${playerName(match.p2)}：${e.combo2Snapshot.label}`
+      : e.combo2Slot
+        ? `${playerName(match.p2)}：Combo ${String.fromCharCode(64 + e.combo2Slot)}（舊資料推估）`
+        : null;
     return {
       key: i,
       no: i + 1,
@@ -19,10 +29,7 @@ export function MatchHistoryModal({ match, onClose }: { match: Match; onClose: (
       tone: f?.tone ?? "spin",
       points: e.points,
       running: `${s1} - ${s2}`,
-      combos:
-        e.combo1Slot && e.combo2Slot
-          ? `A：Combo ${String.fromCharCode(64 + e.combo1Slot)} · B：Combo ${String.fromCharCode(64 + e.combo2Slot)}`
-          : null,
+      combos: [combo1, combo2].filter(Boolean).join(" · ") || null,
     };
   });
 

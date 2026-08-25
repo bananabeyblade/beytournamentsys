@@ -28,7 +28,20 @@ const report: DeckReport = {
   partUsage: [],
   partCanonicalIds: {},
   comboUsage: [
-    { participantName: "冠軍選手", slot: 1, battles: 3 },
+    {
+      participantName: "冠軍選手",
+      slot: 1,
+      battles: 3,
+      label: "魔導神杖 / 1-60 / H軸",
+      combo: {
+        slot: 1,
+        mode: "standard",
+        bladeId: "blade-wizard-rod",
+        ratchetId: "ratchet-1-60",
+        bitId: "bit-h",
+      },
+      recorded: true,
+    },
     { participantName: "冠軍選手", slot: 2, battles: 1 },
   ],
 };
@@ -50,16 +63,31 @@ describe("buildPodiumDecks", () => {
         rank: 1,
         name: "冠軍選手",
         combos: [
-          { slot: 1, label: "魔導神杖 / 1-60 / H軸", battles: 3 },
-          { slot: 2, label: "鮫鯊狂鱗 / 3-60 / F軸", battles: 1 },
+          { slot: 1, label: "魔導神杖 / 1-60 / H軸" },
+          { slot: 2, label: "鮫鯊狂鱗 / 3-60 / F軸" },
+        ],
+        playedCombos: [
+          {
+            key: expect.any(String),
+            label: "魔導神杖 / 1-60 / H軸",
+            battles: 3,
+            estimated: false,
+          },
+          {
+            key: "legacy:2",
+            label: "鮫鯊狂鱗 / 3-60 / F軸",
+            battles: 1,
+            estimated: true,
+          },
         ],
       },
       {
         rank: 2,
         name: "亞軍選手",
-        combos: [{ slot: 1, label: "霜灰銀狼 / 9-60 / FB軸", battles: 0 }],
+        combos: [{ slot: 1, label: "霜灰銀狼 / 9-60 / FB軸" }],
+        playedCombos: [],
       },
-      { rank: 3, name: "季軍選手", combos: [] },
+      { rank: 3, name: "季軍選手", combos: [], playedCombos: [] },
     ]);
   });
 
@@ -86,8 +114,16 @@ describe("buildPodiumDecks", () => {
         rank: 1,
         name: "冠軍選手",
         combos: [
-          { slot: 1, label: "魔導神杖 / 1-60 / H軸", battles: 3 },
-          { slot: 2, label: "鮫鯊狂鱗 / 3-60 / F軸", battles: 0 },
+          { slot: 1, label: "魔導神杖 / 1-60 / H軸" },
+          { slot: 2, label: "鮫鯊狂鱗 / 3-60 / F軸" },
+        ],
+        playedCombos: [
+          {
+            key: "legacy:1",
+            label: "魔導神杖 / 1-60 / H軸",
+            battles: 3,
+            estimated: true,
+          },
         ],
       },
     ]);

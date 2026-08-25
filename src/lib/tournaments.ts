@@ -202,6 +202,21 @@ export async function listTournaments(): Promise<TournamentRow[]> {
   return (data ?? []) as unknown as TournamentRow[];
 }
 
+/** Developer-only statistics source. Includes archived events without exposing them in HISTORY. */
+export async function listStatisticsTournaments(): Promise<TournamentRow[]> {
+  if (railwayAuthEnabled) {
+    return (await railwayApi<{ tournaments: TournamentRow[] }>("/api/admin/statistics-tournaments"))
+      .tournaments;
+  }
+  const { data, error } = await supabase
+    .from("tournaments")
+    .select(COLS)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw new Error("無法讀取統計賽事紀錄");
+  return (data ?? []) as unknown as TournamentRow[];
+}
+
 /** Latest still-open tournament — lets any admin join the event in progress. */
 export async function fetchLatestOpenTournament(): Promise<TournamentRow | null> {
   if (railwayAuthEnabled) {

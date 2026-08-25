@@ -13,7 +13,10 @@ import {
   decideReferee,
   getRefereeAccess,
 } from "./referee-access.server";
-import { adminTournamentListStatuses } from "./tournament-visibility";
+import {
+  adminTournamentListStatuses,
+  developerStatisticsTournamentStatuses,
+} from "./tournament-visibility";
 
 type Body = Record<string, unknown>;
 
@@ -149,6 +152,15 @@ export async function railwayAdminGet(request: Request, action: string) {
       `SELECT ${tournamentColumns} FROM tournaments WHERE status = ANY($1::text[])
        ORDER BY created_at DESC LIMIT ${latest ? 1 : 50}`,
       [statuses],
+    );
+    return { tournaments: result.rows };
+  }
+  if (action === "statistics-tournaments") {
+    await requireRailwayOwner(request);
+    const result = await queryPostgres(
+      `SELECT ${tournamentColumns} FROM tournaments WHERE status = ANY($1::text[])
+       ORDER BY created_at DESC LIMIT 50`,
+      [developerStatisticsTournamentStatuses()],
     );
     return { tournaments: result.rows };
   }

@@ -18,7 +18,7 @@ import { ManageAdmins, ManageSuperadmins } from "@/components/AccountSettings";
 import { TournamentHistory } from "@/components/TournamentHistory";
 import { SystemStatusCard } from "@/components/SystemStatusCard";
 import { isDeveloperEmail } from "@/lib/account-id";
-import { listTournaments, type TournamentRow } from "@/lib/tournaments";
+import { listStatisticsTournaments, type TournamentRow } from "@/lib/tournaments";
 import {
   fetchDeckReport,
   fetchDeckStatisticsState,
@@ -248,7 +248,7 @@ function DeveloperDeckStats() {
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    void Promise.all([listTournaments(), fetchDeckStatisticsState()])
+    void Promise.all([listStatisticsTournaments(), fetchDeckStatisticsState()])
       .then(([rows, state]) => {
         if (!alive) return;
         const resetTime = new Date(state.resetAt).getTime();

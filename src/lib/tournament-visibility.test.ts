@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { adminTournamentListStatuses } from "./tournament-visibility";
+import {
+  adminTournamentListStatuses,
+  developerStatisticsTournamentStatuses,
+} from "./tournament-visibility";
 
 describe("adminTournamentListStatuses", () => {
   it("keeps archived tournaments out of the history list", () => {
@@ -9,5 +12,9 @@ describe("adminTournamentListStatuses", () => {
 
   it("only returns open tournaments for the latest active event lookup", () => {
     expect(adminTournamentListStatuses(true)).toEqual(["open"]);
+  });
+
+  it("keeps archived tournaments in cross-event developer statistics", () => {
+    expect(developerStatisticsTournamentStatuses()).toEqual(["open", "finished", "archived"]);
   });
 });

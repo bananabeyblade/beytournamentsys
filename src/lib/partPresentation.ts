@@ -69,7 +69,11 @@ export function bitValue(part: BeybladePart) {
 
 function localizedName(part: BeybladePart) {
   const model = partModel(part);
-  const text = part.name.replace(MODEL_RE, " ").replace(model, " ");
+  const text = part.name
+    .replace(MODEL_RE, " ")
+    .replace(model, " ")
+    .replace(/\bDMM\s*/gi, " ")
+    .replace(/抽獎[A-Z]?獎/gi, " ");
   return text.match(/[\u3400-\u9fff]+/g)?.join(" ") ?? "";
 }
 

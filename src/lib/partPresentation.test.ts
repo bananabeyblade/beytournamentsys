@@ -58,6 +58,10 @@ describe("fast Deck part presentation", () => {
     expect(partDisplayLabel(part("assist_blade", code, name))).toBe(`${name}(${code})`);
   });
 
+  it("falls back to the Assist Blade code while Q has no localized name", () => {
+    expect(partDisplayLabel(part("assist_blade", "Q"))).toBe("Q");
+  });
+
   it.each(["1-60", "7-60", "9-65"])("matches ratchet %s exactly", (query) => {
     const options = [part("ratchet", "1-60"), part("ratchet", "7-60"), part("ratchet", "9-65")];
     expect(
@@ -108,5 +112,11 @@ describe("fast Deck part presentation", () => {
     const wizardRod = part("blade", "WIZARDROD", "魔導神杖");
     expect(partMatchesQuery(wizardRod, "魔導")).toBe(true);
     expect(partMatchesQuery(wizardRod, "UX-03")).toBe(false);
+  });
+
+  it("removes giveaway metadata from the Wyvern Hover display label", () => {
+    expect(partDisplayLabel(part("blade", "WYVERNHOVER", "BXG-39 飛龍懸浮 DMM 抽獎A獎"))).toBe(
+      "飛龍懸浮",
+    );
   });
 });

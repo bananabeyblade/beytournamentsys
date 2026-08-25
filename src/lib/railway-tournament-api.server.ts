@@ -162,6 +162,7 @@ type PartRow = {
   code: string;
   part_type: PartType;
   system: string;
+  release_date: string | null;
   source_part_id: string;
   functional_code: string;
   package_id: string;
@@ -172,12 +173,12 @@ type PartRow = {
 
 export async function listActiveParts() {
   const { rows } = await queryPostgres<PartRow>(
-    `SELECT id, name, name_en, code, part_type, system,
+    `SELECT id, name, name_en, code, part_type, system, release_date,
             '' AS source_part_id, code AS functional_code, '' AS package_id, '' AS set_id,
             '' AS color, 'canonical' AS brand_source
      FROM canonical_parts WHERE active = TRUE
      UNION ALL
-     SELECT id, name, name_en, code, part_type, system,
+     SELECT id, name, name_en, code, part_type, system, release_date,
             source_part_id, functional_code, package_id, set_id, color, brand_source
      FROM parts
      WHERE active = TRUE

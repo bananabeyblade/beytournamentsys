@@ -244,14 +244,31 @@ function DeveloperDeckStats() {
   const aggregate = useMemo(() => {
     const parts = new Map<
       string,
-      { name: string; count: number; upperCount: number; participants: Set<string> }
+      {
+        name: string;
+        count: number;
+        upperCount: number;
+        confirmedVariantCount: number;
+        participants: Set<string>;
+      }
     >();
     let samples = 0;
     let trackedBattles = 0;
-    for (const { report } of reports) {
+    for (const { tournament, report } of reports) {
       samples += report.qualifierCount;
       trackedBattles += report.trackedBattleCount;
       const partNames = new Map(report.partUsage.map((part) => [part.id, part.name]));
+      for (const part of report.partUsage) {
+        const current = parts.get(part.id) ?? {
+          name: part.name,
+          count: 0,
+          upperCount: 0,
+          confirmedVariantCount: 0,
+          participants: new Set<string>(),
+        };
+        current.confirmedVariantCount += part.confirmedVariantParticipantCount ?? 0;
+        parts.set(part.id, current);
+      }
       for (const snapshot of report.snapshots) {
         const partIds = new Set<string>();
         for (const combo of snapshot.combos) {
@@ -266,7 +283,7 @@ function DeveloperDeckStats() {
             "bitId",
           ] as const) {
             const id = combo[field];
-            if (id) partIds.add(id);
+            if (id) partIds.add((report.partCanonicalIds ?? {})[id] ?? id);
           }
         }
         for (const id of partIds) {
@@ -274,9 +291,10 @@ function DeveloperDeckStats() {
             name: partNames.get(id) ?? id,
             count: 0,
             upperCount: 0,
+            confirmedVariantCount: 0,
             participants: new Set<string>(),
           };
-          const participantKey = snapshot.participantName.trim().toLowerCase();
+          const participantKey = `${tournament.id}:${snapshot.participantName.trim().toLowerCase()}`;
           if (!current.participants.has(participantKey)) {
             current.participants.add(participantKey);
             current.count += 1;
@@ -289,11 +307,13 @@ function DeveloperDeckStats() {
     return {
       samples,
       trackedBattles,
-      parts: [...parts.values()]
-        .map(({ participants, ...part }) => ({
+      parts: [...parts.entries()]
+        .map(([id, { participants, ...part }]) => ({
+          id,
           ...part,
           usageRate: samples ? (part.count / samples) * 100 : 0,
           upperPlacementRate: part.count ? (part.upperCount / part.count) * 100 : 0,
+          variantCoverageRate: part.count ? (part.confirmedVariantCount / part.count) * 100 : 0,
           participantCount: participants.size,
         }))
         .sort((a, b) => b.count - a.count),
@@ -329,7 +349,7 @@ function DeveloperDeckStats() {
               <ul className="space-y-2 text-xs">
                 {aggregate.parts.slice(0, 20).map((part) => (
                   <li
-                    key={part.name}
+                    key={part.id}
                     className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
                   >
                     <span>{part.name}</span>
@@ -338,6 +358,10 @@ function DeveloperDeckStats() {
                         {part.count} 人次 · {part.usageRate.toFixed(1)}%
                       </span>
                       <span className="block">上位 {part.upperPlacementRate.toFixed(1)}%</span>
+                      <span className="block">
+                        詳細版本 {part.confirmedVariantCount}/{part.count}（
+                        {part.variantCoverageRate.toFixed(1)}%）
+                      </span>
                     </span>
                   </li>
                 ))}

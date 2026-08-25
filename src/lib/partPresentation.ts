@@ -3,24 +3,6 @@ import type { BeybladePart } from "./deck";
 const MODEL_RE = /\b(?:CX|BX|UX)[A-Z0-9]*(?:-[A-Z0-9]+)+\b/i;
 const RATCHET_RE = /\b\d+\s*-\s*\d+\b/;
 
-const COLOR_ZH: Record<string, string> = {
-  black: "黑色",
-  white: "白色",
-  red: "紅色",
-  blue: "藍色",
-  green: "綠色",
-  yellow: "黃色",
-  orange: "橘色",
-  purple: "紫色",
-  pink: "粉紅色",
-  gold: "金色",
-  silver: "銀色",
-  gray: "灰色",
-  grey: "灰色",
-  clear: "透明",
-  turquoise: "青綠色",
-};
-
 function normalize(value: string) {
   return value.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -91,45 +73,35 @@ function localizedName(part: BeybladePart) {
   return text.match(/[\u3400-\u9fff]+/g)?.join(" ") ?? "";
 }
 
-function colorNameZh(value: string) {
-  return value
-    .trim()
-    .split(/[\s_\-/]+/)
-    .filter(Boolean)
-    .map((token) => COLOR_ZH[token.toLowerCase()] ?? token)
-    .join("／");
-}
-
-/** Short labels for the Deck picker and referee screens, without catalogue IDs. */
+/** Functional labels for the fast Deck picker, without product, colour or catalogue details. */
 export function partDisplayLabel(part: BeybladePart) {
-  const model = partModel(part);
-  const color = colorNameZh(part.color);
   const isBlade = part.partType === "blade" || part.partType.endsWith("blade");
   if (isBlade) {
-    const name = localizedName(part) || part.functionalCode || part.code;
-    return [model, name, color && !name.includes(color) ? color : ""].filter(Boolean).join(" · ");
+    return localizedName(part) || part.functionalCode || part.code;
   }
-  if (part.partType === "ratchet") return [model, ratchetValue(part)].filter(Boolean).join(" ");
-  if (part.partType === "bit") return [model, bitValue(part)].filter(Boolean).join(" ");
+  if (part.partType === "ratchet") return ratchetValue(part);
+  if (part.partType === "bit") return `${bitValue(part)}軸`;
   if (part.partType === "lock_chip") {
-    return [model, localizedName(part) || part.functionalCode || part.code || "鎖定紋章", color]
-      .filter(Boolean)
-      .join(" · ");
+    return localizedName(part) || part.functionalCode || part.code || "鎖定紋章";
   }
-  return [model, localizedName(part) || part.functionalCode || part.code, color]
-    .filter(Boolean)
-    .join(" · ");
+  return localizedName(part) || part.functionalCode || part.code;
 }
 
-/** Matches the displayed label and every useful local-catalogue identifier. */
+/** Matches only player-facing functional names and codes, never hidden catalogue metadata. */
 export function partMatchesQuery(part: BeybladePart, query: string) {
   const normalizedQuery = normalize(query);
   if (!normalizedQuery) return true;
   if (part.partType === "ratchet" && /^\d+\s*-\s*\d+$/.test(normalizedQuery)) {
     return compact(ratchetValue(part)) === compact(normalizedQuery);
   }
-  if (part.partType === "bit" && /^[a-z][a-z0-9]*$/i.test(normalizedQuery)) {
-    return bitValue(part).toLowerCase() === normalizedQuery;
+  if (part.partType === "ratchet") {
+    return compact(ratchetValue(part)).startsWith(compact(normalizedQuery));
   }
-  return [partDisplayLabel(part), ...values(part)].some((value) => normalize(value).includes(normalizedQuery));
+  if (part.partType === "bit") {
+    const codeQuery = normalizedQuery.replace(/軸$/, "").toUpperCase();
+    return /^[A-Z][A-Z0-9]*$/.test(codeQuery) && bitValue(part).startsWith(codeQuery);
+  }
+  return [localizedName(part), part.functionalCode, part.code]
+    .filter(Boolean)
+    .some((value) => normalize(value).includes(normalizedQuery));
 }

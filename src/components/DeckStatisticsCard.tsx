@@ -105,10 +105,7 @@ export function DeckStatisticsCard({ tournamentId }: { tournamentId: string }) {
                     key={part.id}
                     className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm"
                   >
-                    <span className="truncate">
-                      {part.name || part.nameEn}{" "}
-                      <span className="text-xs text-muted-foreground">{part.code}</span>
-                    </span>
+                    <span className="truncate">{part.name || part.nameEn || part.code}</span>
                     <span className="font-display text-primary">
                       {Math.round((part.participantCount / report.qualifierCount) * 100)}%
                     </span>

@@ -32,6 +32,7 @@ export interface DeckReportPart {
   code: string;
   partType: PartType;
   participantCount: number;
+  confirmedVariantParticipantCount: number;
 }
 
 export interface ComboUsageEntry {
@@ -47,6 +48,8 @@ export interface DeckReport {
   snapshots: DeckSnapshot[];
   refereeDecks: RefereeDeck[];
   partUsage: DeckReportPart[];
+  /** Maps historical catalogue variant IDs to the functional canonical ID used for statistics. */
+  partCanonicalIds: Record<string, string>;
   comboUsage: ComboUsageEntry[];
 }
 

@@ -247,20 +247,66 @@ export async function railwayAdminGet(request: Request, action: string) {
     const parts = partIds.length
       ? await queryPostgres<{
           id: string;
+          canonical_id: string;
           name: string;
           name_en: string;
           code: string;
           part_type: PartType;
+          is_confirmed_variant: boolean;
         }>(
-          `SELECT id,name,name_en,code,part_type FROM parts WHERE id = ANY($1::text[])
+          `SELECT catalog.id,
+                  COALESCE(canonical.id, catalog.id) AS canonical_id,
+                  COALESCE(canonical.name, catalog.name) AS name,
+                  COALESCE(canonical.name_en, catalog.name_en) AS name_en,
+                  COALESCE(canonical.code, catalog.functional_code, catalog.code) AS code,
+                  COALESCE(canonical.part_type, catalog.part_type) AS part_type,
+                  (canonical.id IS NOT NULL) AS is_confirmed_variant
+           FROM parts catalog
+           LEFT JOIN catalog_part_aliases alias ON alias.catalog_part_id = catalog.id
+           LEFT JOIN canonical_parts canonical ON canonical.id = alias.canonical_part_id
+           WHERE catalog.id = ANY($1::text[])
+             AND NOT EXISTS (SELECT 1 FROM canonical_parts direct WHERE direct.id = catalog.id)
            UNION ALL
-           SELECT id,name,name_en,code,part_type FROM canonical_parts WHERE id = ANY($1::text[])`,
+           SELECT canonical.id,
+                  canonical.id AS canonical_id,
+                  canonical.name,
+                  canonical.name_en,
+                  canonical.code,
+                  canonical.part_type,
+                  FALSE AS is_confirmed_variant
+           FROM canonical_parts canonical
+           WHERE canonical.id = ANY($1::text[])`,
           [partIds],
         )
       : { rows: [] };
+    const functionalLabel = (part: (typeof parts.rows)[number]) =>
+      part.part_type === "bit"
+        ? `${part.code}軸`
+        : part.part_type === "ratchet"
+          ? part.code
+          : part.name;
     const partLabels = new Map(
-      parts.rows.map((part) => [part.id, part.name || part.name_en || part.code]),
+      parts.rows.map((part) => [part.id, functionalLabel(part) || part.name_en || part.code]),
     );
+    const partCanonicalIds = Object.fromEntries(
+      parts.rows.map((part) => [part.id, part.canonical_id]),
+    );
+    const canonicalParticipants = new Map<string, Set<string>>();
+    const confirmedVariantParticipants = new Map<string, Set<string>>();
+    const canonicalRows = new Map<string, (typeof parts.rows)[number]>();
+    for (const part of parts.rows) {
+      canonicalRows.set(part.canonical_id, part);
+      const participants = partParticipants.get(part.id) ?? new Set<string>();
+      const functionalParticipants =
+        canonicalParticipants.get(part.canonical_id) ?? new Set<string>();
+      for (const participant of participants) functionalParticipants.add(participant);
+      canonicalParticipants.set(part.canonical_id, functionalParticipants);
+      if (part.is_confirmed_variant) {
+        const confirmed = confirmedVariantParticipants.get(part.canonical_id) ?? new Set<string>();
+        for (const participant of participants) confirmed.add(participant);
+        confirmedVariantParticipants.set(part.canonical_id, confirmed);
+      }
+    }
     const comboBladeLabel = (combo: DeckCombo) => {
       const bladeId =
         combo.bladeId ??
@@ -350,17 +396,20 @@ export async function railwayAdminGet(request: Request, action: string) {
           comboBladeLabels: currentCombos.map(comboBladeLabel),
         };
       }),
-      partUsage: parts.rows
-        .filter((part) => (partParticipants.get(part.id)?.size ?? 0) > 0)
-        .map((part) => ({
-          id: part.id,
-          name: part.name,
+      partUsage: [...canonicalRows.entries()]
+        .filter(([canonicalId]) => (canonicalParticipants.get(canonicalId)?.size ?? 0) > 0)
+        .map(([canonicalId, part]) => ({
+          id: canonicalId,
+          name: functionalLabel(part),
           nameEn: part.name_en,
           code: part.code,
           partType: part.part_type,
-          participantCount: partParticipants.get(part.id)?.size ?? 0,
+          participantCount: canonicalParticipants.get(canonicalId)?.size ?? 0,
+          confirmedVariantParticipantCount:
+            confirmedVariantParticipants.get(canonicalId)?.size ?? 0,
         }))
         .sort((a, b) => b.participantCount - a.participantCount || a.name.localeCompare(b.name)),
+      partCanonicalIds,
       comboUsage: [...comboCounts.entries()]
         .map(([key, battles]) => {
           const [participantName, rawSlot] = key.split("\u0000");

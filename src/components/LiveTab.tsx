@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 
 import { Play, Swords, Radio, Trophy, Star } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import type { Match } from "@/lib/tournament-types";
 import { ScoringModal } from "./ScoringModal";
 import { useJoinedName, isSameName } from "@/lib/joined-name";
-import { fetchDeckReport, type DeckReport } from "@/lib/deck-report";
+import { fetchDeckReport } from "@/lib/deck-report";
 import { buildPodiumDecks } from "@/lib/podium-decks";
 
 function MatchCard({
@@ -100,39 +101,14 @@ export function LiveTab() {
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [startId, setStartId] = useState<string | null>(null);
-  const [podiumReport, setPodiumReport] = useState<DeckReport | null>(null);
-  const [podiumLoading, setPodiumLoading] = useState(false);
-  const [podiumError, setPodiumError] = useState(false);
-
-  useEffect(() => {
-    if (!results?.top4.length || !currentTournament?.id || role !== "admin") {
-      setPodiumReport(null);
-      setPodiumLoading(false);
-      setPodiumError(false);
-      return;
-    }
-    let alive = true;
-    setPodiumLoading(true);
-    setPodiumError(false);
-    void fetchDeckReport(currentTournament.id)
-      .then((report) => {
-        if (alive) setPodiumReport(report);
-      })
-      .catch(() => {
-        if (alive) setPodiumError(true);
-      })
-      .finally(() => {
-        if (alive) setPodiumLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [currentTournament?.id, results?.top4.length, role]);
-
-  const podiumDecks = useMemo(
-    () => (results && podiumReport ? buildPodiumDecks(results.top4, podiumReport) : []),
-    [podiumReport, results],
-  );
+  const tournamentId = currentTournament?.id;
+  const podiumReport = useQuery({
+    queryKey: ["podium-deck-report", tournamentId],
+    queryFn: () => fetchDeckReport(tournamentId!),
+    enabled: role === "admin" && !!results?.top4.length && !!tournamentId,
+  });
+  const podiumDecks =
+    results && podiumReport.data ? buildPodiumDecks(results.top4, podiumReport.data) : [];
 
   // Put the spectator's own match first so they see it without scrolling.
   const isMine = (m: Match) =>
@@ -216,9 +192,9 @@ export function LiveTab() {
               <p className="mt-1 text-center text-[10px] text-muted-foreground">
                 八強晉級時保存的 Deck；實戰局數依裁判逐局選擇紀錄計算。
               </p>
-              {podiumLoading ? (
+              {podiumReport.isLoading ? (
                 <p className="mt-3 text-center text-xs text-muted-foreground">讀取前三名 Deck…</p>
-              ) : podiumError ? (
+              ) : podiumReport.isError ? (
                 <p className="mt-3 text-center text-xs text-destructive">
                   暫時無法載入 Deck／Combo。
                 </p>

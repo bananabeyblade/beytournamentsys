@@ -62,4 +62,34 @@ describe("buildPodiumDecks", () => {
       { rank: 3, name: "季軍選手", combos: [] },
     ]);
   });
+
+  it("prefers a matching participant name over stale rank metadata", () => {
+    const staleRankReport: DeckReport = {
+      ...report,
+      snapshots: [
+        { ...report.snapshots[0], rank: 2 },
+        {
+          ...report.snapshots[1],
+          participantName: "其他選手",
+          comboLabels: ["錯誤 Deck"],
+          rank: 1,
+        },
+      ],
+      comboUsage: [
+        { participantName: " 冠軍選手 ", slot: 1, battles: 1 },
+        { participantName: "冠軍選手", slot: 1, battles: 2 },
+      ],
+    };
+
+    expect(buildPodiumDecks([{ rank: 1, name: "冠軍選手" }], staleRankReport)).toEqual([
+      {
+        rank: 1,
+        name: "冠軍選手",
+        combos: [
+          { slot: 1, label: "魔導神杖 / 1-60 / H軸", battles: 3 },
+          { slot: 2, label: "鮫鯊狂鱗 / 3-60 / F軸", battles: 0 },
+        ],
+      },
+    ]);
+  });
 });

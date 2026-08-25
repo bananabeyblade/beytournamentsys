@@ -347,13 +347,22 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
         {locked && (
           <p className="mt-3 text-center text-xs text-primary">賽事已結束，計分已封存。</p>
         )}
-
-        {reached && !locked && !heldByOther && (
-          <div className="mt-4 rounded-xl border-2 border-primary bg-accent/40 p-4 text-center neon-edge">
+      </div>
+      {reached && !locked && !heldByOther && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/65 p-4 backdrop-blur-[2px]">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="winner-confirmation-title"
+            className="w-full max-w-sm rounded-xl border-2 border-primary bg-card p-4 text-center neon-edge"
+          >
             <Trophy className="mx-auto h-8 w-8 text-primary" />
-            <p className="mt-2 font-display text-lg neon-text">{winnerName} Wins!</p>
+            <p id="winner-confirmation-title" className="mt-2 font-display text-lg neon-text">
+              {winnerName} Wins!
+            </p>
             <p className="text-xs text-muted-foreground">確認後將自動晉級下一輪</p>
             <button
+              autoFocus
               onClick={() => {
                 confirmWinner(match.id);
                 onClose();
@@ -362,9 +371,16 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
             >
               確認勝利 CONFIRM
             </button>
+            <button
+              type="button"
+              onClick={() => undoScore(match.id)}
+              className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary text-sm font-semibold"
+            >
+              <RotateCcw className="h-4 w-4" /> 返回修正比分
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

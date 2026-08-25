@@ -75,6 +75,11 @@ function localizedName(part: BeybladePart) {
 
 /** Functional labels for the fast Deck picker, without product, colour or catalogue details. */
 export function partDisplayLabel(part: BeybladePart) {
+  if (part.partType === "assist_blade" || part.partType === "over_blade") {
+    const name = localizedName(part);
+    const code = (part.functionalCode || part.code).trim().toUpperCase();
+    return name ? `${name}(${code})` : code;
+  }
   const isBlade = part.partType === "blade" || part.partType.endsWith("blade");
   if (isBlade) {
     return localizedName(part) || part.functionalCode || part.code;

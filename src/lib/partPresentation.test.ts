@@ -26,6 +26,38 @@ describe("fast Deck part presentation", () => {
     expect(partDisplayLabel(part("bit", "FB", "自由球"))).toBe("FB軸");
   });
 
+  it("shows Over Blades with their code and falls back to English for T", () => {
+    expect(partDisplayLabel(part("over_blade", "O", "外圍"))).toBe("外圍(O)");
+    expect(partDisplayLabel(part("over_blade", "P", "尖峰"))).toBe("尖峰(P)");
+    expect(partDisplayLabel(part("over_blade", "B", "破壞"))).toBe("破壞(B)");
+    expect(partDisplayLabel(part("over_blade", "F", "流動"))).toBe("流動(F)");
+    expect(partDisplayLabel(part("over_blade", "G", "守護"))).toBe("守護(G)");
+    expect(partDisplayLabel(part("over_blade", "T"))).toBe("T");
+  });
+
+  it.each([
+    ["M", "巨大"],
+    ["F", "自由"],
+    ["H", "沉重"],
+    ["W", "車輪"],
+    ["V", "垂直"],
+    ["O", "奇異"],
+    ["E", "抹消"],
+    ["A", "突擊"],
+    ["G", "重力"],
+    ["K", "拳擊"],
+    ["S", "斬擊"],
+    ["R", "圓弧"],
+    ["C", "蓄力"],
+    ["Z", "億兆"],
+    ["B", "緩衝"],
+    ["J", "鋸齒"],
+    ["T", "翻轉"],
+    ["D", "雙重"],
+  ])("shows Assist Blade %s after its Chinese name", (code, name) => {
+    expect(partDisplayLabel(part("assist_blade", code, name))).toBe(`${name}(${code})`);
+  });
+
   it.each(["1-60", "7-60", "9-65"])("matches ratchet %s exactly", (query) => {
     const options = [part("ratchet", "1-60"), part("ratchet", "7-60"), part("ratchet", "9-65")];
     expect(

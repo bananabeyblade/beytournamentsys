@@ -184,7 +184,7 @@ export function AppShell({ title }: { title?: string }) {
                 className="h-9 w-9 shrink-0 rounded-lg object-contain"
               />
             ) : (
-              <BrandLogo className="mt-1 h-13 w-13" />
+              <BrandLogo className="h-13 w-13" />
             )}
             <div className="min-w-0">
               {title ? (
@@ -193,15 +193,15 @@ export function AppShell({ title }: { title?: string }) {
                 <BrandWordmark className="h-10 w-52 max-w-full" />
               )}
               {currentAdmin?.isReferee ? (
-                <p className="-mt-2 truncate text-xs text-primary">
+                <p className="-mt-3 truncate text-xs text-primary">
                   裁判 · <span className="font-semibold">{currentAdmin.email}</span>
                 </p>
               ) : joinedName && !isSuper ? (
-                <p className="-mt-2 truncate text-xs text-primary">
+                <p className="-mt-3 truncate text-xs text-primary">
                   參賽者 · <span className="font-semibold">{joinedName}</span>
                 </p>
               ) : (
-                <p className="-mt-2 truncate text-[11px] tracking-widest text-muted-foreground">
+                <p className="-mt-3 truncate text-[11px] tracking-widest text-muted-foreground">
                   TOURNAMENT SYSTEM · 賽事管理
                 </p>
               )}

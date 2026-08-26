@@ -22,9 +22,14 @@ export function BrandWordmark({ className = "" }: BrandAssetProps) {
       <img
         src={wordmarkDark}
         alt="竹塹陀螺集會所 ZHUQIAN BEYBLADE CLUB"
-        className="brand-asset-dark h-full w-full object-contain"
+        className="brand-asset-dark h-full w-full object-contain object-left"
       />
-      <img src={wordmarkLight} alt="" aria-hidden="true" className="brand-asset-light h-full w-full object-contain" />
+      <img
+        src={wordmarkLight}
+        alt=""
+        aria-hidden="true"
+        className="brand-asset-light h-full w-full object-contain object-left"
+      />
     </span>
   );
 }

@@ -22,7 +22,7 @@ export function SyncStatusBadge() {
     <div className="flex items-center gap-2">
       <span
         role="status"
-        className={`flex h-9 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-semibold ${
+        className={`flex h-11 w-[5.5rem] items-center gap-1.5 rounded-lg border px-2 text-[11px] font-semibold ${
           failed
             ? "border-destructive/70 bg-destructive/15 text-destructive"
             : syncing
@@ -31,17 +31,22 @@ export function SyncStatusBadge() {
         }`}
       >
         {failed ? (
-          <CloudOff className="h-3.5 w-3.5" />
+          <CloudOff className="h-3.5 w-3.5 shrink-0" />
         ) : syncing ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
         ) : (
-          <Check className="h-3.5 w-3.5" />
+          <Check className="h-3.5 w-3.5 shrink-0" />
         )}
-        {failed
-          ? "同步失敗"
-          : syncing
-            ? "正在同步"
-            : `已同步${lastSyncedAt ? ` ${clock(lastSyncedAt)}` : ""}`}
+        <span className="flex min-w-0 flex-col items-start leading-none">
+          <span className="whitespace-nowrap">
+            {failed ? "同步失敗" : syncing ? "正在同步" : "已同步"}
+          </span>
+          {!failed && !syncing && lastSyncedAt && (
+            <span className="mt-1 whitespace-nowrap text-[9px] font-medium opacity-75">
+              {clock(lastSyncedAt)}
+            </span>
+          )}
+        </span>
       </span>
       {failed && (
         <button

@@ -191,7 +191,7 @@ export function AppShell({ title }: { title?: string }) {
                 {title ? (
                   <h1 className="truncate font-display text-lg neon-text">{title}</h1>
                 ) : (
-                  <BrandWordmark className="h-10 w-52 max-w-full" />
+                  <BrandWordmark className="h-[42px] w-52 max-w-full" />
                 )}
               </div>
             </div>

@@ -175,7 +175,7 @@ function EmbeddedBrand() {
     <div className="min-w-0">
       <div className="flex min-w-0 items-start gap-1">
         <BrandLogo className="h-7 w-7" />
-        <BrandWordmark className="h-5 w-28 max-w-full" />
+        <BrandWordmark className="h-[22px] w-28 max-w-full" />
       </div>
       <p className="-mt-1.5 truncate text-[7px] tracking-[0.16em] text-muted-foreground">
         TOURNAMENT SYSTEM · 賽事管理

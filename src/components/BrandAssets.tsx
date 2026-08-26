@@ -31,13 +31,13 @@ export function BrandWordmark({ className = "" }: BrandAssetProps) {
       <img
         src={wordmarkDark}
         alt="竹塹陀螺集會所 ZHUQIAN BEYBLADE CLUB"
-        className="brand-asset-dark absolute top-[-23.3%] left-[-3.02%] h-auto w-[106.29%] max-w-none"
+        className="brand-asset-dark absolute top-[-20%] left-[-3.02%] h-auto w-[106.29%] max-w-none"
       />
       <img
         src={wordmarkLight}
         alt=""
         aria-hidden="true"
-        className="brand-asset-light absolute top-[-23.3%] left-[-3.02%] h-auto w-[106.29%] max-w-none"
+        className="brand-asset-light absolute top-[-20%] left-[-3.02%] h-auto w-[106.29%] max-w-none"
       />
     </span>
   );

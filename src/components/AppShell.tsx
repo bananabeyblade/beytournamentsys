@@ -175,37 +175,39 @@ export function AppShell({ title }: { title?: string }) {
     <div className="min-h-screen pb-24">
       <ConnectionBanner />
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
-        <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
-          <div className="flex min-w-0 items-start gap-2">
-            {currentTournament?.logo_url ? (
-              <img
-                src={currentTournament.logo_url}
-                alt={`${currentTournament.name} logo`}
-                className="h-9 w-9 shrink-0 rounded-lg object-contain"
-              />
-            ) : (
-              <BrandLogo className="h-13 w-13" />
-            )}
-            <div className="min-w-0">
-              {title ? (
-                <h1 className="truncate font-display text-lg neon-text">{title}</h1>
+        <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-start gap-1">
+              {currentTournament?.logo_url ? (
+                <img
+                  src={currentTournament.logo_url}
+                  alt={`${currentTournament.name} logo`}
+                  className="h-9 w-9 shrink-0 rounded-lg object-contain"
+                />
               ) : (
-                <BrandWordmark className="h-10 w-52 max-w-full" />
+                <BrandLogo className="h-13 w-13" />
               )}
-              {currentAdmin?.isReferee ? (
-                <p className="-mt-3 truncate text-xs text-primary">
-                  裁判 · <span className="font-semibold">{currentAdmin.email}</span>
-                </p>
-              ) : joinedName && !isSuper ? (
-                <p className="-mt-3 truncate text-xs text-primary">
-                  參賽者 · <span className="font-semibold">{joinedName}</span>
-                </p>
-              ) : (
-                <p className="-mt-3 truncate text-[11px] tracking-widest text-muted-foreground">
-                  TOURNAMENT SYSTEM · 賽事管理
-                </p>
-              )}
+              <div className="min-w-0">
+                {title ? (
+                  <h1 className="truncate font-display text-lg neon-text">{title}</h1>
+                ) : (
+                  <BrandWordmark className="h-10 w-52 max-w-full" />
+                )}
+              </div>
             </div>
+            {currentAdmin?.isReferee ? (
+              <p className="-mt-3 truncate text-xs text-primary">
+                裁判 · <span className="font-semibold">{currentAdmin.email}</span>
+              </p>
+            ) : joinedName && !isSuper ? (
+              <p className="-mt-3 truncate text-xs text-primary">
+                參賽者 · <span className="font-semibold">{joinedName}</span>
+              </p>
+            ) : (
+              <p className="-mt-3 truncate text-[11px] tracking-widest text-muted-foreground">
+                TOURNAMENT SYSTEM · 賽事管理
+              </p>
+            )}
           </div>
           <div className="mt-1 flex shrink-0 items-center gap-2 self-start">
             <SyncStatusBadge />

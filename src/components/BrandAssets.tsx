@@ -9,26 +9,35 @@ type BrandAssetProps = {
 
 export function BrandLogo({ className = "" }: BrandAssetProps) {
   return (
-    <span className={`brand-logo inline-grid shrink-0 ${className}`}>
-      <img src={logoDark} alt="竹塹陀螺集會所標誌" className="brand-asset-dark h-full w-full object-contain" />
-      <img src={logoLight} alt="" aria-hidden="true" className="brand-asset-light h-full w-full object-contain" />
+    <span className={`brand-logo relative inline-block shrink-0 overflow-hidden ${className}`}>
+      <img
+        src={logoDark}
+        alt="竹塹陀螺集會所標誌"
+        className="brand-asset-dark absolute top-[-3.3%] left-[-6%] h-auto w-[117.13%] max-w-none"
+      />
+      <img
+        src={logoLight}
+        alt=""
+        aria-hidden="true"
+        className="brand-asset-light absolute top-[-3.3%] left-[-6%] h-auto w-[117.13%] max-w-none"
+      />
     </span>
   );
 }
 
 export function BrandWordmark({ className = "" }: BrandAssetProps) {
   return (
-    <span className={`brand-wordmark inline-grid min-w-0 ${className}`}>
+    <span className={`brand-wordmark relative inline-block min-w-0 overflow-hidden ${className}`}>
       <img
         src={wordmarkDark}
         alt="竹塹陀螺集會所 ZHUQIAN BEYBLADE CLUB"
-        className="brand-asset-dark h-full w-full object-contain object-left"
+        className="brand-asset-dark absolute top-[-23.3%] left-[-3.02%] h-auto w-[106.29%] max-w-none"
       />
       <img
         src={wordmarkLight}
         alt=""
         aria-hidden="true"
-        className="brand-asset-light h-full w-full object-contain object-left"
+        className="brand-asset-light absolute top-[-23.3%] left-[-3.02%] h-auto w-[106.29%] max-w-none"
       />
     </span>
   );

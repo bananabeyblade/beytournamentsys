@@ -170,6 +170,20 @@ const BRACKET_STEPS = [
   },
 ] as const;
 
+function EmbeddedBrand() {
+  return (
+    <div className="min-w-0">
+      <div className="flex min-w-0 items-start gap-1">
+        <BrandLogo className="h-7 w-7" />
+        <BrandWordmark className="h-5 w-28 max-w-full" />
+      </div>
+      <p className="-mt-1.5 truncate text-[7px] tracking-[0.16em] text-muted-foreground">
+        TOURNAMENT SYSTEM · 賽事管理
+      </p>
+    </div>
+  );
+}
+
 function EmbeddedQrCreation({ focus }: { focus: CreationFocusTarget }) {
   const [name, setName] = useState("");
   const [logoPreview, setLogoPreview] = useState("");
@@ -185,12 +199,7 @@ function EmbeddedQrCreation({ focus }: { focus: CreationFocusTarget }) {
   return (
     <div className="landing-embedded-screen mx-auto w-full max-w-[38rem]">
       <div className="flex items-center justify-between border-b border-border bg-background/95 px-3 py-2">
-        <div className="flex items-center gap-2">
-          <BrandLogo className="h-7 w-7" />
-          <div>
-            <BrandWordmark className="h-6 w-28" />
-          </div>
-        </div>
+        <EmbeddedBrand />
         <span className="rounded-full border border-primary/40 bg-accent/30 px-2 py-1 text-[9px] text-primary">
           互動示範
         </span>
@@ -302,12 +311,7 @@ function EmbeddedRegistration({
   return (
     <div className="landing-embedded-screen mx-auto w-full max-w-[30rem]">
       <div className="flex items-center justify-between border-b border-border bg-background/95 px-3 py-2">
-        <div className="flex items-center gap-2">
-          <BrandLogo className="h-7 w-7" />
-          <div>
-            <BrandWordmark className="h-6 w-28" />
-          </div>
-        </div>
+        <EmbeddedBrand />
         <span className="rounded-full border border-primary/40 bg-accent/30 px-2 py-1 text-[9px] text-primary">
           即時同步
         </span>
@@ -634,12 +638,7 @@ function LegacyProductPreview({ step }: { step: (typeof STEPS)[number] }) {
     <div className="relative mx-auto w-full max-w-sm rounded-[1.75rem] border border-primary/45 bg-background/90 p-2 shadow-2xl shadow-primary/10">
       <div className="overflow-hidden rounded-[1.35rem] border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <div className="flex items-center gap-2">
-            <BrandLogo className="h-7 w-7" />
-            <div>
-              <BrandWordmark className="h-6 w-28" />
-            </div>
-          </div>
+          <EmbeddedBrand />
           <span className="rounded-md border border-primary/40 px-2 py-1 text-[9px] text-primary">
             即時同步
           </span>

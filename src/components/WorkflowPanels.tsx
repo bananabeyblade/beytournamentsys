@@ -242,7 +242,6 @@ export function ScoringPanel({
           </button>
         ))}
       </div>
-      <div className="mt-4 min-h-48" aria-hidden="true" />
       {winner && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/65 p-4 backdrop-blur-[2px]">
           <div className="landing-winner-reveal w-full max-w-sm rounded-xl border-2 border-primary bg-card p-4 text-center neon-edge">

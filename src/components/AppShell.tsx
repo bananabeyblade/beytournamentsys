@@ -31,7 +31,7 @@ import {
   useJoinedName,
 } from "@/lib/joined-name";
 import { fetchTournamentByCode } from "@/lib/tournaments";
-import logoAsset from "@/assets/beyx-logo.png";
+import { BrandLogo, BrandWordmark } from "@/components/BrandAssets";
 
 const TABS = [
   { id: "live", label: "對戰", icon: Swords },
@@ -177,19 +177,21 @@ export function AppShell({ title }: { title?: string }) {
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
         <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <img
-              src={currentTournament?.logo_url || logoAsset}
-              alt={
-                currentTournament?.logo_url
-                  ? `${currentTournament.name} logo`
-                  : "竹塹陀螺集會所標誌"
-              }
-              className="h-9 w-9 shrink-0 rounded-lg object-contain"
-            />
+            {currentTournament?.logo_url ? (
+              <img
+                src={currentTournament.logo_url}
+                alt={`${currentTournament.name} logo`}
+                className="h-9 w-9 shrink-0 rounded-lg object-contain"
+              />
+            ) : (
+              <BrandLogo className="h-9 w-9" />
+            )}
             <div className="min-w-0">
-              <h1 className="truncate font-display text-lg neon-text">
-                {title ?? "竹塹陀螺集會所"}
-              </h1>
+              {title ? (
+                <h1 className="truncate font-display text-lg neon-text">{title}</h1>
+              ) : (
+                <BrandWordmark className="h-9 w-44 max-w-full" />
+              )}
               {currentAdmin?.isReferee ? (
                 <p className="truncate text-xs text-primary">
                   裁判 · <span className="font-semibold">{currentAdmin.email}</span>

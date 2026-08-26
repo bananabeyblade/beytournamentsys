@@ -13,7 +13,7 @@ import {
   UserCheck,
   Users,
 } from "lucide-react";
-import logoAsset from "@/assets/beyx-logo.png";
+import { BrandLogo, BrandWordmark } from "@/components/BrandAssets";
 import {
   TournamentCreationForm,
   type CreationFocusTarget,
@@ -186,10 +186,9 @@ function EmbeddedQrCreation({ focus }: { focus: CreationFocusTarget }) {
     <div className="landing-embedded-screen mx-auto w-full max-w-[38rem]">
       <div className="flex items-center justify-between border-b border-border bg-background/95 px-3 py-2">
         <div className="flex items-center gap-2">
-          <img src={logoAsset} alt="竹塹陀螺集會所標誌" className="h-7 w-7 object-contain" />
+          <BrandLogo className="h-7 w-7" />
           <div>
-            <p className="font-display text-xs text-primary">竹塹陀螺集會所</p>
-            <p className="text-[8px] tracking-widest text-muted-foreground">TOURNAMENT SYSTEM</p>
+            <BrandWordmark className="h-6 w-28" />
           </div>
         </div>
         <span className="rounded-full border border-primary/40 bg-accent/30 px-2 py-1 text-[9px] text-primary">
@@ -304,10 +303,9 @@ function EmbeddedRegistration({
     <div className="landing-embedded-screen mx-auto w-full max-w-[30rem]">
       <div className="flex items-center justify-between border-b border-border bg-background/95 px-3 py-2">
         <div className="flex items-center gap-2">
-          <img src={logoAsset} alt="竹野陀螺集會所" className="h-7 w-7 object-contain" />
+          <BrandLogo className="h-7 w-7" />
           <div>
-            <p className="font-display text-xs text-primary">竹野陀螺集會所</p>
-            <p className="text-[8px] tracking-widest text-muted-foreground">TOURNAMENT SYSTEM</p>
+            <BrandWordmark className="h-6 w-28" />
           </div>
         </div>
         <span className="rounded-full border border-primary/40 bg-accent/30 px-2 py-1 text-[9px] text-primary">
@@ -637,10 +635,9 @@ function LegacyProductPreview({ step }: { step: (typeof STEPS)[number] }) {
       <div className="overflow-hidden rounded-[1.35rem] border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <img src={logoAsset} alt="竹塹陀螺集會所標誌" className="h-7 w-7 object-contain" />
+            <BrandLogo className="h-7 w-7" />
             <div>
-              <p className="font-display text-xs text-primary">竹塹陀螺集會所</p>
-              <p className="text-[9px] tracking-widest text-muted-foreground">TOURNAMENT SYSTEM</p>
+              <BrandWordmark className="h-6 w-28" />
             </div>
           </div>
           <span className="rounded-md border border-primary/40 px-2 py-1 text-[9px] text-primary">

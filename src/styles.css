@@ -97,6 +97,18 @@
   --grid-line: oklch(0.87 0.014 245);
 }
 
+.brand-asset-light {
+  display: none;
+}
+
+:root.light .brand-asset-dark {
+  display: none;
+}
+
+:root.light .brand-asset-light {
+  display: block;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

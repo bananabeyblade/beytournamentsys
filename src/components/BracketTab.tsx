@@ -425,9 +425,26 @@ export function BracketTab() {
     const left = body.map((r) => ({ ...r, cards: r.cards.slice(0, half(r.cards)) }));
     const rightOuter = body.map((r) => ({ ...r, cards: r.cards.slice(half(r.cards)) }));
     const right = [...rightOuter].reverse();
+    const split = half(body[0].cards);
+    const targetIndexById = new Map(body[0].cards.map((card, index) => [card.match.id, index]));
+    let prelimLeftCount = 0;
+    let prelimRightCount = 0;
+    for (const card of prelimRound?.cards ?? []) {
+      const targetIndex = targetIndexById.get(card.match.nextMatchId ?? "") ?? -1;
+      if (targetIndex < 0) continue;
+      if (targetIndex < split) prelimLeftCount += 1;
+      else prelimRightCount += 1;
+    }
     // The bronze match hangs under the final, so keep room for it.
     const height = Math.max(
-      PITCH * Math.max(1, left[0].cards.length, rightOuter[0].cards.length),
+      PITCH *
+        Math.max(
+          1,
+          left[0].cards.length,
+          rightOuter[0].cards.length,
+          prelimLeftCount,
+          prelimRightCount,
+        ),
       bronze ? PITCH * 4 : 0,
     );
     // ys indexed the same way as `left` / `rightOuter` (outermost round first).
@@ -440,11 +457,11 @@ export function BracketTab() {
       height,
     );
 
-    // Prelim cards sit next to their target bout; siblings feeding the same
-    // bout are spread symmetrically around it.
-    const split = half(body[0].cards);
-    const prelimLeft: { card: CardProps; y: number; targetY: number }[] = [];
-    const prelimRight: { card: CardProps; y: number; targetY: number }[] = [];
+    // Keep every preliminary card on its own row. Positioning each target's
+    // siblings independently can place cards from adjacent groups on the same
+    // Y coordinate, causing them to overlap.
+    const prelimLeftRaw: { card: CardProps; y: number; targetY: number }[] = [];
+    const prelimRightRaw: { card: CardProps; y: number; targetY: number }[] = [];
     if (prelimRound) {
       const groups = new Map<string, CardProps[]>();
       for (const c of prelimRound.cards) {
@@ -454,20 +471,27 @@ export function BracketTab() {
         else groups.set(key, [c]);
       }
       for (const [targetId, list] of groups) {
-        const gi = body[0].cards.findIndex((c) => c.match.id === targetId);
+        const gi = targetIndexById.get(targetId) ?? -1;
         if (gi < 0) continue;
         const isLeft = gi < split;
         const targetY = isLeft
           ? (leftYs[0]?.[gi] ?? height / 2)
           : (rightYs[0]?.[gi - split] ?? height / 2);
-        list.forEach((card, k) => {
-          const y = targetY + (k - (list.length - 1) / 2) * PITCH;
-          (isLeft ? prelimLeft : prelimRight).push({ card, y, targetY });
+        list.forEach((card) => {
+          (isLeft ? prelimLeftRaw : prelimRightRaw).push({ card, y: 0, targetY });
         });
       }
-      prelimLeft.sort((a, b) => a.y - b.y);
-      prelimRight.sort((a, b) => a.y - b.y);
     }
+
+    const spreadPrelims = (items: typeof prelimLeftRaw) => {
+      const sorted = [...items].sort(
+        (a, b) => a.targetY - b.targetY || a.card.match.index - b.card.match.index,
+      );
+      const ys = halfPositions([sorted.length], height)[0] ?? [];
+      return sorted.map((item, index) => ({ ...item, y: ys[index] ?? height / 2 }));
+    };
+    const prelimLeft = spreadPrelims(prelimLeftRaw);
+    const prelimRight = spreadPrelims(prelimRightRaw);
 
     return {
       left,

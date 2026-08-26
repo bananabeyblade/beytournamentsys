@@ -176,7 +176,7 @@ export function AppShell({ title }: { title?: string }) {
       <ConnectionBanner />
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
         <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
-          <div className="flex min-w-0 items-start gap-3">
+          <div className="flex min-w-0 items-start gap-2">
             {currentTournament?.logo_url ? (
               <img
                 src={currentTournament.logo_url}
@@ -184,13 +184,13 @@ export function AppShell({ title }: { title?: string }) {
                 className="h-9 w-9 shrink-0 rounded-lg object-contain"
               />
             ) : (
-              <BrandLogo className="h-12 w-12 sm:h-14 sm:w-14" />
+              <BrandLogo className="h-9 w-9" />
             )}
             <div className="min-w-0">
               {title ? (
                 <h1 className="truncate font-display text-lg neon-text">{title}</h1>
               ) : (
-                <BrandWordmark className="h-10 w-56 max-w-full sm:h-12 sm:w-64" />
+                <BrandWordmark className="h-10 w-52 max-w-full" />
               )}
               {currentAdmin?.isReferee ? (
                 <p className="truncate text-xs text-primary">

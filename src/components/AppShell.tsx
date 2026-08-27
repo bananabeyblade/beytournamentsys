@@ -32,6 +32,7 @@ import {
 } from "@/lib/joined-name";
 import { fetchTournamentByCode } from "@/lib/tournaments";
 import { BrandLogo, BrandWordmark } from "@/components/BrandAssets";
+import { useDeckRegistrationEnabled } from "@/hooks/use-deck-registration-enabled";
 
 const TABS = [
   { id: "live", label: "對戰", icon: Swords },
@@ -73,6 +74,7 @@ export function AppShell({ title }: { title?: string }) {
   const participantCode = currentTournament?.code ?? (spectator ? readJoinedTournamentCode() : "");
   const joinedName = useJoinedName(participantCode);
   const participantRecoveryCode = readJoinedRecoveryCodeForTournament(participantCode);
+  const deckRegistrationEnabled = useDeckRegistrationEnabled();
 
   // Restore a participant only when the saved QR identity still exists in the
   // event's live roster. A lone old code must never trap the browser in
@@ -157,11 +159,12 @@ export function AppShell({ title }: { title?: string }) {
 
   const liveCount = matches.filter((m) => m.status === "live").length;
 
+  const featureTabs = deckRegistrationEnabled ? TABS : TABS.filter((t) => t.id !== "deck");
   const tabs = currentAdmin?.isReferee
-    ? TABS.filter((t) => t.id === "live" || t.id === "bracket")
+    ? featureTabs.filter((t) => t.id === "live" || t.id === "bracket")
     : spectator
-      ? TABS.filter((t) => t.id !== "settings")
-      : TABS.filter((t) => t.id !== "deck");
+      ? featureTabs.filter((t) => t.id !== "settings")
+      : featureTabs.filter((t) => t.id !== "deck");
   const activeTab = tabs.some((t) => t.id === tab) ? tab : "live";
 
   // While the auth check is still in flight we don't yet know whether to

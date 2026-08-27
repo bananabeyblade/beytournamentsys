@@ -6,6 +6,7 @@ import { fetchDeckReport } from "@/lib/deck-report";
 import type { DeckCombo } from "@/lib/deck";
 import { isTop8Match } from "@/lib/top8";
 import { snapshotSelectedCombo } from "@/lib/recorded-combo";
+import { useDeckRegistrationEnabled } from "@/hooks/use-deck-registration-enabled";
 
 type RefereeDeckChoice = {
   combos: DeckCombo[];
@@ -111,7 +112,8 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   const previous = match.events.at(-1);
   const [combo1Slot, setCombo1Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo1Slot);
   const [combo2Slot, setCombo2Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo2Slot);
-  const top8Tracking = isTop8Match(match, matches);
+  const deckRegistrationEnabled = useDeckRegistrationEnabled();
+  const top8Tracking = deckRegistrationEnabled && isTop8Match(match, matches);
 
   useEffect(() => {
     if (!top8Tracking || !currentTournament?.id) return;
@@ -209,10 +211,13 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   }, [p1Combos, p2Combos]);
   const comboSelectionRequired = top8Tracking && p1Combos.length > 0 && p2Combos.length > 0;
   const comboSelectionReady = !comboSelectionRequired || (!!combo1Slot && !!combo2Slot);
-  const selectedComboSnapshots = () => ({
-    player1: snapshotSelectedCombo(p1Combos, p1Deck?.comboLabels ?? [], combo1Slot),
-    player2: snapshotSelectedCombo(p2Combos, p2Deck?.comboLabels ?? [], combo2Slot),
-  });
+  const selectedComboSnapshots = () =>
+    top8Tracking
+      ? {
+          player1: snapshotSelectedCombo(p1Combos, p1Deck?.comboLabels ?? [], combo1Slot),
+          player2: snapshotSelectedCombo(p2Combos, p2Deck?.comboLabels ?? [], combo2Slot),
+        }
+      : undefined;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/85 p-0 backdrop-blur-sm sm:items-center sm:p-4">

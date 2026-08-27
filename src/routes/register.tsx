@@ -8,7 +8,7 @@ import { railwayAuthEnabled } from "@/lib/railway-api";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { DeckRegistrationPanel } from "@/components/DeckRegistrationPanel";
-import { fetchDeckRegistrationEnabled } from "@/lib/deck";
+import { useDeckRegistrationEnabled } from "@/hooks/use-deck-registration-enabled";
 import {
   clearJoinedRegistration,
   readJoinedNameForTournament,
@@ -168,26 +168,12 @@ function PlayerRegisterPage() {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
-  const [deckRegistrationEnabled, setDeckRegistrationEnabled] = useState(true);
+  const deckRegistrationEnabled = useDeckRegistrationEnabled();
   const [participantCredential, setParticipantCredential] = useState("");
   const [joinedParticipantName, setJoinedParticipantName] = useState("");
   const [showRecovery, setShowRecovery] = useState(false);
   const [done, setDone] = useState(false);
 
-  useEffect(() => {
-    if (!railwayAuthEnabled) return;
-    let alive = true;
-    const refresh = () =>
-      void fetchDeckRegistrationEnabled()
-        .then((enabled) => alive && setDeckRegistrationEnabled(enabled))
-        .catch(() => undefined);
-    refresh();
-    const timer = window.setInterval(refresh, 5_000);
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, []);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 

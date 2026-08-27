@@ -9,6 +9,7 @@ import { ScoringModal } from "./ScoringModal";
 import { useJoinedName, isSameName } from "@/lib/joined-name";
 import { fetchDeckReport } from "@/lib/deck-report";
 import { buildPodiumDecks } from "@/lib/podium-decks";
+import { useDeckRegistrationEnabled } from "@/hooks/use-deck-registration-enabled";
 
 function MatchCard({
   match,
@@ -98,6 +99,7 @@ export function LiveTab() {
   const { matches, tableCount, startMatch, role, results, currentTournament, locked, playerName } =
     useTournament();
   const joinedName = useJoinedName(currentTournament?.code);
+  const deckRegistrationEnabled = useDeckRegistrationEnabled();
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [startId, setStartId] = useState<string | null>(null);
@@ -105,7 +107,8 @@ export function LiveTab() {
   const podiumReport = useQuery({
     queryKey: ["podium-deck-report", tournamentId],
     queryFn: () => fetchDeckReport(tournamentId!),
-    enabled: role === "admin" && !!results?.top4.length && !!tournamentId,
+    enabled:
+      deckRegistrationEnabled && role === "admin" && !!results?.top4.length && !!tournamentId,
   });
   const podiumDecks =
     results && podiumReport.data ? buildPodiumDecks(results.top4, podiumReport.data) : [];
@@ -184,7 +187,7 @@ export function LiveTab() {
               </li>
             ))}
           </ol>
-          {role === "admin" && (
+          {role === "admin" && deckRegistrationEnabled && (
             <section className="rounded-xl border border-primary/40 bg-accent/15 p-3 text-left">
               <p className="text-center font-display text-xs tracking-widest text-primary">
                 TOP 3 · DECK / COMBO

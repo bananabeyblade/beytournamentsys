@@ -206,13 +206,13 @@ function DeveloperFeatureFlags() {
       </div>
       <div className="flex items-center justify-between gap-3 rounded-xl border border-border p-3">
         <div>
-          <p className="font-semibold">Deck 登錄</p>
+          <p className="font-semibold">Deck／Combo 功能</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {enabled === null
               ? "讀取設定中…"
               : enabled
-                ? "目前開放選手填寫與更新 Deck。"
-                : "目前已關閉；既有 Deck 不會被刪除。"}
+                ? "目前開放 Deck 登錄、Top 8 Combo 紀錄與 Top 3 Deck／Combo 顯示。"
+                : "相關登錄與介面目前已關閉；既有 Deck／Combo 紀錄不會被刪除。"}
           </p>
         </div>
         <button

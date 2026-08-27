@@ -168,6 +168,7 @@ function PlayerRegisterPage() {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
+  const [recoveryCodeAcknowledged, setRecoveryCodeAcknowledged] = useState(false);
   const deckRegistrationEnabled = useDeckRegistrationEnabled();
   const [participantCredential, setParticipantCredential] = useState("");
   const [joinedParticipantName, setJoinedParticipantName] = useState("");
@@ -197,7 +198,9 @@ function PlayerRegisterPage() {
       // the live view when matches exist, and keep a newly issued recovery
       // code visible until the participant confirms it has been saved.
       if (hasGeneratedBracket(row)) {
-        if (!recoveryCode) void navigate({ to: "/watch/$code", params: { code } });
+        if (!recoveryCode || recoveryCodeAcknowledged) {
+          void navigate({ to: "/watch/$code", params: { code } });
+        }
         return;
       }
       // Nothing published yet: if the sign-up row is gone, it was rejected
@@ -239,7 +242,7 @@ function PlayerRegisterPage() {
       if (channel) supabase.removeChannel(channel);
       window.removeEventListener(RECONNECT_EVENT, onBack);
     };
-  }, [done, code, navigate, recoveryCode]);
+  }, [done, code, navigate, recoveryCode, recoveryCodeAcknowledged]);
 
   useEffect(() => {
     let alive = true;
@@ -276,6 +279,7 @@ function PlayerRegisterPage() {
       const generatedCode = await addRegistration(tournament.id, name);
       setName("");
       setRecoveryCode(generatedCode);
+      setRecoveryCodeAcknowledged(false);
       setParticipantCredential(generatedCode);
       setJoinedParticipantName(joinedName);
       writeJoinedTournamentCode(tournament.code);
@@ -311,6 +315,7 @@ function PlayerRegisterPage() {
       setParticipantCredential(recoveryCode.trim());
       setJoinedParticipantName(recoveredName);
       setRecoveryCode("");
+      setRecoveryCodeAcknowledged(true);
       setDone(true);
     } catch {
       setErr("無法找回參賽身分，請確認網路後再試一次。");
@@ -368,10 +373,16 @@ function PlayerRegisterPage() {
               </p>
               <button
                 type="button"
-                onClick={() => setRecoveryCode("")}
-                className="mt-3 min-h-12 w-full rounded-xl bg-primary px-4 font-display text-primary-foreground"
+                disabled={recoveryCodeAcknowledged}
+                onClick={() => setRecoveryCodeAcknowledged(true)}
+                className={`mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 font-display transition ${
+                  recoveryCodeAcknowledged
+                    ? "border border-primary/60 bg-accent/30 text-primary"
+                    : "bg-primary text-primary-foreground"
+                }`}
               >
-                我已截圖保存驗證碼
+                {recoveryCodeAcknowledged && <Check className="h-5 w-5" />}
+                {recoveryCodeAcknowledged ? "已確認保存驗證碼" : "我已截圖保存驗證碼"}
               </button>
             </div>
           )}
@@ -389,6 +400,8 @@ function PlayerRegisterPage() {
           <button
             onClick={() => {
               setName("");
+              setRecoveryCode("");
+              setRecoveryCodeAcknowledged(false);
               setParticipantCredential("");
               setJoinedParticipantName("");
               clearJoinedRegistration();

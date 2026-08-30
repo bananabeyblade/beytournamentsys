@@ -3,10 +3,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   BarChart3,
+  Building2,
   ChevronRight,
   ClipboardList,
   Database,
   Power,
+  Plus,
   RotateCcw,
   Shield,
   Terminal,
@@ -76,6 +78,12 @@ function DeveloperConsolePage() {
       { id: "superadmins", label: "總管理者", icon: Shield, content: <ManageSuperadmins /> },
       { id: "admins", label: "管理者", icon: Users, content: <ManageAdmins /> },
       { id: "status", label: "系統狀態", icon: Database, content: <SystemStatusCard /> },
+      {
+        id: "organizations",
+        label: "租戶管理",
+        icon: Building2,
+        content: <DeveloperOrganizations />,
+      },
       { id: "features", label: "功能開關", icon: Power, content: <DeveloperFeatureFlags /> },
       { id: "stats", label: "Combo／Deck 統計", icon: BarChart3, content: <DeveloperDeckStats /> },
     ],
@@ -159,6 +167,161 @@ function DeveloperConsolePage() {
         </div>
       )}
     </main>
+  );
+}
+
+type OrganizationSummary = {
+  id: string;
+  slug: string;
+  name: string;
+  status: "active" | "suspended" | "archived";
+  role: "owner" | "admin";
+};
+
+function organizationError(error: unknown) {
+  const code = error instanceof Error ? error.message : "";
+  if (code === "ORGANIZATION_SLUG_EXISTS") return "此租戶代碼已被使用。";
+  if (code === "ORGANIZATION_SLUG_INVALID") return "租戶代碼僅能使用小寫英文字母、數字與連字號。";
+  if (code === "ORGANIZATION_NAME_INVALID") return "租戶名稱需為 1–80 個字元。";
+  if (code === "PLATFORM_OWNER_REQUIRED") return "僅平台擁有者可建立租戶。";
+  return "租戶資料處理失敗，請稍後重試。";
+}
+
+function DeveloperOrganizations() {
+  const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    const result = await railwayApi<{ organizations: OrganizationSummary[] }>("/api/organizations");
+    setOrganizations(result.organizations);
+  };
+
+  useEffect(() => {
+    let alive = true;
+    void railwayApi<{ organizations: OrganizationSummary[] }>("/api/organizations")
+      .then((result) => {
+        if (alive) setOrganizations(result.organizations);
+      })
+      .catch((cause: unknown) => {
+        if (alive) setError(organizationError(cause));
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const create = async () => {
+    if (saving) return;
+    const cleanName = name.trim();
+    const cleanSlug = slug.trim().toLowerCase();
+    if (!cleanName || !cleanSlug) {
+      setError("請輸入租戶名稱與租戶代碼。");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await railwayApi<{ organization: OrganizationSummary }>("/api/organizations", {
+        method: "POST",
+        body: JSON.stringify({ name: cleanName, slug: cleanSlug }),
+      });
+      await load();
+      setName("");
+      setSlug("");
+    } catch (cause) {
+      setError(organizationError(cause));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="panel space-y-4 p-4">
+      <div>
+        <h2 className="font-display text-lg neon-text">租戶管理</h2>
+        <p className="text-xs text-muted-foreground">
+          僅顯示目前帳號具有有效成員資格的租戶。建立權限會由伺服器重新驗證。
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">我的租戶</h3>
+        {loading ? (
+          <p className="text-xs text-muted-foreground">讀取租戶中…</p>
+        ) : organizations.length ? (
+          <ul className="space-y-2">
+            {organizations.map((organization) => (
+              <li
+                key={organization.id}
+                className="rounded-xl border border-border bg-secondary/30 px-3 py-2"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 font-semibold">{organization.name}</span>
+                  <span className="shrink-0 rounded border border-primary/40 px-2 py-0.5 text-[10px] text-primary">
+                    {organization.role === "owner" ? "擁有者" : "管理者"}
+                  </span>
+                </div>
+                <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
+                  {organization.slug} · {organization.status}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-muted-foreground">目前沒有可用租戶。</p>
+        )}
+      </div>
+
+      <div className="space-y-3 border-t border-border pt-4">
+        <div>
+          <h3 className="text-sm font-semibold">建立測試租戶</h3>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            此階段只建立租戶隔離邊界；賽事資料切換將在下一階段加入。
+          </p>
+        </div>
+        <label className="block space-y-1 text-xs">
+          <span className="text-muted-foreground">租戶名稱</span>
+          <input
+            value={name}
+            maxLength={80}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="例如：北區測試會所"
+            className="min-h-11 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+          />
+        </label>
+        <label className="block space-y-1 text-xs">
+          <span className="text-muted-foreground">租戶代碼</span>
+          <input
+            value={slug}
+            maxLength={48}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            onChange={(event) =>
+              setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+            }
+            placeholder="例如：north-test"
+            className="min-h-11 w-full rounded-xl border border-input bg-input/40 px-3 font-mono outline-none focus:border-primary"
+          />
+        </label>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void create()}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" /> {saving ? "建立中…" : "建立測試租戶"}
+        </button>
+      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </section>
   );
 }
 

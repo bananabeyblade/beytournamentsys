@@ -1,7 +1,9 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { PoolClient } from "pg";
 import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/client.server";
+import { OWNER_EMAIL } from "./account-id";
 import { enforceRateLimit } from "./rate-limit.server";
+import { ensureLegacyOwnerForVerifiedGoogleUser } from "./tenant-onboarding.server";
 
 const SESSION_COOKIE = "beyx_session";
 export const REFEREE_SESSION_COOKIE = "beyx_referee_session";
@@ -9,8 +11,6 @@ const OAUTH_STATE_COOKIE = "beyx_oauth_state";
 const OAUTH_VERIFIER_COOKIE = "beyx_oauth_verifier";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 const OAUTH_SECONDS = 60 * 10;
-const OWNER_EMAIL = "john410403123@gmail.com";
-
 type AppRole = "admin" | "superadmin" | "referee";
 
 export interface RailwaySessionUser {
@@ -201,6 +201,11 @@ export async function finishGoogleOAuth(request: Request): Promise<Response> {
     const token = base64url(randomBytes(32));
     await withPostgresTransaction(async (client) => {
       const userId = await upsertGoogleUser(client, profile);
+      await ensureLegacyOwnerForVerifiedGoogleUser(client, {
+        id: userId,
+        email: profile.email,
+        googleSubject: profile.subject,
+      });
       await client.query(
         `INSERT INTO app_sessions (user_id, token_hash, expires_at)
          VALUES ($1, $2, now() + interval '30 days')`,

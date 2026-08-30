@@ -20,6 +20,7 @@ import { Route as HealthDatabaseRouteImport } from './routes/health.database'
 import { Route as ApiTournamentsRouteImport } from './routes/api.tournaments'
 import { Route as ApiRegistrationsRouteImport } from './routes/api.registrations'
 import { Route as ApiRecoveryRouteImport } from './routes/api.recovery'
+import { Route as ApiOrganizationsRouteImport } from './routes/api.organizations'
 import { Route as ApiAuthSessionRouteImport } from './routes/api.auth.session'
 import { Route as ApiAuthPasswordRouteImport } from './routes/api.auth.password'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api.auth.google'
@@ -83,6 +84,11 @@ const ApiRecoveryRoute = ApiRecoveryRouteImport.update({
   path: '/api/recovery',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOrganizationsRoute = ApiOrganizationsRouteImport.update({
+  id: '/api/organizations',
+  path: '/api/organizations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
   id: '/api/auth/session',
   path: '/api/auth/session',
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/developer': typeof DeveloperRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/organizations': typeof ApiOrganizationsRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/developer': typeof DeveloperRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/organizations': typeof ApiOrganizationsRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/developer': typeof DeveloperRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/organizations': typeof ApiOrganizationsRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/developer'
     | '/register'
     | '/sitemap.xml'
+    | '/api/organizations'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/developer'
     | '/register'
     | '/sitemap.xml'
+    | '/api/organizations'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/developer'
     | '/register'
     | '/sitemap.xml'
+    | '/api/organizations'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -249,6 +261,7 @@ export interface RootRouteChildren {
   DeveloperRoute: typeof DeveloperRoute
   RegisterRoute: typeof RegisterRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiOrganizationsRoute: typeof ApiOrganizationsRoute
   ApiRecoveryRoute: typeof ApiRecoveryRoute
   ApiRegistrationsRoute: typeof ApiRegistrationsRoute
   ApiTournamentsRoute: typeof ApiTournamentsRoute
@@ -342,6 +355,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRecoveryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/organizations': {
+      id: '/api/organizations'
+      path: '/api/organizations'
+      fullPath: '/api/organizations'
+      preLoaderRoute: typeof ApiOrganizationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/session': {
       id: '/api/auth/session'
       path: '/api/auth/session'
@@ -412,6 +432,7 @@ const rootRouteChildren: RootRouteChildren = {
   DeveloperRoute: DeveloperRoute,
   RegisterRoute: RegisterRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiOrganizationsRoute: ApiOrganizationsRoute,
   ApiRecoveryRoute: ApiRecoveryRoute,
   ApiRegistrationsRoute: ApiRegistrationsRoute,
   ApiTournamentsRoute: ApiTournamentsRoute,

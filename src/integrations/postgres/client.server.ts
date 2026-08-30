@@ -39,6 +39,9 @@ export async function postgresReadinessCheck(): Promise<void> {
       to_regclass('public.app_users') IS NOT NULL
       AND to_regclass('public.app_sessions') IS NOT NULL
       AND to_regclass('public.admin_roles') IS NOT NULL
+      AND to_regclass('public.organizations') IS NOT NULL
+      AND to_regclass('public.organization_memberships') IS NOT NULL
+      AND to_regclass('public.platform_roles') IS NOT NULL
       AND to_regclass('public.tournaments') IS NOT NULL
       AND to_regclass('public.registrations') IS NOT NULL
       AND to_regclass('public.participant_recovery_codes') IS NOT NULL

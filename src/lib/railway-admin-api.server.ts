@@ -174,12 +174,15 @@ export async function railwayAdminGet(request: Request, action: string) {
   }
   if (action === "tournaments") {
     const latest = url.searchParams.get("latest") === "open";
+    const code = url.searchParams.get("code")?.trim().toUpperCase() || null;
+    if (code && !/^[A-Z2-9]{6}$/.test(code)) throw new AdminApiError(400, "CODE_INVALID");
     const statuses = adminTournamentListStatuses(latest);
     const result = await queryPostgres(
       `SELECT ${tournamentColumns} FROM tournaments
        WHERE organization_id=$1 AND status = ANY($2::text[])
-       ORDER BY created_at DESC LIMIT ${latest ? 1 : 50}`,
-      [selected!.organization.id, statuses],
+         AND ($3::text IS NULL OR code=$3)
+       ORDER BY created_at DESC LIMIT ${latest || code ? 1 : 50}`,
+      [selected!.organization.id, statuses, code],
     );
     return { tournaments: result.rows };
   }

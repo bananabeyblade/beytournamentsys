@@ -14,7 +14,11 @@ import {
   Terminal,
   Users,
 } from "lucide-react";
-import { TournamentProvider, useTournament } from "@/lib/tournament-store";
+import {
+  clearActiveTournamentCode,
+  TournamentProvider,
+  useTournament,
+} from "@/lib/tournament-store";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { ManageAdmins, ManageSuperadmins } from "@/components/AccountSettings";
 import { TournamentHistory } from "@/components/TournamentHistory";
@@ -264,6 +268,7 @@ function DeveloperOrganizations() {
         method: "POST",
         body: JSON.stringify({ organizationId }),
       });
+      clearActiveTournamentCode();
       window.location.assign("/");
     } catch (cause) {
       setError(organizationError(cause));

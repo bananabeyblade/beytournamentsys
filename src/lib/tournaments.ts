@@ -187,6 +187,15 @@ export async function fetchTournamentByCode(code: string): Promise<TournamentRow
   return (data as unknown as TournamentRow) ?? null;
 }
 
+/** Admin-only lookup constrained by the active server-verified tenant. */
+export async function fetchAdminTournamentByCode(code: string): Promise<TournamentRow | null> {
+  if (!railwayAuthEnabled) return fetchTournamentByCode(code);
+  const result = await railwayApi<{ tournaments: TournamentRow[] }>(
+    `/api/admin/tournaments?code=${encodeURIComponent(code)}`,
+  );
+  return result.tournaments[0] ?? null;
+}
+
 /** History list — visible to signed-in admins in the settings tab. */
 export async function listTournaments(): Promise<TournamentRow[]> {
   if (railwayAuthEnabled) {

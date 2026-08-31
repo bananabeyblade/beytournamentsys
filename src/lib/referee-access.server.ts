@@ -6,6 +6,7 @@ import {
   requireRailwayAdmin,
   type RailwaySessionUser,
 } from "./railway-auth.server";
+import { requireSelectedTournament } from "./selected-organization.server";
 
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const token = () => randomBytes(32).toString("base64url");
@@ -48,20 +49,29 @@ async function audit(
   detail: Record<string, unknown>,
   id: string,
 ) {
-  const tournament = await queryPostgres<{ name: string }>(
-    "SELECT name FROM tournaments WHERE id=$1 LIMIT 1",
+  const tournament = await queryPostgres<{ name: string; organization_id: string }>(
+    "SELECT name,organization_id FROM tournaments WHERE id=$1 LIMIT 1",
     [id],
   );
   await queryPostgres(
-    `INSERT INTO admin_actions(actor_user_id,actor_email,action,detail,tournament_id,tournament_name)
-     VALUES($1,$2,$3,$4::jsonb,$5,$6)`,
-    [user.id, user.email, action, JSON.stringify(detail), id, tournament.rows[0]?.name ?? null],
+    `INSERT INTO admin_actions
+       (actor_user_id,actor_email,action,detail,tournament_id,tournament_name,organization_id)
+     VALUES($1,$2,$3,$4::jsonb,$5,$6,$7)`,
+    [
+      user.id,
+      user.email,
+      action,
+      JSON.stringify(detail),
+      id,
+      tournament.rows[0]?.name ?? null,
+      tournament.rows[0]?.organization_id,
+    ],
   );
 }
 
 export async function getRefereeAccess(request: Request, idInput: unknown) {
-  const user = await requireRailwayAdmin(request);
   const id = tournamentId(idInput);
+  const { user } = await requireSelectedTournament(request, id);
   const invite = await queryPostgres<{
     id: string;
     quota: number;
@@ -87,8 +97,8 @@ export async function createOrUpdateRefereeInvite(
   quotaInput: unknown,
   rotate: boolean,
 ) {
-  const user = await requireRailwayAdmin(request);
   const id = tournamentId(idInput);
+  const { user } = await requireSelectedTournament(request, id);
   const maximum = quota(quotaInput);
   const secret = token();
   const result = await withPostgresTransaction(async (client) => {
@@ -150,8 +160,14 @@ export async function decideReferee(
   refereeIdInput: unknown,
   decision: "approved" | "rejected" | "revoked",
 ) {
-  const user = await requireRailwayAdmin(request);
+  await requireRailwayAdmin(request);
   const refereeId = tournamentId(refereeIdInput);
+  const referee = await queryPostgres<{ tournament_id: string }>(
+    "SELECT tournament_id FROM tournament_referees WHERE id=$1 LIMIT 1",
+    [refereeId],
+  );
+  if (!referee.rows[0]) throw new RefereeAccessError(404, "REFEREE_NOT_FOUND");
+  const { user } = await requireSelectedTournament(request, referee.rows[0].tournament_id);
   const result = await withPostgresTransaction(async (client) => {
     const found = await client.query<{
       tournament_id: string;
@@ -201,8 +217,9 @@ export async function requestRefereeAccess(request: Request, body: Record<string
       tournament_id: string;
       quota: number;
       tournament_name: string;
+      organization_id: string;
     }>(
-      `SELECT i.id,i.tournament_id,i.quota,t.name AS tournament_name
+      `SELECT i.id,i.tournament_id,i.quota,t.name AS tournament_name,t.organization_id
        FROM tournament_referee_invites i JOIN tournaments t ON t.id=i.tournament_id
        WHERE t.code=$1 AND t.status='open' AND i.token_hash=$2 AND i.revoked_at IS NULL
          AND (i.expires_at IS NULL OR i.expires_at>now()) FOR UPDATE`,
@@ -224,13 +241,15 @@ export async function requestRefereeAccess(request: Request, body: Record<string
         [invite.rows[0].tournament_id, invite.rows[0].id, name, hash(sessionToken)],
       );
       await client.query(
-        `INSERT INTO admin_actions(actor_email,action,detail,tournament_id,tournament_name)
-         VALUES($1,'referee_request',$2::jsonb,$3,$4)`,
+        `INSERT INTO admin_actions
+            (actor_email,action,detail,tournament_id,tournament_name,organization_id)
+          VALUES($1,'referee_request',$2::jsonb,$3,$4,$5)`,
         [
           name,
           JSON.stringify({ refereeId: inserted.rows[0].id, name }),
           invite.rows[0].tournament_id,
           invite.rows[0].tournament_name,
+          invite.rows[0].organization_id,
         ],
       );
       return inserted.rows[0];

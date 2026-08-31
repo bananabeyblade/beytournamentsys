@@ -184,11 +184,15 @@ function organizationError(error: unknown) {
   if (code === "ORGANIZATION_SLUG_INVALID") return "租戶代碼僅能使用小寫英文字母、數字與連字號。";
   if (code === "ORGANIZATION_NAME_INVALID") return "租戶名稱需為 1–80 個字元。";
   if (code === "PLATFORM_OWNER_REQUIRED") return "僅平台擁有者可建立租戶。";
+  if (code === "SELECTED_ORGANIZATION_FORBIDDEN")
+    return "目前選取的租戶已無法存取，請登出後重新登入。";
+  if (code === "ORGANIZATION_ID_INVALID") return "租戶識別資料無效，請重新整理後再試。";
   return "租戶資料處理失敗，請稍後重試。";
 }
 
 function DeveloperOrganizations() {
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
@@ -196,15 +200,24 @@ function DeveloperOrganizations() {
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    const result = await railwayApi<{ organizations: OrganizationSummary[] }>("/api/organizations");
+    const result = await railwayApi<{
+      organizations: OrganizationSummary[];
+      selectedOrganizationId: string;
+    }>("/api/organizations");
     setOrganizations(result.organizations);
+    setSelectedOrganizationId(result.selectedOrganizationId);
   };
 
   useEffect(() => {
     let alive = true;
-    void railwayApi<{ organizations: OrganizationSummary[] }>("/api/organizations")
+    void railwayApi<{ organizations: OrganizationSummary[]; selectedOrganizationId: string }>(
+      "/api/organizations",
+    )
       .then((result) => {
-        if (alive) setOrganizations(result.organizations);
+        if (alive) {
+          setOrganizations(result.organizations);
+          setSelectedOrganizationId(result.selectedOrganizationId);
+        }
       })
       .catch((cause: unknown) => {
         if (alive) setError(organizationError(cause));
@@ -242,6 +255,22 @@ function DeveloperOrganizations() {
     }
   };
 
+  const select = async (organizationId: string) => {
+    if (saving || organizationId === selectedOrganizationId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await railwayApi("/api/organizations/select", {
+        method: "POST",
+        body: JSON.stringify({ organizationId }),
+      });
+      window.location.assign("/");
+    } catch (cause) {
+      setError(organizationError(cause));
+      setSaving(false);
+    }
+  };
+
   return (
     <section className="panel space-y-4 p-4">
       <div>
@@ -265,12 +294,26 @@ function DeveloperOrganizations() {
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0 font-semibold">{organization.name}</span>
                   <span className="shrink-0 rounded border border-primary/40 px-2 py-0.5 text-[10px] text-primary">
-                    {organization.role === "owner" ? "擁有者" : "管理者"}
+                    {organization.id === selectedOrganizationId
+                      ? "目前租戶"
+                      : organization.role === "owner"
+                        ? "擁有者"
+                        : "管理者"}
                   </span>
                 </div>
                 <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
                   {organization.slug} · {organization.status}
                 </p>
+                {organization.id !== selectedOrganizationId && (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void select(organization.id)}
+                    className="mt-2 min-h-9 w-full rounded-lg border border-primary/50 text-xs text-primary disabled:opacity-50"
+                  >
+                    切換至此租戶
+                  </button>
+                )}
               </li>
             ))}
           </ul>

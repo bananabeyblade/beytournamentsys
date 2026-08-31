@@ -21,6 +21,7 @@ import { Route as ApiTournamentsRouteImport } from './routes/api.tournaments'
 import { Route as ApiRegistrationsRouteImport } from './routes/api.registrations'
 import { Route as ApiRecoveryRouteImport } from './routes/api.recovery'
 import { Route as ApiOrganizationsRouteImport } from './routes/api.organizations'
+import { Route as ApiOrganizationsSelectRouteImport } from './routes/api.organizations.select'
 import { Route as ApiAuthSessionRouteImport } from './routes/api.auth.session'
 import { Route as ApiAuthPasswordRouteImport } from './routes/api.auth.password'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api.auth.google'
@@ -89,6 +90,11 @@ const ApiOrganizationsRoute = ApiOrganizationsRouteImport.update({
   path: '/api/organizations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOrganizationsSelectRoute = ApiOrganizationsSelectRouteImport.update({
+  id: '/select',
+  path: '/select',
+  getParentRoute: () => ApiOrganizationsRoute,
+} as any)
 const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
   id: '/api/auth/session',
   path: '/api/auth/session',
@@ -131,7 +137,7 @@ export interface FileRoutesByFullPath {
   '/developer': typeof DeveloperRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/api/organizations': typeof ApiOrganizationsRoute
+  '/api/organizations': typeof ApiOrganizationsRouteWithChildren
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/auth/password': typeof ApiAuthPasswordRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/organizations/select': typeof ApiOrganizationsSelectRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -152,7 +159,7 @@ export interface FileRoutesByTo {
   '/developer': typeof DeveloperRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/api/organizations': typeof ApiOrganizationsRoute
+  '/api/organizations': typeof ApiOrganizationsRouteWithChildren
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/auth/password': typeof ApiAuthPasswordRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/organizations/select': typeof ApiOrganizationsSelectRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRoutesById {
@@ -174,7 +182,7 @@ export interface FileRoutesById {
   '/developer': typeof DeveloperRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/api/organizations': typeof ApiOrganizationsRoute
+  '/api/organizations': typeof ApiOrganizationsRouteWithChildren
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/auth/password': typeof ApiAuthPasswordRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/organizations/select': typeof ApiOrganizationsSelectRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRouteTypes {
@@ -210,6 +219,7 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/auth/password'
     | '/api/auth/session'
+    | '/api/organizations/select'
     | '/api/auth/google/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/auth/password'
     | '/api/auth/session'
+    | '/api/organizations/select'
     | '/api/auth/google/callback'
   id:
     | '__root__'
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/auth/password'
     | '/api/auth/session'
+    | '/api/organizations/select'
     | '/api/auth/google/callback'
   fileRoutesById: FileRoutesById
 }
@@ -261,7 +273,7 @@ export interface RootRouteChildren {
   DeveloperRoute: typeof DeveloperRoute
   RegisterRoute: typeof RegisterRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  ApiOrganizationsRoute: typeof ApiOrganizationsRoute
+  ApiOrganizationsRoute: typeof ApiOrganizationsRouteWithChildren
   ApiRecoveryRoute: typeof ApiRecoveryRoute
   ApiRegistrationsRoute: typeof ApiRegistrationsRoute
   ApiTournamentsRoute: typeof ApiTournamentsRoute
@@ -362,6 +374,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOrganizationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/organizations/select': {
+      id: '/api/organizations/select'
+      path: '/select'
+      fullPath: '/api/organizations/select'
+      preLoaderRoute: typeof ApiOrganizationsSelectRouteImport
+      parentRoute: typeof ApiOrganizationsRoute
+    }
     '/api/auth/session': {
       id: '/api/auth/session'
       path: '/api/auth/session'
@@ -414,6 +433,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ApiOrganizationsRouteChildren {
+  ApiOrganizationsSelectRoute: typeof ApiOrganizationsSelectRoute
+}
+
+const ApiOrganizationsRouteChildren: ApiOrganizationsRouteChildren = {
+  ApiOrganizationsSelectRoute: ApiOrganizationsSelectRoute,
+}
+
+const ApiOrganizationsRouteWithChildren =
+  ApiOrganizationsRoute._addFileChildren(ApiOrganizationsRouteChildren)
+
 interface ApiAuthGoogleRouteChildren {
   ApiAuthGoogleCallbackRoute: typeof ApiAuthGoogleCallbackRoute
 }
@@ -432,7 +462,7 @@ const rootRouteChildren: RootRouteChildren = {
   DeveloperRoute: DeveloperRoute,
   RegisterRoute: RegisterRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  ApiOrganizationsRoute: ApiOrganizationsRoute,
+  ApiOrganizationsRoute: ApiOrganizationsRouteWithChildren,
   ApiRecoveryRoute: ApiRecoveryRoute,
   ApiRegistrationsRoute: ApiRegistrationsRoute,
   ApiTournamentsRoute: ApiTournamentsRoute,

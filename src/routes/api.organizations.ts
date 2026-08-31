@@ -5,10 +5,16 @@ import {
   listOrganizationsForSession,
   OrganizationManagementError,
 } from "@/lib/organization-management.server";
+import {
+  SelectedOrganizationError,
+  selectedOrganizationForSession,
+} from "@/lib/selected-organization.server";
 
 function failure(error: unknown) {
-  const status = error instanceof OrganizationManagementError ? error.status : 500;
-  const code = error instanceof OrganizationManagementError ? error.message : "INTERNAL_ERROR";
+  const expected =
+    error instanceof OrganizationManagementError || error instanceof SelectedOrganizationError;
+  const status = expected ? error.status : 500;
+  const code = expected ? error.message : "INTERNAL_ERROR";
   if (status === 500) console.error("[api/organizations]", error);
   return Response.json({ error: code }, { status, headers: { "cache-control": "no-store" } });
 }
@@ -18,8 +24,12 @@ export const Route = createFileRoute("/api/organizations")({
     handlers: {
       GET: async ({ request }) => {
         try {
+          const selected = await selectedOrganizationForSession(request);
           return Response.json(
-            { organizations: await listOrganizationsForSession(request) },
+            {
+              organizations: await listOrganizationsForSession(request),
+              selectedOrganizationId: selected.organization.id,
+            },
             { headers: { "cache-control": "no-store" } },
           );
         } catch (error) {

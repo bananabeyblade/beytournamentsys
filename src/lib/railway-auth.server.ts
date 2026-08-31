@@ -401,5 +401,6 @@ export async function logoutRailwaySession(request: Request): Promise<Response> 
   const headers = new Headers({ "cache-control": "no-store" });
   headers.append("set-cookie", clearCookie(SESSION_COOKIE));
   headers.append("set-cookie", clearCookie(REFEREE_SESSION_COOKIE));
+  headers.append("set-cookie", clearCookie("beyx_organization"));
   return Response.json({ ok: true }, { headers });
 }

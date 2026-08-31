@@ -85,7 +85,7 @@ function DeveloperConsolePage() {
       { id: "status", label: "系統狀態", icon: Database, content: <SystemStatusCard /> },
       {
         id: "organizations",
-        label: "會所管理",
+        label: "組織管理",
         icon: Building2,
         content: <DeveloperOrganizations />,
       },
@@ -185,14 +185,14 @@ type OrganizationSummary = {
 
 function organizationError(error: unknown) {
   const code = error instanceof Error ? error.message : "";
-  if (code === "ORGANIZATION_SLUG_EXISTS") return "此會所代碼已被使用。";
-  if (code === "ORGANIZATION_SLUG_INVALID") return "會所代碼僅能使用小寫英文字母、數字與連字號。";
-  if (code === "ORGANIZATION_NAME_INVALID") return "會所名稱需為 1–80 個字元。";
-  if (code === "PLATFORM_OWNER_REQUIRED") return "僅平台擁有者可建立會所。";
+  if (code === "ORGANIZATION_SLUG_EXISTS") return "此組織代碼已被使用。";
+  if (code === "ORGANIZATION_SLUG_INVALID") return "組織代碼僅能使用小寫英文字母、數字與連字號。";
+  if (code === "ORGANIZATION_NAME_INVALID") return "組織名稱需為 1–80 個字元。";
+  if (code === "PLATFORM_OWNER_REQUIRED") return "僅平台擁有者可建立組織。";
   if (code === "SELECTED_ORGANIZATION_FORBIDDEN")
-    return "目前選取的會所已無法存取，請登出後重新登入。";
-  if (code === "ORGANIZATION_ID_INVALID") return "會所識別資料無效，請重新整理後再試。";
-  return "會所資料處理失敗，請稍後重試。";
+    return "目前選取的組織已無法存取，請登出後重新登入。";
+  if (code === "ORGANIZATION_ID_INVALID") return "組織識別資料無效，請重新整理後再試。";
+  return "組織資料處理失敗，請稍後重試。";
 }
 
 function DeveloperOrganizations() {
@@ -240,7 +240,7 @@ function DeveloperOrganizations() {
     const cleanName = name.trim();
     const cleanSlug = slug.trim().toLowerCase();
     if (!cleanName || !cleanSlug) {
-      setError("請輸入會所名稱與會所代碼。");
+      setError("請輸入組織名稱與組織代碼。");
       return;
     }
     setSaving(true);
@@ -280,16 +280,16 @@ function DeveloperOrganizations() {
   return (
     <section className="panel space-y-4 p-4">
       <div>
-        <h2 className="font-display text-lg neon-text">會所管理</h2>
+        <h2 className="font-display text-lg neon-text">組織管理</h2>
         <p className="text-xs text-muted-foreground">
-          顯示目前帳號可管理的會所。切換後，賽事、管理者與功能設定會完全分開。
+          顯示目前帳號可管理的組織。切換後，賽事、管理者與功能設定會完全分開。
         </p>
       </div>
 
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold">我的會所</h3>
+        <h3 className="text-sm font-semibold">我的組織</h3>
         {loading ? (
-          <p className="text-xs text-muted-foreground">讀取會所中…</p>
+          <p className="text-xs text-muted-foreground">讀取組織中…</p>
         ) : organizations.length ? (
           <ul className="space-y-2">
             {organizations.map((organization) => (
@@ -301,7 +301,7 @@ function DeveloperOrganizations() {
                   <span className="min-w-0 font-semibold">{organization.name}</span>
                   <span className="shrink-0 rounded border border-primary/40 px-2 py-0.5 text-[10px] text-primary">
                     {organization.id === selectedOrganizationId
-                      ? "目前會所"
+                      ? "目前組織"
                       : organization.role === "owner"
                         ? "擁有者"
                         : "管理者"}
@@ -317,36 +317,36 @@ function DeveloperOrganizations() {
                     onClick={() => void select(organization.id)}
                     className="mt-2 min-h-9 w-full rounded-lg border border-primary/50 text-xs text-primary disabled:opacity-50"
                   >
-                    切換至此會所
+                    切換至此組織
                   </button>
                 )}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-muted-foreground">目前沒有可用會所。</p>
+          <p className="text-xs text-muted-foreground">目前沒有可用組織。</p>
         )}
       </div>
 
       <div className="space-y-3 border-t border-border pt-4">
         <div>
-          <h3 className="text-sm font-semibold">建立會所</h3>
+          <h3 className="text-sm font-semibold">建立組織</h3>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            建立後，各會所的賽事、管理者、功能設定與操作紀錄皆分開保存。
+            名稱可自由填寫；建立後，各組織的賽事、管理者、功能設定與操作紀錄皆分開保存。
           </p>
         </div>
         <label className="block space-y-1 text-xs">
-          <span className="text-muted-foreground">會所名稱</span>
+          <span className="text-muted-foreground">組織名稱（自訂）</span>
           <input
             value={name}
             maxLength={80}
             onChange={(event) => setName(event.target.value)}
-            placeholder="例如：北區測試會所"
+            placeholder="例如：北區聯盟、陀螺店或校園社團"
             className="min-h-11 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
           />
         </label>
         <label className="block space-y-1 text-xs">
-          <span className="text-muted-foreground">會所代碼</span>
+          <span className="text-muted-foreground">組織代碼</span>
           <input
             value={slug}
             maxLength={48}
@@ -366,7 +366,7 @@ function DeveloperOrganizations() {
           onClick={() => void create()}
           className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-50"
         >
-          <Plus className="h-4 w-4" /> {saving ? "建立中…" : "建立會所"}
+          <Plus className="h-4 w-4" /> {saving ? "建立中…" : "建立組織"}
         </button>
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}

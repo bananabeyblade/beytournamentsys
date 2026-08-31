@@ -150,7 +150,7 @@ export function SettingsTab() {
             <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-xs font-bold text-blue-600">
               G
             </span>
-            使用 Google 登入／註冊會所
+            使用 Google 登入／註冊組織
           </button>
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
             <span className="h-px flex-1 bg-border" />

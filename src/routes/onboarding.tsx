@@ -11,18 +11,18 @@ type Organization = {
 };
 
 export const Route = createFileRoute("/onboarding")({
-  head: () => ({ meta: [{ title: "建立會所 | Beyblade Tournament System" }] }),
+  head: () => ({ meta: [{ title: "建立組織 | Beyblade Tournament System" }] }),
   component: OrganizationOnboarding,
 });
 
 function messageFor(error: unknown) {
   const code = error instanceof Error ? error.message : "";
-  if (code === "ORGANIZATION_SLUG_EXISTS") return "此會所代碼已被使用，請更換一組。";
-  if (code === "ORGANIZATION_SLUG_INVALID") return "會所代碼僅能使用小寫英文字母、數字與連字號。";
-  if (code === "ORGANIZATION_NAME_INVALID") return "會所名稱需為 1–80 個字元。";
-  if (code === "ORGANIZATION_LIMIT_REACHED") return "此帳號已建立會所，請重新登入後再試。";
+  if (code === "ORGANIZATION_SLUG_EXISTS") return "此組織代碼已被使用，請更換一組。";
+  if (code === "ORGANIZATION_SLUG_INVALID") return "組織代碼僅能使用小寫英文字母、數字與連字號。";
+  if (code === "ORGANIZATION_NAME_INVALID") return "組織名稱需為 1–80 個字元。";
+  if (code === "ORGANIZATION_LIMIT_REACHED") return "此帳號已建立組織，請重新登入後再試。";
   if (code === "GOOGLE_ACCOUNT_REQUIRED") return "請使用已驗證的 Google 帳號註冊。";
-  return "建立會所失敗，請稍後再試。";
+  return "建立組織失敗，請稍後再試。";
 }
 
 function OrganizationOnboarding() {
@@ -64,7 +64,7 @@ function OrganizationOnboarding() {
     const cleanName = name.trim();
     const cleanSlug = slug.trim().toLowerCase();
     if (!cleanName || !cleanSlug) {
-      setError("請輸入會所名稱與會所代碼。");
+      setError("請輸入組織名稱與組織代碼。");
       return;
     }
     setSaving(true);
@@ -89,10 +89,10 @@ function OrganizationOnboarding() {
     <main className="mx-auto max-w-md space-y-4 px-4 py-6">
       <header>
         <h1 className="flex items-center gap-2 font-display text-2xl neon-text">
-          <Building2 className="h-6 w-6" /> 建立你的會所
+          <Building2 className="h-6 w-6" /> 建立你的組織
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Google 帳號完成驗證後，你會成為此會所的擁有者，可建立賽事與管理會所成員。
+          名稱可自由填寫。Google 帳號完成驗證後，你會成為此組織的擁有者，可建立賽事與管理成員。
         </p>
       </header>
 
@@ -105,17 +105,17 @@ function OrganizationOnboarding() {
               註冊帳號：<span className="break-all text-primary">{user.email}</span>
             </p>
             <label className="block space-y-1 text-xs">
-              <span className="text-muted-foreground">會所名稱</span>
+              <span className="text-muted-foreground">組織名稱（自訂）</span>
               <input
                 value={name}
                 maxLength={80}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="例如：北區陀螺會所"
+                placeholder="例如：陀螺協會、店家、社團或賽事品牌"
                 className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
               />
             </label>
             <label className="block space-y-1 text-xs">
-              <span className="text-muted-foreground">會所代碼</span>
+              <span className="text-muted-foreground">組織代碼</span>
               <input
                 value={slug}
                 maxLength={48}
@@ -135,7 +135,7 @@ function OrganizationOnboarding() {
               onClick={() => void create()}
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-50"
             >
-              <Plus className="h-4 w-4" /> {saving ? "建立中…" : "建立會所並開始使用"}
+              <Plus className="h-4 w-4" /> {saving ? "建立中…" : "建立組織並開始使用"}
             </button>
           </>
         ) : null}
@@ -156,7 +156,7 @@ function OrganizationOnboarding() {
       </section>
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        每個一般帳號目前限建立一個會所；資料與其他會所完全分開。平台管理權不會因註冊而授予。
+        每個一般帳號目前限建立一個組織；資料與其他組織完全分開。平台管理權不會因註冊而授予。
       </p>
     </main>
   );

@@ -169,7 +169,7 @@ function PlayerRegisterPage() {
   const [name, setName] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
   const [recoveryCodeAcknowledged, setRecoveryCodeAcknowledged] = useState(false);
-  const deckRegistrationEnabled = useDeckRegistrationEnabled();
+  const deckRegistrationEnabled = useDeckRegistrationEnabled(tournament?.id);
   const [participantCredential, setParticipantCredential] = useState("");
   const [joinedParticipantName, setJoinedParticipantName] = useState("");
   const [showRecovery, setShowRecovery] = useState(false);

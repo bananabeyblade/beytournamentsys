@@ -74,7 +74,7 @@ export function AppShell({ title }: { title?: string }) {
   const participantCode = currentTournament?.code ?? (spectator ? readJoinedTournamentCode() : "");
   const joinedName = useJoinedName(participantCode);
   const participantRecoveryCode = readJoinedRecoveryCodeForTournament(participantCode);
-  const deckRegistrationEnabled = useDeckRegistrationEnabled();
+  const deckRegistrationEnabled = useDeckRegistrationEnabled(currentTournament?.id);
 
   // Restore a participant only when the saved QR identity still exists in the
   // event's live roster. A lone old code must never trap the browser in

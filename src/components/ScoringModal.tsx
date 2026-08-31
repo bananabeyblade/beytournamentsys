@@ -112,7 +112,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   const previous = match.events.at(-1);
   const [combo1Slot, setCombo1Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo1Slot);
   const [combo2Slot, setCombo2Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo2Slot);
-  const deckRegistrationEnabled = useDeckRegistrationEnabled();
+  const deckRegistrationEnabled = useDeckRegistrationEnabled(currentTournament?.id);
   const top8Tracking = deckRegistrationEnabled && isTop8Match(match, matches);
 
   useEffect(() => {

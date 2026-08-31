@@ -207,23 +207,17 @@ export async function listActiveParts() {
   };
 }
 
-export async function deckRegistrationEnabled(tournamentIdInput?: unknown) {
-  if (tournamentIdInput !== undefined && tournamentIdInput !== null) {
-    const tournamentId = uuid(tournamentIdInput, "tournament_id");
-    const { rows } = await queryPostgres<{ enabled: boolean }>(
-      `SELECT COALESCE(flag.enabled,false) AS enabled
-       FROM tournaments tournament
-       LEFT JOIN organization_feature_flags flag
-         ON flag.organization_id=tournament.organization_id AND flag.key='deck_registration'
-       WHERE tournament.id=$1 LIMIT 1`,
-      [tournamentId],
-    );
-    return rows[0]?.enabled ?? false;
-  }
+export async function deckRegistrationEnabled(tournamentIdInput: unknown) {
+  const tournamentId = uuid(tournamentIdInput, "tournament_id");
   const { rows } = await queryPostgres<{ enabled: boolean }>(
-    "SELECT enabled FROM app_feature_flags WHERE key='deck_registration' LIMIT 1",
+    `SELECT COALESCE(flag.enabled,false) AS enabled
+     FROM tournaments tournament
+     LEFT JOIN organization_feature_flags flag
+       ON flag.organization_id=tournament.organization_id AND flag.key='deck_registration'
+     WHERE tournament.id=$1 LIMIT 1`,
+    [tournamentId],
   );
-  return rows[0]?.enabled ?? true;
+  return rows[0]?.enabled ?? false;
 }
 
 function recoveryCode(value: unknown): string {

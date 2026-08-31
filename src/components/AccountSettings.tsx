@@ -560,7 +560,7 @@ export function AccountSettings({ beforeAdminAccounts }: { beforeAdminAccounts?:
   return (
     <div className="space-y-4">
       <MyAccount key={currentAdmin.email} />
-      {isDeveloperEmail(currentAdmin.email) && (
+      {(currentAdmin.isDeveloper ?? isDeveloperEmail(currentAdmin.email)) && (
         <Link
           to="/developer"
           className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 font-display text-primary"
@@ -569,7 +569,7 @@ export function AccountSettings({ beforeAdminAccounts }: { beforeAdminAccounts?:
         </Link>
       )}
       {beforeAdminAccounts}
-      {isOwnerEmail(currentAdmin.email) && <ManageSuperadmins />}
+      {(currentAdmin.isDeveloper ?? isOwnerEmail(currentAdmin.email)) && <ManageSuperadmins />}
       {currentAdmin.isSuper && <ManageAdmins />}
     </div>
   );

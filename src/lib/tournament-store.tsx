@@ -43,7 +43,7 @@ import {
 } from "./tournaments";
 import { computeTop4 } from "./standings";
 import { LOCK_TTL_MS, activeLock, mergeMatches, mergePlayers, touchMatch } from "./live-merge";
-import { displayAccount, isOwnerEmail, toLoginEmail } from "./account-id";
+import { displayAccount, isDeveloperEmail, isOwnerEmail, toLoginEmail } from "./account-id";
 import { isUsernameAccount, padAdminPassword } from "./admin-password";
 import { logAction, type AuditAction } from "./audit";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
@@ -172,7 +172,7 @@ interface Ctx extends TournamentState {
   syncStatus: SyncStatus;
   lastSyncedAt: number | null;
   retrySync: () => void;
-  /** True for the platform owner account (john410403123@gmail.com). */
+  /** True for the server-verified platform owner account. */
   isOwner: boolean;
   resetTournament: () => Promise<string | null>;
   loadSample: () => void;
@@ -362,6 +362,7 @@ export function TournamentProvider({
           isGoogle:
             user.app_metadata.provider === "google" ||
             user.identities?.some((identity) => identity.provider === "google") === true,
+          isDeveloper: isDeveloperEmail(user.email),
         });
         setRoleState("admin");
         setAuthIssue(null);
@@ -420,6 +421,8 @@ export function TournamentProvider({
         email: displayAccount(user.email),
         isSuper: user.role === "superadmin",
         isGoogle: user.isGoogle,
+        isDeveloper: user.isDeveloper,
+        organizationRole: user.organizationRole,
         isReferee: user.role === "referee",
         tournamentId: user.tournamentId,
         tournamentCode: user.tournamentCode,
@@ -724,7 +727,8 @@ export function TournamentProvider({
 
   const forceUnlockMatch = useCallback(
     (matchId: string) => {
-      if (!isOwnerEmail(auditRef.current.admin?.email)) return;
+      const admin = auditRef.current.admin;
+      if (!(admin?.isDeveloper ?? false) && admin?.organizationRole !== "owner") return;
       const m = matchesRef.current.find((x) => x.id === matchId);
       setLock(matchId, null);
       if (m) log("match_lock_force", { matchup: matchupOf(m), name: m.lockedByName ?? "" });
@@ -1494,7 +1498,13 @@ export function TournamentProvider({
     syncStatus,
     lastSyncedAt,
     retrySync,
-    isOwner: !spectator && isOwnerEmail(currentAdmin?.email),
+    isOwner:
+      !spectator &&
+      Boolean(
+        currentAdmin?.isDeveloper ||
+        currentAdmin?.organizationRole === "owner" ||
+        isOwnerEmail(currentAdmin?.email),
+      ),
     resetTournament,
     loadSample,
     spectator,

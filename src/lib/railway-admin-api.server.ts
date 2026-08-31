@@ -23,6 +23,7 @@ import {
   requireSelectedTournament,
 } from "./selected-organization.server";
 import { LEGACY_ORGANIZATION_ID } from "./tenant-onboarding.server";
+import { isOwnerEmail } from "./account-id";
 
 type Body = Record<string, unknown>;
 
@@ -142,7 +143,18 @@ export async function railwayAdminGet(request: Request, action: string) {
         request,
         action === "admins" || action === "audit" || action === "admin-password",
       );
-  const selected = user.role === "referee" ? null : await requireSelectedOrganizationRole(request);
+  const organizationOwnerActions = new Set([
+    "deck-statistics-state",
+    "feature-flags",
+    "statistics-tournaments",
+  ]);
+  const selected =
+    user.role === "referee"
+      ? null
+      : await requireSelectedOrganizationRole(
+          request,
+          organizationOwnerActions.has(action) ? ["owner"] : ["owner", "admin"],
+        );
   if (deckReportTournamentId && user.role !== "referee") {
     await requireSelectedTournament(request, deckReportTournamentId);
   }
@@ -150,7 +162,6 @@ export async function railwayAdminGet(request: Request, action: string) {
     return getRefereeAccess(request, url.searchParams.get("tournamentId"));
   if (action === "role") return { role: user.role, user, organization: selected?.organization };
   if (action === "deck-statistics-state") {
-    await requireRailwayOwner(request);
     const state = await queryPostgres<{
       reset_at: string;
       updated_by: string | null;
@@ -164,7 +175,6 @@ export async function railwayAdminGet(request: Request, action: string) {
     return { resetAt: current.reset_at, updatedBy: current.updated_by };
   }
   if (action === "feature-flags") {
-    await requireRailwayOwner(request);
     const flags = await queryPostgres<{ key: string; enabled: boolean; updated_at: string }>(
       `SELECT key,enabled,updated_at FROM organization_feature_flags
        WHERE organization_id=$1 ORDER BY key`,
@@ -187,7 +197,6 @@ export async function railwayAdminGet(request: Request, action: string) {
     return { tournaments: result.rows };
   }
   if (action === "statistics-tournaments") {
-    await requireRailwayOwner(request);
     const result = await queryPostgres(
       `SELECT ${tournamentColumns} FROM tournaments
        WHERE organization_id=$1 AND status = ANY($2::text[])
@@ -553,9 +562,7 @@ export async function railwayAdminPost(request: Request, action: string, body: B
   const user =
     operatorActions.has(action) && operatorTournamentId
       ? await requireRailwayOperator(request, operatorTournamentId)
-      : ownerOnlyActions.has(action)
-        ? await requireRailwayOwner(request)
-        : await requireRailwayAdmin(request, superadminActions.has(action));
+      : await requireRailwayAdmin(request, superadminActions.has(action));
   const selected =
     user.role === "referee"
       ? null
@@ -780,7 +787,7 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     )
       throw new AdminApiError(400, "ACCOUNT_INVALID");
     if (role === "superadmin") await requireRailwayOwner(request);
-    if (role === "superadmin" && email === "john410403123@gmail.com")
+    if (role === "superadmin" && isOwnerEmail(email))
       throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
     const password = text(body.password, "PASSWORD", 200);
     if (password.length < 8) throw new AdminApiError(400, "PASSWORD_TOO_SHORT");
@@ -842,8 +849,7 @@ export async function railwayAdminPost(request: Request, action: string, body: B
       [userId, selected!.organization.id],
     );
     if (!target.rows[0]) throw new AdminApiError(404, "ADMIN_NOT_FOUND");
-    if (target.rows[0].email.toLowerCase() === "john410403123@gmail.com")
-      throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
+    if (isOwnerEmail(target.rows[0].email)) throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
     if (target.rows[0].is_superadmin) await requireRailwayOwner(request);
     const passwordCiphertext = encryptAdminPassword(password);
     await queryPostgres(
@@ -873,8 +879,7 @@ export async function railwayAdminPost(request: Request, action: string, body: B
       [userId, selected!.organization.id],
     );
     if (!target.rows[0]) throw new AdminApiError(404, "ADMIN_NOT_FOUND");
-    if (target.rows[0].email.toLowerCase() === "john410403123@gmail.com")
-      throw new AdminApiError(409, "OWNER_CANNOT_BE_REMOVED");
+    if (isOwnerEmail(target.rows[0].email)) throw new AdminApiError(409, "OWNER_CANNOT_BE_REMOVED");
     if (target.rows[0].is_superadmin) await requireRailwayOwner(request);
     await withPostgresTransaction(async (client) => {
       await client.query(

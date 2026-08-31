@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { RailwaySessionUser } from "./railway-auth.server";
 import {
-  createOrganizationForPlatformOwner,
+  createOrganizationForVerifiedGoogleUser,
   listOrganizationsForSession,
   OrganizationManagementError,
   type OrganizationManagementDependencies,
@@ -54,35 +54,33 @@ describe("organization management", () => {
     ]);
   });
 
-  it("rejects tenant admins and unverified identities from creating tenants", async () => {
-    const deps = dependencies(
-      session({ role: "admin", isDeveloper: false, email: "admin@example.com" }),
-    );
+  it("rejects identities that were not verified by Google", async () => {
+    const deps = dependencies(session({ isGoogle: false, isDeveloper: false }));
     await expectCode(
-      createOrganizationForPlatformOwner(request, { name: "Alpha", slug: "alpha" }, deps),
+      createOrganizationForVerifiedGoogleUser(request, { name: "Alpha", slug: "alpha" }, deps),
       403,
-      "PLATFORM_OWNER_REQUIRED",
+      "GOOGLE_ACCOUNT_REQUIRED",
     );
     expect(deps.transaction).not.toHaveBeenCalled();
   });
 
-  it("rechecks the platform developer role inside the creation transaction", async () => {
-    const deps = dependencies(session());
+  it("limits a regular Google account to one owned organization", async () => {
+    const deps = dependencies(session({ role: null, isDeveloper: false }));
     vi.mocked(deps.transaction).mockImplementation(async (work) =>
-      work({ query: vi.fn().mockResolvedValue({ rows: [{ authorized: false }] }) }),
+      work({ query: vi.fn().mockResolvedValue({ rows: [{ count: "1" }] }) }),
     );
     await expectCode(
-      createOrganizationForPlatformOwner(request, { name: "Alpha", slug: "alpha" }, deps),
-      403,
-      "PLATFORM_OWNER_REQUIRED",
+      createOrganizationForVerifiedGoogleUser(request, { name: "Alpha", slug: "alpha" }, deps),
+      409,
+      "ORGANIZATION_LIMIT_REACHED",
     );
   });
 
-  it("creates the tenant and owner boundary atomically without accepting a client owner id", async () => {
-    const deps = dependencies(session());
+  it("creates a first organization and grants its verified Google user owner authority", async () => {
+    const deps = dependencies(session({ role: null, isDeveloper: false }));
     const query = vi
       .fn()
-      .mockResolvedValueOnce({ rows: [{ authorized: true }] })
+      .mockResolvedValueOnce({ rows: [{ count: "0" }] })
       .mockResolvedValueOnce({
         rows: [{ id: "org-new", slug: "alpha", name: "Alpha", status: "active" }],
       })
@@ -90,7 +88,7 @@ describe("organization management", () => {
     vi.mocked(deps.transaction).mockImplementation(async (work) => work({ query }));
 
     await expect(
-      createOrganizationForPlatformOwner(
+      createOrganizationForVerifiedGoogleUser(
         request,
         { name: " Alpha ", slug: "ALPHA", ownerId: "attacker-user" },
         deps,
@@ -104,15 +102,32 @@ describe("organization management", () => {
     });
 
     const calls = query.mock.calls;
-    expect(calls[2]?.[1]).toEqual(["org-new", "user-1"]);
+    expect(calls[2]?.[1]).toEqual(["user-1", "john410403123@gmail.com"]);
+    expect(calls[3]?.[1]).toEqual(["org-new", "user-1"]);
     expect(JSON.stringify(calls)).not.toContain("attacker-user");
+  });
+
+  it("allows the platform owner to create additional organizations", async () => {
+    const deps = dependencies(session());
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ count: "5" }] })
+      .mockResolvedValueOnce({
+        rows: [{ id: "org-new", slug: "alpha", name: "Alpha", status: "active" }],
+      })
+      .mockResolvedValue({ rows: [] });
+    vi.mocked(deps.transaction).mockImplementation(async (work) => work({ query }));
+
+    await expect(
+      createOrganizationForVerifiedGoogleUser(request, { name: "Alpha", slug: "alpha" }, deps),
+    ).resolves.toMatchObject({ id: "org-new", role: "owner" });
   });
 
   it("returns a conflict for an existing tenant slug", async () => {
     const deps = dependencies(session());
     vi.mocked(deps.transaction).mockRejectedValue({ code: "23505" });
     await expectCode(
-      createOrganizationForPlatformOwner(request, { name: "Alpha", slug: "alpha" }, deps),
+      createOrganizationForVerifiedGoogleUser(request, { name: "Alpha", slug: "alpha" }, deps),
       409,
       "ORGANIZATION_SLUG_EXISTS",
     );

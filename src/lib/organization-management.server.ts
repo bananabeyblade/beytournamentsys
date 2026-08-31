@@ -79,27 +79,26 @@ function organizationInput(body: Record<string, unknown>) {
   return { name, slug };
 }
 
-export async function createOrganizationForPlatformOwner(
+export async function createOrganizationForVerifiedGoogleUser(
   request: Request,
   body: Record<string, unknown>,
   dependencies = productionDependencies,
 ): Promise<OrganizationSummary> {
   const user = await signedInPermanentUser(request, dependencies);
-  if (!user.isGoogle || !user.isDeveloper || user.role !== "superadmin") {
-    fail(403, "PLATFORM_OWNER_REQUIRED");
-  }
+  if (!user.isGoogle) fail(403, "GOOGLE_ACCOUNT_REQUIRED");
   const input = organizationInput(body);
 
   try {
     return await dependencies.transaction(async (client) => {
-      const platformRole = await client.query<{ authorized: boolean }>(
-        `SELECT EXISTS (
-           SELECT 1 FROM platform_roles
-           WHERE user_id = $1 AND role = 'developer'
-         ) AS authorized`,
+      const existing = await client.query<{ count: string }>(
+        `SELECT count(*)::text AS count
+         FROM organization_memberships
+         WHERE user_id = $1 AND role = 'owner' AND status = 'active'`,
         [user.id],
       );
-      if (platformRole.rows[0]?.authorized !== true) fail(403, "PLATFORM_OWNER_REQUIRED");
+      if (!user.isDeveloper && Number(existing.rows[0]?.count ?? 0) > 0) {
+        fail(409, "ORGANIZATION_LIMIT_REACHED");
+      }
 
       const inserted = await client.query<{
         id: string;
@@ -115,6 +114,12 @@ export async function createOrganizationForPlatformOwner(
       const organization = inserted.rows[0];
       if (!organization) throw new Error("ORGANIZATION_INSERT_FAILED");
 
+      await client.query(
+        `INSERT INTO admin_roles (user_id, email, role)
+         VALUES ($1, $2, 'superadmin'::app_role)
+         ON CONFLICT (user_id, role) DO UPDATE SET email = EXCLUDED.email`,
+        [user.id, user.email],
+      );
       await client.query(
         `INSERT INTO organization_memberships
            (organization_id, user_id, role, status, created_by)

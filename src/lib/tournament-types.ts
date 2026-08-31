@@ -88,6 +88,10 @@ export interface CloudAdmin {
   email: string;
   isSuper: boolean;
   isGoogle: boolean;
+  /** Server-verified platform developer authority. */
+  isDeveloper?: boolean;
+  /** Authority within the currently selected organization. */
+  organizationRole?: "owner" | "admin";
   /** Event-scoped referee approved through a tournament QR invitation. */
   isReferee?: boolean;
   tournamentId?: string;

@@ -199,22 +199,30 @@ export async function finishGoogleOAuth(request: Request): Promise<Response> {
   try {
     const profile = await exchangeGoogleCode(request, code, verifier);
     const token = base64url(randomBytes(32));
-    await withPostgresTransaction(async (client) => {
+    const needsOnboarding = await withPostgresTransaction(async (client) => {
       const userId = await upsertGoogleUser(client, profile);
       await ensureLegacyOwnerForVerifiedGoogleUser(client, {
         id: userId,
         email: profile.email,
         googleSubject: profile.subject,
       });
+      const memberships = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1 FROM organization_memberships
+           WHERE user_id = $1 AND status = 'active'
+         ) AS exists`,
+        [userId],
+      );
       await client.query(
         `INSERT INTO app_sessions (user_id, token_hash, expires_at)
          VALUES ($1, $2, now() + interval '30 days')`,
         [userId, sha256(token)],
       );
       await client.query("DELETE FROM app_sessions WHERE expires_at <= now()");
+      return memberships.rows[0]?.exists !== true;
     });
     headers.append("set-cookie", secureCookie(SESSION_COOKIE, token, SESSION_SECONDS));
-    headers.set("location", "/?auth=success");
+    headers.set("location", needsOnboarding ? "/onboarding?auth=success" : "/?auth=success");
     return new Response(null, { status: 302, headers });
   } catch (error) {
     console.error("[auth/google] callback failed", error);

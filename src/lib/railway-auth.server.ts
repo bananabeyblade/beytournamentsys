@@ -4,6 +4,7 @@ import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/
 import { OWNER_EMAIL } from "./account-id";
 import { enforceRateLimit } from "./rate-limit.server";
 import { ensureLegacyOwnerForVerifiedGoogleUser } from "./tenant-onboarding.server";
+import { claimOrganizationInvitationsForVerifiedGoogleUser } from "./organization-invitation-claim.server";
 
 const SESSION_COOKIE = "beyx_session";
 export const REFEREE_SESSION_COOKIE = "beyx_referee_session";
@@ -202,6 +203,11 @@ export async function finishGoogleOAuth(request: Request): Promise<Response> {
     const needsOnboarding = await withPostgresTransaction(async (client) => {
       const userId = await upsertGoogleUser(client, profile);
       await ensureLegacyOwnerForVerifiedGoogleUser(client, {
+        id: userId,
+        email: profile.email,
+        googleSubject: profile.subject,
+      });
+      await claimOrganizationInvitationsForVerifiedGoogleUser(client, {
         id: userId,
         email: profile.email,
         googleSubject: profile.subject,

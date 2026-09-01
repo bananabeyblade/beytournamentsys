@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Building2, Save } from "lucide-react";
 import { railwayApi } from "@/lib/railway-api";
+import { clearActiveTournamentCode } from "@/lib/tournament-store";
 
 type Organization = {
   id: string;
@@ -20,6 +21,7 @@ function message(error: unknown) {
 }
 
 export function OrganizationSettingsCard() {
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -35,6 +37,7 @@ export function OrganizationSettingsCard() {
       .then(({ organizations, selectedOrganizationId }) => {
         if (!alive) return;
         const selected = organizations.find((item) => item.id === selectedOrganizationId) ?? null;
+        setOrganizations(organizations);
         setOrganization(selected);
         setName(selected?.name ?? "");
       })
@@ -63,11 +66,32 @@ export function OrganizationSettingsCard() {
         body: JSON.stringify({ name: cleanName }),
       });
       setOrganization(result.organization);
+      setOrganizations((current) =>
+        current.map((item) => (item.id === result.organization.id ? result.organization : item)),
+      );
       setName(result.organization.name);
       setSaved(true);
     } catch (cause) {
       setError(message(cause));
     } finally {
+      setSaving(false);
+    }
+  };
+
+  const select = async (organizationId: string) => {
+    if (saving || organizationId === organization?.id) return;
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      await railwayApi("/api/organizations/select", {
+        method: "POST",
+        body: JSON.stringify({ organizationId }),
+      });
+      clearActiveTournamentCode();
+      window.location.assign("/");
+    } catch (cause) {
+      setError(message(cause));
       setSaving(false);
     }
   };
@@ -87,6 +111,31 @@ export function OrganizationSettingsCard() {
         <p className="text-xs text-muted-foreground">讀取組織資料中…</p>
       ) : organization ? (
         <>
+          {organizations.length > 1 && (
+            <div className="space-y-2 border-b border-border pb-3">
+              <p className="text-xs font-semibold">切換組織</p>
+              <div className="grid gap-2">
+                {organizations.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={saving || item.id === organization.id}
+                    onClick={() => void select(item.id)}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border bg-secondary/30 px-3 text-left text-sm disabled:border-primary/50 disabled:opacity-70"
+                  >
+                    <span className="min-w-0 truncate">{item.name}</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                      {item.id === organization.id
+                        ? "目前使用"
+                        : item.role === "owner"
+                          ? "擁有者"
+                          : "管理者"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <label className="block space-y-1 text-xs">
             <span className="text-muted-foreground">組織名稱</span>
             <input

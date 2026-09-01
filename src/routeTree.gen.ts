@@ -22,6 +22,7 @@ import { Route as ApiTournamentsRouteImport } from './routes/api.tournaments'
 import { Route as ApiRegistrationsRouteImport } from './routes/api.registrations'
 import { Route as ApiRecoveryRouteImport } from './routes/api.recovery'
 import { Route as ApiOrganizationsRouteImport } from './routes/api.organizations'
+import { Route as ApiOrganizationInvitationsRouteImport } from './routes/api.organization-invitations'
 import { Route as ApiOrganizationsSelectRouteImport } from './routes/api.organizations.select'
 import { Route as ApiAuthSessionRouteImport } from './routes/api.auth.session'
 import { Route as ApiAuthPasswordRouteImport } from './routes/api.auth.password'
@@ -96,6 +97,12 @@ const ApiOrganizationsRoute = ApiOrganizationsRouteImport.update({
   path: '/api/organizations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOrganizationInvitationsRoute =
+  ApiOrganizationInvitationsRouteImport.update({
+    id: '/api/organization-invitations',
+    path: '/api/organization-invitations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiOrganizationsSelectRoute = ApiOrganizationsSelectRouteImport.update({
   id: '/select',
   path: '/select',
@@ -144,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/organization-invitations': typeof ApiOrganizationInvitationsRoute
   '/api/organizations': typeof ApiOrganizationsRouteWithChildren
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
@@ -167,6 +175,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/organization-invitations': typeof ApiOrganizationInvitationsRoute
   '/api/organizations': typeof ApiOrganizationsRouteWithChildren
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
@@ -191,6 +200,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/organization-invitations': typeof ApiOrganizationInvitationsRoute
   '/api/organizations': typeof ApiOrganizationsRouteWithChildren
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
@@ -216,6 +226,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/register'
     | '/sitemap.xml'
+    | '/api/organization-invitations'
     | '/api/organizations'
     | '/api/recovery'
     | '/api/registrations'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/register'
     | '/sitemap.xml'
+    | '/api/organization-invitations'
     | '/api/organizations'
     | '/api/recovery'
     | '/api/registrations'
@@ -262,6 +274,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/register'
     | '/sitemap.xml'
+    | '/api/organization-invitations'
     | '/api/organizations'
     | '/api/recovery'
     | '/api/registrations'
@@ -286,6 +299,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   RegisterRoute: typeof RegisterRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiOrganizationInvitationsRoute: typeof ApiOrganizationInvitationsRoute
   ApiOrganizationsRoute: typeof ApiOrganizationsRouteWithChildren
   ApiRecoveryRoute: typeof ApiRecoveryRoute
   ApiRegistrationsRoute: typeof ApiRegistrationsRoute
@@ -394,6 +408,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOrganizationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/organization-invitations': {
+      id: '/api/organization-invitations'
+      path: '/api/organization-invitations'
+      fullPath: '/api/organization-invitations'
+      preLoaderRoute: typeof ApiOrganizationInvitationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/organizations/select': {
       id: '/api/organizations/select'
       path: '/select'
@@ -483,6 +504,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   RegisterRoute: RegisterRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiOrganizationInvitationsRoute: ApiOrganizationInvitationsRoute,
   ApiOrganizationsRoute: ApiOrganizationsRouteWithChildren,
   ApiRecoveryRoute: ApiRecoveryRoute,
   ApiRegistrationsRoute: ApiRegistrationsRoute,

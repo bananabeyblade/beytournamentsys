@@ -8,6 +8,7 @@ import { AuditLogCard } from "./AuditLogCard";
 import { AdminPlayerRegistration } from "./AdminPlayerRegistration";
 import { RefereeAccessCard } from "./RefereeAccessCard";
 import { OrganizationSettingsCard } from "./OrganizationSettingsCard";
+import { OrganizationInvitationsCard } from "./OrganizationInvitationsCard";
 import { railwayAuthEnabled } from "@/lib/railway-api";
 
 function TournamentSettingsPanel() {
@@ -259,6 +260,8 @@ export function SettingsTab() {
       </div>
 
       {railwayAuthEnabled && <OrganizationSettingsCard />}
+
+      {railwayAuthEnabled && <OrganizationInvitationsCard />}
 
       <AccountSettings beforeAdminAccounts={<TournamentSettingsPanel />} />
 

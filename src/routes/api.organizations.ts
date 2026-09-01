@@ -4,6 +4,7 @@ import {
   createOrganizationForVerifiedGoogleUser,
   listOrganizationsForSession,
   OrganizationManagementError,
+  updateSelectedOrganizationName,
 } from "@/lib/organization-management.server";
 import {
   SelectedOrganizationError,
@@ -56,6 +57,22 @@ export const Route = createFileRoute("/api/organizations")({
             { organization },
             { status: 201, headers: { "cache-control": "no-store" } },
           );
+        } catch (error) {
+          return failure(error);
+        }
+      },
+      PATCH: async ({ request }) => {
+        try {
+          await enforceRateLimit(request, "organization-name-update", 20, 60 * 60);
+          const body: unknown = await request.json().catch(() => null);
+          if (!body || typeof body !== "object" || Array.isArray(body)) {
+            throw new OrganizationManagementError(400, "INVALID_BODY");
+          }
+          const organization = await updateSelectedOrganizationName(
+            request,
+            body as Record<string, unknown>,
+          );
+          return Response.json({ organization }, { headers: { "cache-control": "no-store" } });
         } catch (error) {
           return failure(error);
         }

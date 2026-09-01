@@ -7,6 +7,8 @@ import { TournamentHistory } from "./TournamentHistory";
 import { AuditLogCard } from "./AuditLogCard";
 import { AdminPlayerRegistration } from "./AdminPlayerRegistration";
 import { RefereeAccessCard } from "./RefereeAccessCard";
+import { OrganizationSettingsCard } from "./OrganizationSettingsCard";
+import { railwayAuthEnabled } from "@/lib/railway-api";
 
 function TournamentSettingsPanel() {
   const {
@@ -245,6 +247,8 @@ export function SettingsTab() {
           <LogOut className="h-4 w-4" /> 登出
         </button>
       </div>
+
+      {railwayAuthEnabled && <OrganizationSettingsCard />}
 
       <AccountSettings beforeAdminAccounts={<TournamentSettingsPanel />} />
 

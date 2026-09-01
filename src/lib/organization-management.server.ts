@@ -1,6 +1,10 @@
 import type { PoolClient, QueryResultRow } from "pg";
 import { queryPostgres, withPostgresTransaction } from "../integrations/postgres/client.server";
 import { readRailwaySession, type RailwaySessionUser } from "./railway-auth.server";
+import {
+  requireSelectedOrganizationRole,
+  type SelectedOrganization,
+} from "./selected-organization.server";
 
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
@@ -30,12 +34,16 @@ export interface OrganizationManagementDependencies {
   readSession: (request: Request) => Promise<RailwaySessionUser | null>;
   query: Query;
   transaction: <T>(work: (client: Pick<PoolClient, "query">) => Promise<T>) => Promise<T>;
+  requireSelectedOwner: (
+    request: Request,
+  ) => Promise<{ user: RailwaySessionUser; organization: SelectedOrganization }>;
 }
 
 const productionDependencies: OrganizationManagementDependencies = {
   readSession: readRailwaySession,
   query: queryPostgres,
   transaction: withPostgresTransaction,
+  requireSelectedOwner: (request) => requireSelectedOrganizationRole(request, ["owner"]),
 };
 
 function fail(status: number, code: string): never {
@@ -77,6 +85,12 @@ function organizationInput(body: Record<string, unknown>) {
   if (name.length < 1 || name.length > 80) fail(400, "ORGANIZATION_NAME_INVALID");
   if (!SLUG.test(slug)) fail(400, "ORGANIZATION_SLUG_INVALID");
   return { name, slug };
+}
+
+function organizationName(body: Record<string, unknown>) {
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  if (name.length < 1 || name.length > 80) fail(400, "ORGANIZATION_NAME_INVALID");
+  return name;
 }
 
 export async function createOrganizationForVerifiedGoogleUser(
@@ -142,4 +156,44 @@ export async function createOrganizationForVerifiedGoogleUser(
     if ((error as { code?: unknown })?.code === "23505") fail(409, "ORGANIZATION_SLUG_EXISTS");
     throw error;
   }
+}
+
+export async function updateSelectedOrganizationName(
+  request: Request,
+  body: Record<string, unknown>,
+  dependencies = productionDependencies,
+): Promise<OrganizationSummary> {
+  const name = organizationName(body);
+  const { user, organization } = await dependencies.requireSelectedOwner(request);
+
+  return dependencies.transaction(async (client) => {
+    const updated = await client.query<{
+      id: string;
+      slug: string;
+      name: string;
+      status: "active";
+    }>(
+      `UPDATE organizations
+       SET name = $1, updated_at = now()
+       WHERE id = $2 AND status = 'active'
+       RETURNING id, slug, name, status`,
+      [name, organization.id],
+    );
+    const result = updated.rows[0];
+    if (!result) fail(404, "ORGANIZATION_NOT_FOUND");
+
+    await client.query(
+      `INSERT INTO admin_actions
+         (actor_user_id, actor_email, action, detail, organization_id)
+       VALUES ($1, $2, 'organization_name_update', $3::jsonb, $4)`,
+      [
+        user.id,
+        user.email,
+        JSON.stringify({ previousName: organization.name, name: result.name }),
+        organization.id,
+      ],
+    );
+
+    return { ...result, role: "owner" as const };
+  });
 }

@@ -5,6 +5,7 @@ import {
   listOrganizationsForSession,
   OrganizationManagementError,
   type OrganizationManagementDependencies,
+  updateSelectedOrganizationName,
 } from "./organization-management.server";
 
 const request = new Request("https://staging.example/api/organizations");
@@ -26,6 +27,15 @@ function dependencies(user: RailwaySessionUser | null): OrganizationManagementDe
     readSession: vi.fn().mockResolvedValue(user),
     query: vi.fn().mockResolvedValue({ rows: [] }),
     transaction: vi.fn(),
+    requireSelectedOwner: vi.fn().mockResolvedValue({
+      user: user ?? session(),
+      organization: {
+        id: "org-selected",
+        slug: "alpha",
+        name: "Old name",
+        role: "owner",
+      },
+    }),
   };
 }
 
@@ -131,5 +141,73 @@ describe("organization management", () => {
       409,
       "ORGANIZATION_SLUG_EXISTS",
     );
+  });
+
+  it("updates only the server-selected organization and records an audit event", async () => {
+    const deps = dependencies(session({ role: null, isDeveloper: false }));
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [{ id: "org-selected", slug: "alpha", name: "New name", status: "active" }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    vi.mocked(deps.transaction).mockImplementation(async (work) => work({ query }));
+
+    await expect(
+      updateSelectedOrganizationName(
+        request,
+        {
+          name: " New name ",
+          organizationId: "org-attacker",
+          slug: "attacker-slug",
+          ownerId: "attacker-user",
+        },
+        deps,
+      ),
+    ).resolves.toEqual({
+      id: "org-selected",
+      slug: "alpha",
+      name: "New name",
+      status: "active",
+      role: "owner",
+    });
+
+    expect(deps.requireSelectedOwner).toHaveBeenCalledWith(request);
+    expect(query.mock.calls[0]?.[1]).toEqual(["New name", "org-selected"]);
+    expect(query.mock.calls[1]?.[1]).toEqual([
+      "user-1",
+      "john410403123@gmail.com",
+      JSON.stringify({ previousName: "Old name", name: "New name" }),
+      "org-selected",
+    ]);
+    expect(JSON.stringify(query.mock.calls)).not.toContain("org-attacker");
+    expect(JSON.stringify(query.mock.calls)).not.toContain("attacker-slug");
+    expect(JSON.stringify(query.mock.calls)).not.toContain("attacker-user");
+  });
+
+  it("rejects invalid organization names before resolving tenant authority", async () => {
+    const deps = dependencies(session());
+    await expectCode(
+      updateSelectedOrganizationName(request, { name: "   " }, deps),
+      400,
+      "ORGANIZATION_NAME_INVALID",
+    );
+    expect(deps.requireSelectedOwner).not.toHaveBeenCalled();
+    expect(deps.transaction).not.toHaveBeenCalled();
+  });
+
+  it("does not start an update transaction when the selected membership is not owner", async () => {
+    const deps = dependencies(session({ role: "admin" }));
+    vi.mocked(deps.requireSelectedOwner).mockRejectedValue(
+      Object.assign(new Error("FORBIDDEN"), { status: 403 }),
+    );
+
+    await expect(
+      updateSelectedOrganizationName(request, { name: "New name" }, deps),
+    ).rejects.toMatchObject({
+      status: 403,
+      message: "FORBIDDEN",
+    });
+    expect(deps.transaction).not.toHaveBeenCalled();
   });
 });

@@ -29,7 +29,7 @@ vi.mock("./referee-access.server", () => ({
   getRefereeAccess: vi.fn(),
 }));
 
-import { railwayAdminGet } from "./railway-admin-api.server";
+import { railwayAdminGet, railwayAdminPost } from "./railway-admin-api.server";
 
 const ORGANIZATION_ID = "10000000-0000-4000-8000-000000000001";
 
@@ -89,5 +89,36 @@ describe("admin tournament tenant filter", () => {
       railwayAdminGet(new Request("https://example.test/api/admin/tournaments"), "tournaments"),
     ).rejects.toMatchObject({ status: 403, message: "SELECTED_ORGANIZATION_FORBIDDEN" });
     expect(mocks.queryPostgres).not.toHaveBeenCalled();
+  });
+
+  it("allows an organization admin to reset a tournament within the selected organization", async () => {
+    mocks.requireSelectedOrganizationRole.mockResolvedValue({
+      user: { id: "user-1" },
+      organization: {
+        id: ORGANIZATION_ID,
+        slug: "alpha",
+        name: "Alpha",
+        role: "admin",
+      },
+    });
+    mocks.queryPostgres
+      .mockResolvedValueOnce({ rows: [{ name: "Event" }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    const request = new Request("https://example.test/api/admin/reset");
+
+    await expect(
+      railwayAdminPost(request, "reset", {
+        id: "20000000-0000-4000-8000-000000000002",
+        tableCount: 4,
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(mocks.requireSelectedOrganizationRole).toHaveBeenCalledWith(request, ["owner", "admin"]);
+    expect(mocks.queryPostgres.mock.calls[0]?.[1]).toEqual([
+      "20000000-0000-4000-8000-000000000002",
+      4,
+      null,
+      ORGANIZATION_ID,
+    ]);
   });
 });

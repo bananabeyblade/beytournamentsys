@@ -728,7 +728,7 @@ export function TournamentProvider({
   const forceUnlockMatch = useCallback(
     (matchId: string) => {
       const admin = auditRef.current.admin;
-      if (!(admin?.isDeveloper ?? false) && admin?.organizationRole !== "owner") return;
+      if (!admin || admin.isReferee) return;
       const m = matchesRef.current.find((x) => x.id === matchId);
       setLock(matchId, null);
       if (m) log("match_lock_force", { matchup: matchupOf(m), name: m.lockedByName ?? "" });

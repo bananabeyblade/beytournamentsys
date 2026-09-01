@@ -540,7 +540,6 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     return decideReferee(request, body.refereeId, decision);
   }
   const ownerOnlyActions = new Set([
-    "reset",
     "create-admin",
     "remove-admin",
     "set-admin-password",

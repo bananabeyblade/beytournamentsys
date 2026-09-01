@@ -27,13 +27,7 @@ function TournamentSettingsPanel() {
   const [resetBusy, setResetBusy] = useState(false);
   const [resetError, setResetError] = useState("");
 
-  if (
-    !currentAdmin ||
-    (!currentAdmin.isSuper &&
-      !currentAdmin.isDeveloper &&
-      currentAdmin.organizationRole !== "owner")
-  )
-    return null;
+  if (!currentAdmin || currentAdmin.isReferee) return null;
 
   return (
     <div className="panel space-y-3 p-3">

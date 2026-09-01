@@ -102,7 +102,6 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
     renewMatchLock,
     releaseMatchLock,
     forceUnlockMatch,
-    isOwner,
     matches,
     currentTournament,
   } = useTournament();
@@ -346,7 +345,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
               <Lock className="h-4 w-4" /> {held?.name} 正在計分，此局暫為唯讀
             </p>
             <p className="mt-1 text-muted-foreground">對方關閉計分視窗或斷線 30 秒後會自動解鎖。</p>
-            {isOwner && (
+            {currentAdmin && !currentAdmin.isReferee && (
               <button
                 onClick={() => forceUnlockMatch(match.id)}
                 className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/60 bg-accent/40 font-semibold text-primary"

@@ -570,7 +570,7 @@ export function AccountSettings({ beforeAdminAccounts }: { beforeAdminAccounts?:
       )}
       {beforeAdminAccounts}
       {(currentAdmin.isDeveloper ?? isOwnerEmail(currentAdmin.email)) && <ManageSuperadmins />}
-      {currentAdmin.isSuper && <ManageAdmins />}
+      {(currentAdmin.isSuper || currentAdmin.organizationRole === "owner") && <ManageAdmins />}
     </div>
   );
 }

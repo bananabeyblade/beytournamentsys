@@ -1,9 +1,9 @@
 import { randomInt } from "node:crypto";
 import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/client.server";
 import {
-  requireRailwayAdmin,
   requireRailwayOperator,
   requireRailwayOwner,
+  requireRailwayPermanentUser,
   type RailwaySessionUser,
 } from "./railway-auth.server";
 import { decryptAdminPassword, encryptAdminPassword } from "./admin-password-vault.server";
@@ -139,11 +139,11 @@ export async function railwayAdminGet(request: Request, action: string) {
     action === "deck-report" ? uuid(url.searchParams.get("tournamentId"), "TOURNAMENT_ID") : null;
   const user = deckReportTournamentId
     ? await requireRailwayOperator(request, deckReportTournamentId)
-    : await requireRailwayAdmin(
-        request,
-        action === "admins" || action === "audit" || action === "admin-password",
-      );
+    : await requireRailwayPermanentUser(request);
   const organizationOwnerActions = new Set([
+    "admins",
+    "audit",
+    "admin-password",
     "deck-statistics-state",
     "feature-flags",
     "statistics-tournaments",
@@ -539,13 +539,11 @@ export async function railwayAdminPost(request: Request, action: string, body: B
       throw new AdminApiError(400, "REFEREE_DECISION_INVALID");
     return decideReferee(request, body.refereeId, decision);
   }
-  const superadminActions = new Set([
+  const ownerOnlyActions = new Set([
     "reset",
     "create-admin",
     "remove-admin",
     "set-admin-password",
-  ]);
-  const ownerOnlyActions = new Set([
     "delete-tournament",
     "set-feature-flag",
     "reset-deck-statistics",
@@ -562,7 +560,7 @@ export async function railwayAdminPost(request: Request, action: string, body: B
   const user =
     operatorActions.has(action) && operatorTournamentId
       ? await requireRailwayOperator(request, operatorTournamentId)
-      : await requireRailwayAdmin(request, superadminActions.has(action));
+      : await requireRailwayPermanentUser(request);
   const selected =
     user.role === "referee"
       ? null

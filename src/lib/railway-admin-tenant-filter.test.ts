@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   queryPostgres: vi.fn(),
-  requireRailwayAdmin: vi.fn(),
+  requireRailwayPermanentUser: vi.fn(),
   requireSelectedOrganizationRole: vi.fn(),
 }));
 
@@ -11,7 +11,7 @@ vi.mock("@/integrations/postgres/client.server", () => ({
   withPostgresTransaction: vi.fn(),
 }));
 vi.mock("./railway-auth.server", () => ({
-  requireRailwayAdmin: mocks.requireRailwayAdmin,
+  requireRailwayPermanentUser: mocks.requireRailwayPermanentUser,
   requireRailwayOperator: vi.fn(),
   requireRailwayOwner: vi.fn(),
 }));
@@ -37,13 +37,13 @@ describe("admin tournament tenant filter", () => {
   beforeEach(() => {
     mocks.queryPostgres.mockReset();
     mocks.queryPostgres.mockResolvedValue({ rows: [] });
-    mocks.requireRailwayAdmin.mockResolvedValue({
+    mocks.requireRailwayPermanentUser.mockResolvedValue({
       id: "user-1",
       email: "owner@example.com",
       displayName: "Owner",
-      role: "superadmin",
+      role: null,
       isGoogle: true,
-      isDeveloper: true,
+      isDeveloper: false,
     });
     mocks.requireSelectedOrganizationRole.mockResolvedValue({
       user: { id: "user-1" },
@@ -77,6 +77,17 @@ describe("admin tournament tenant filter", () => {
         "tournaments",
       ),
     ).rejects.toMatchObject({ status: 400, code: "CODE_INVALID" });
+    expect(mocks.queryPostgres).not.toHaveBeenCalled();
+  });
+
+  it("does not trust a permanent Google session without an active selected membership", async () => {
+    mocks.requireSelectedOrganizationRole.mockRejectedValue(
+      Object.assign(new Error("SELECTED_ORGANIZATION_FORBIDDEN"), { status: 403 }),
+    );
+
+    await expect(
+      railwayAdminGet(new Request("https://example.test/api/admin/tournaments"), "tournaments"),
+    ).rejects.toMatchObject({ status: 403, message: "SELECTED_ORGANIZATION_FORBIDDEN" });
     expect(mocks.queryPostgres).not.toHaveBeenCalled();
   });
 });

@@ -3,7 +3,7 @@ import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/
 import { enforceRateLimit } from "./rate-limit.server";
 import {
   refereeSessionCookie,
-  requireRailwayAdmin,
+  requireRailwayPermanentUser,
   type RailwaySessionUser,
 } from "./railway-auth.server";
 import { requireSelectedTournament } from "./selected-organization.server";
@@ -160,7 +160,7 @@ export async function decideReferee(
   refereeIdInput: unknown,
   decision: "approved" | "rejected" | "revoked",
 ) {
-  await requireRailwayAdmin(request);
+  await requireRailwayPermanentUser(request);
   const refereeId = tournamentId(refereeIdInput);
   const referee = await queryPostgres<{ tournament_id: string }>(
     "SELECT tournament_id FROM tournament_referees WHERE id=$1 LIMIT 1",

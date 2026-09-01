@@ -26,7 +26,13 @@ function TournamentSettingsPanel() {
   const [resetBusy, setResetBusy] = useState(false);
   const [resetError, setResetError] = useState("");
 
-  if (!currentAdmin?.isSuper) return null;
+  if (
+    !currentAdmin ||
+    (!currentAdmin.isSuper &&
+      !currentAdmin.isDeveloper &&
+      currentAdmin.organizationRole !== "owner")
+  )
+    return null;
 
   return (
     <div className="panel space-y-3 p-3">
@@ -238,7 +244,11 @@ export function SettingsTab() {
       <div className="panel p-3">
         <p className="text-sm">
           已登入：<span className="text-primary">{currentAdmin.email}</span>
-          {currentAdmin.isSuper && " · 總管理者"}
+          {currentAdmin.isDeveloper
+            ? " · 平台擁有者"
+            : currentAdmin.organizationRole === "owner"
+              ? " · 組織擁有者"
+              : " · 組織管理者"}
         </p>
         <button
           onClick={() => void logout()}

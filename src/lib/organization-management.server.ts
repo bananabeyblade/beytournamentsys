@@ -129,12 +129,6 @@ export async function createOrganizationForVerifiedGoogleUser(
       if (!organization) throw new Error("ORGANIZATION_INSERT_FAILED");
 
       await client.query(
-        `INSERT INTO admin_roles (user_id, email, role)
-         VALUES ($1, $2, 'superadmin'::app_role)
-         ON CONFLICT (user_id, role) DO UPDATE SET email = EXCLUDED.email`,
-        [user.id, user.email],
-      );
-      await client.query(
         `INSERT INTO organization_memberships
            (organization_id, user_id, role, status, created_by)
          VALUES ($1, $2, 'owner', 'active', $2)`,

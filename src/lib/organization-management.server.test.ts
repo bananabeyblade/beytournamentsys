@@ -112,8 +112,8 @@ describe("organization management", () => {
     });
 
     const calls = query.mock.calls;
-    expect(calls[2]?.[1]).toEqual(["user-1", "john410403123@gmail.com"]);
-    expect(calls[3]?.[1]).toEqual(["org-new", "user-1"]);
+    expect(calls[2]?.[1]).toEqual(["org-new", "user-1"]);
+    expect(calls.map(([sql]) => String(sql)).join("\n")).not.toContain("INSERT INTO admin_roles");
     expect(JSON.stringify(calls)).not.toContain("attacker-user");
   });
 

@@ -312,7 +312,10 @@ export async function readRailwaySession(request: Request): Promise<RailwaySessi
         isGoogle: Boolean(row.google_subject),
         isDeveloper: row.email.trim().toLowerCase() === OWNER_EMAIL && Boolean(row.google_subject),
       };
-      if (row.role) return signedInUser;
+      // A permanent Google account may be authorized entirely through an
+      // organization membership and therefore have no legacy admin_roles row.
+      // It must still take precedence over any stale referee cookie.
+      return signedInUser;
     }
   }
 
@@ -372,7 +375,7 @@ export async function readRailwayRefereeClaim(request: Request) {
 export async function requireRailwayOperator(request: Request, tournamentId: string) {
   const user = await readRailwaySession(request);
   if (!user) throw Object.assign(new Error("AUTH_REQUIRED"), { status: 401 });
-  if (user.role === "admin" || user.role === "superadmin") return user;
+  if (user.role !== "referee") return user;
   if (user.role === "referee" && user.tournamentId === tournamentId) return user;
   throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
 }
@@ -381,24 +384,16 @@ export function refereeSessionCookie(token: string) {
   return secureCookie(REFEREE_SESSION_COOKIE, token, SESSION_SECONDS);
 }
 
-export async function requireRailwayAdmin(
-  request: Request,
-  superadminOnly = false,
-): Promise<RailwaySessionUser> {
+export async function requireRailwayPermanentUser(request: Request): Promise<RailwaySessionUser> {
   const user = await readRailwaySession(request);
   if (!user) throw Object.assign(new Error("AUTH_REQUIRED"), { status: 401 });
-  if (
-    (user.role !== "admin" && user.role !== "superadmin") ||
-    (superadminOnly && user.role !== "superadmin")
-  ) {
-    throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
-  }
+  if (user.role === "referee") throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
   return user;
 }
 
 export async function requireRailwayOwner(request: Request): Promise<RailwaySessionUser> {
-  const user = await requireRailwayAdmin(request, true);
-  if (user.email.toLowerCase() !== OWNER_EMAIL || !user.isGoogle)
+  const user = await requireRailwayPermanentUser(request);
+  if (user.role !== "superadmin" || user.email.toLowerCase() !== OWNER_EMAIL || !user.isGoogle)
     throw Object.assign(new Error("OWNER_REQUIRED"), { status: 403 });
   return user;
 }

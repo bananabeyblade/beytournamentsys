@@ -7,8 +7,7 @@ import { addRegistration } from "@/lib/registration";
 import { TournamentCreationForm } from "@/components/TournamentCreationForm";
 
 export function QrRegisterCard() {
-  const { currentTournament, startNewTournament, currentAdmin, forceFinishTournament } =
-    useTournament();
+  const { currentTournament, startNewTournament, forceFinishTournament, isOwner } = useTournament();
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -143,7 +142,7 @@ export function QrRegisterCard() {
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? "已複製連結" : "複製報名連結"}
           </button>
-          {currentAdmin?.isSuper &&
+          {isOwner &&
             (confirmBatch ? (
               <div className="space-y-2 rounded-xl border border-primary/50 bg-accent/20 p-3">
                 <p className="text-xs text-muted-foreground">
@@ -175,7 +174,7 @@ export function QrRegisterCard() {
               </button>
             ))}
           {batchResult && <p className="text-xs text-primary">{batchResult}</p>}
-          {currentAdmin?.isSuper &&
+          {isOwner &&
             (confirmEnd ? (
               <div className="space-y-2 rounded-xl border border-destructive/60 bg-destructive/10 p-3">
                 <p className="text-xs text-muted-foreground">
@@ -216,7 +215,7 @@ export function QrRegisterCard() {
       )}
 
       {!currentTournament &&
-        (currentAdmin?.isSuper ? (
+        (isOwner ? (
           <TournamentCreationForm
             name={name}
             onNameChange={setName}
@@ -228,7 +227,7 @@ export function QrRegisterCard() {
           />
         ) : (
           <p className="border-t border-border pt-3 text-xs text-muted-foreground">
-            僅總管理者可以建立新賽事。
+            僅組織擁有者可以建立新賽事。
           </p>
         ))}
     </div>

@@ -386,10 +386,10 @@ export function TournamentProvider({
         setAuthIssue(null);
         return "signed_out" as const;
       }
-      if (!user.role) {
+      if (!user.role && !user.organizationRole) {
         setCurrentAdmin(null);
         setRoleState("player");
-        setAuthIssue("此 Google 帳號尚未取得管理者權限。");
+        setAuthIssue("此 Google 帳號尚未加入任何組織。");
         return "not_authorized" as const;
       }
       if (user.role === "referee" && (!user.tournamentId || !user.tournamentCode)) {

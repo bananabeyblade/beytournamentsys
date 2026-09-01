@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 import { queryPostgres } from "@/integrations/postgres/client.server";
-import { requireRailwayAdmin } from "@/lib/railway-auth.server";
+import { requireSelectedOrganizationRole } from "@/lib/selected-organization.server";
 
 export const Route = createFileRoute("/api/admin/logo")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         try {
-          const user = await requireRailwayAdmin(request);
+          const { user } = await requireSelectedOrganizationRole(request, ["owner", "admin"]);
           const form = await request.formData();
           const file = form.get("file");
           if (

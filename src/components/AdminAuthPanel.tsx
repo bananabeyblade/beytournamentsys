@@ -17,7 +17,13 @@ export function AdminAuthPanel() {
         <div className="panel p-3">
           <p className="text-sm">
             已登入：<span className="text-primary">{currentAdmin.email}</span>
-            {currentAdmin.isSuper && " · 總管理者"}
+            {currentAdmin.isDeveloper
+              ? " · 平台擁有者"
+              : currentAdmin.organizationRole === "owner"
+                ? " · 組織擁有者"
+                : currentAdmin.isReferee
+                  ? " · 裁判"
+                  : " · 組織管理者"}
           </p>
           <button
             onClick={() => void logout()}

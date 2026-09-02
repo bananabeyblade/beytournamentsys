@@ -12,6 +12,7 @@ import {
 } from "@/lib/registration";
 import { supabase } from "@/integrations/supabase/client";
 import { railwayAuthEnabled } from "@/lib/railway-api";
+import { useDeckRegistrationEnabled } from "@/hooks/use-deck-registration-enabled";
 import { DeckStatisticsCard } from "./DeckStatisticsCard";
 import { QrRegisterCard } from "./QrRegisterCard";
 
@@ -33,6 +34,7 @@ export function PlayersTab() {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const tournamentId = currentTournament?.id ?? null;
+  const deckRegistrationEnabled = useDeckRegistrationEnabled(tournamentId);
   const playersRef = useRef(players);
   playersRef.current = players;
 
@@ -304,7 +306,7 @@ export function PlayersTab() {
           賽程已產生，選手名單與待審核報名已鎖定；如需修改，請由總管理者重置賽事後再操作。
         </p>
       )}
-      {role === "admin" && currentTournament && railwayAuthEnabled && (
+      {role === "admin" && currentTournament && railwayAuthEnabled && deckRegistrationEnabled && (
         <DeckStatisticsCard tournamentId={currentTournament.id} />
       )}
     </div>

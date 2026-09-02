@@ -22,10 +22,6 @@ vi.mock("./selected-organization.server", () => ({
   requireSelectedOrganizationRole: mocks.requireSelectedOrganizationRole,
   requireSelectedTournament: mocks.requireSelectedTournament,
 }));
-vi.mock("./admin-password-vault.server", () => ({
-  decryptAdminPassword: vi.fn(),
-  encryptAdminPassword: vi.fn(),
-}));
 vi.mock("./referee-access.server", () => ({
   createOrUpdateRefereeInvite: vi.fn(),
   decideReferee: vi.fn(),
@@ -224,5 +220,66 @@ describe("admin tournament tenant filter", () => {
       "SELECT 1 FROM tournament_assets WHERE id=$1 AND owner_user_id=$2 LIMIT 1",
       [assetId, "user-1"],
     );
+  });
+
+  it("does not expose the retired password reveal endpoint", async () => {
+    await expect(
+      railwayAdminGet(
+        new Request(
+          "https://example.test/api/admin/admin-password?userId=30000000-0000-4000-8000-000000000003",
+        ),
+        "admin-password",
+      ),
+    ).rejects.toMatchObject({ status: 404, code: "NOT_FOUND" });
+    expect(mocks.queryPostgres).not.toHaveBeenCalled();
+  });
+
+  it("creates an admin with a one-way hash and no recoverable password", async () => {
+    mocks.queryPostgres.mockResolvedValueOnce({ rows: [{ value: "bcrypt-hash" }] });
+    mocks.transactionQuery
+      .mockResolvedValueOnce({ rows: [{ id: "30000000-0000-4000-8000-000000000003" }] })
+      .mockResolvedValue({ rows: [], rowCount: 1 });
+
+    await expect(
+      railwayAdminPost(new Request("https://example.test/api/admin/create-admin"), "create-admin", {
+        account: "new-admin",
+        password: "safe-password",
+        role: "admin",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+
+    expect(mocks.queryPostgres).toHaveBeenCalledWith(
+      "SELECT crypt($1, gen_salt('bf', 12)) AS value",
+      ["safe-password"],
+    );
+    expect(mocks.transactionQuery.mock.calls[0]?.[0]).toContain("password_hash");
+    expect(mocks.transactionQuery.mock.calls[0]?.[0]).not.toContain("password_ciphertext");
+    expect(mocks.transactionQuery.mock.calls[0]?.[1]).toEqual([
+      "new-admin@beyx.local",
+      null,
+      "bcrypt-hash",
+    ]);
+  });
+
+  it("resets a password without storing a recoverable copy", async () => {
+    const userId = "30000000-0000-4000-8000-000000000003";
+    mocks.queryPostgres
+      .mockResolvedValueOnce({
+        rows: [{ email: "admin@example.com", is_superadmin: false }],
+        rowCount: 1,
+      })
+      .mockResolvedValue({ rows: [], rowCount: 1 });
+
+    await expect(
+      railwayAdminPost(
+        new Request("https://example.test/api/admin/set-admin-password"),
+        "set-admin-password",
+        { userId, password: "replacement-password" },
+      ),
+    ).resolves.toEqual({ ok: true });
+
+    expect(mocks.queryPostgres.mock.calls[1]?.[0]).toContain("password_hash=crypt");
+    expect(mocks.queryPostgres.mock.calls[1]?.[0]).not.toContain("password_ciphertext");
+    expect(mocks.queryPostgres.mock.calls[1]?.[1]).toEqual([userId, "replacement-password"]);
   });
 });

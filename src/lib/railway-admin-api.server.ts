@@ -6,7 +6,6 @@ import {
   requireRailwayPermanentUser,
   type RailwaySessionUser,
 } from "./railway-auth.server";
-import { decryptAdminPassword, encryptAdminPassword } from "./admin-password-vault.server";
 import type { DeckCombo, PartType } from "./deck";
 import { collectComboUsage } from "./combo-usage";
 import {
@@ -144,7 +143,6 @@ export async function railwayAdminGet(request: Request, action: string) {
   const organizationOwnerActions = new Set([
     "admins",
     "audit",
-    "admin-password",
     "deck-statistics-state",
     "feature-flags",
     "statistics-tournaments",
@@ -480,36 +478,6 @@ export async function railwayAdminGet(request: Request, action: string) {
     );
     return { admins: result.rows };
   }
-  if (action === "admin-password") {
-    const userId = uuid(url.searchParams.get("userId"), "USER_ID");
-    const result = await queryPostgres<{
-      password_ciphertext: string | null;
-      email: string;
-      is_superadmin: boolean;
-    }>(
-      `SELECT u.password_ciphertext,u.email,bool_or(r.role='superadmin') AS is_superadmin
-       FROM app_users u
-       JOIN admin_roles r ON r.user_id=u.id
-       JOIN organization_memberships membership ON membership.user_id=u.id
-       WHERE u.id=$1 AND membership.organization_id=$2 AND membership.status='active'
-       GROUP BY u.id,u.password_ciphertext,u.email`,
-      [userId, selected!.organization.id],
-    );
-    if (!result.rows[0]) throw new AdminApiError(404, "ADMIN_NOT_FOUND");
-    if (result.rows[0].is_superadmin) await requireRailwayOwner(request);
-    const password = result.rows[0].password_ciphertext
-      ? decryptAdminPassword(result.rows[0].password_ciphertext)
-      : null;
-    await audit(
-      user,
-      "reveal_admin_password",
-      { userId, email: result.rows[0].email },
-      undefined,
-      undefined,
-      selected!.organization.id,
-    );
-    return { password };
-  }
   if (action === "audit") {
     const limit = Math.min(500, Math.max(1, Number(url.searchParams.get("limit")) || 200));
     const actionFilter = url.searchParams.get("action")?.trim() || null;
@@ -798,7 +766,6 @@ export async function railwayAdminPost(request: Request, action: string, body: B
       throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
     const password = text(body.password, "PASSWORD", 200);
     if (password.length < 8) throw new AdminApiError(400, "PASSWORD_TOO_SHORT");
-    const passwordCiphertext = encryptAdminPassword(password);
     const hashed = await queryPostgres<{ value: string }>(
       "SELECT crypt($1, gen_salt('bf', 12)) AS value",
       [password],
@@ -806,17 +773,15 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     const passwordHash = hashed.rows[0].value;
     const result = await withPostgresTransaction(async (client) => {
       const upserted = await client.query<{ id: string }>(
-        `INSERT INTO app_users(email,display_name,password_hash,password_ciphertext) VALUES($1,$2,$3,$4)
+        `INSERT INTO app_users(email,display_name,password_hash) VALUES($1,$2,$3)
          ON CONFLICT(email) DO UPDATE SET
            display_name=COALESCE(EXCLUDED.display_name,app_users.display_name),
-           password_hash=COALESCE(EXCLUDED.password_hash,app_users.password_hash),
-           password_ciphertext=COALESCE(EXCLUDED.password_ciphertext,app_users.password_ciphertext)
+           password_hash=EXCLUDED.password_hash
          RETURNING id`,
         [
           email,
           typeof body.displayName === "string" ? body.displayName.trim() || null : null,
           passwordHash,
-          passwordCiphertext,
         ],
       );
       await client.query(
@@ -858,11 +823,9 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     if (!target.rows[0]) throw new AdminApiError(404, "ADMIN_NOT_FOUND");
     if (isOwnerEmail(target.rows[0].email)) throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
     if (target.rows[0].is_superadmin) await requireRailwayOwner(request);
-    const passwordCiphertext = encryptAdminPassword(password);
     await queryPostgres(
-      `UPDATE app_users SET password_hash=crypt($2,gen_salt('bf',12)),password_ciphertext=$3
-       WHERE id=$1`,
-      [userId, password, passwordCiphertext],
+      `UPDATE app_users SET password_hash=crypt($2,gen_salt('bf',12)) WHERE id=$1`,
+      [userId, password],
     );
     await audit(
       user,

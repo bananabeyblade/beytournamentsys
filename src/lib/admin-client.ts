@@ -48,11 +48,6 @@ export async function createSuperadminFn({
   return { ok: true };
 }
 
-export async function revealAdminPasswordFn({ data }: { data: { userId: string } }) {
-  if (!railwayAuthEnabled) return { password: null };
-  const params = new URLSearchParams({ userId: data.userId });
-  return railwayApi<{ password: string | null }>(`/api/admin/admin-password?${params}`);
-}
 export async function removeAdminFn({ data }: { data: { userId: string } }) {
   if (!railwayAuthEnabled) return legacyRemoveAdmin({ data });
   return railwayApi("/api/admin/remove-admin", { method: "POST", body: JSON.stringify(data) });

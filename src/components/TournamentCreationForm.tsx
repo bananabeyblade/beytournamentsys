@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { Image as ImageIcon, Plus, X } from "lucide-react";
+import { TOURNAMENT_LOGO_ACCEPT } from "@/lib/tournament-logo";
 
 export type CreationFocusTarget = "name" | "logo" | "create" | null;
 
@@ -45,7 +46,7 @@ export function TournamentCreationForm({
       <input
         ref={logoInputRef}
         type="file"
-        accept="image/*"
+        accept={TOURNAMENT_LOGO_ACCEPT}
         className="hidden"
         onChange={(event) => onLogoChange(event.target.files?.[0] ?? null)}
       />

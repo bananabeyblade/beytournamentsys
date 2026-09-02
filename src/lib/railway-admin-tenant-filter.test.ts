@@ -165,4 +165,64 @@ describe("admin tournament tenant filter", () => {
     expect(mocks.requireSelectedTournament).not.toHaveBeenCalled();
     expect(mocks.transactionQuery.mock.calls[0]?.[1]).toEqual([registrationId, ORGANIZATION_ID]);
   });
+
+  it("scopes tournament archival to the selected organization", async () => {
+    mocks.queryPostgres.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    const request = new Request("https://example.test/api/admin/delete-tournament");
+    const tournamentId = "20000000-0000-4000-8000-000000000002";
+
+    await expect(
+      railwayAdminPost(request, "delete-tournament", { id: tournamentId }),
+    ).rejects.toMatchObject({ status: 404, code: "TOURNAMENT_NOT_FOUND" });
+
+    expect(mocks.requireSelectedOrganizationRole).toHaveBeenCalledWith(request, ["owner"]);
+    expect(mocks.queryPostgres).toHaveBeenCalledWith(
+      expect.stringMatching(/WHERE id=\$1 AND organization_id=\$2/),
+      [tournamentId, ORGANIZATION_ID],
+    );
+  });
+
+  it("scopes batch registration deletion to the selected organization", async () => {
+    const request = new Request("https://example.test/api/admin/delete-registrations");
+    const registrationId = "30000000-0000-4000-8000-000000000003";
+
+    await expect(
+      railwayAdminPost(request, "delete-registrations", { ids: [registrationId] }),
+    ).resolves.toEqual({ ok: true, count: 1 });
+
+    expect(mocks.requireSelectedOrganizationRole).toHaveBeenCalledWith(request, ["owner", "admin"]);
+    expect(mocks.queryPostgres).toHaveBeenCalledWith(
+      expect.stringMatching(/tournament\.organization_id=\$2/),
+      [[registrationId], ORGANIZATION_ID],
+    );
+  });
+
+  it("rejects external tournament logos that could track public visitors", async () => {
+    await expect(
+      railwayAdminPost(
+        new Request("https://example.test/api/admin/create-tournament"),
+        "create-tournament",
+        { name: "Event", logoUrl: "https://tracker.example/pixel.png" },
+      ),
+    ).rejects.toMatchObject({ status: 400, code: "LOGO_URL_INVALID" });
+    expect(mocks.queryPostgres).not.toHaveBeenCalled();
+  });
+
+  it("rejects a local logo asset uploaded by another account", async () => {
+    const assetId = "40000000-0000-4000-8000-000000000004";
+    mocks.queryPostgres.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    await expect(
+      railwayAdminPost(
+        new Request("https://example.test/api/admin/create-tournament"),
+        "create-tournament",
+        { name: "Event", logoUrl: `/api/assets/${assetId}` },
+      ),
+    ).rejects.toMatchObject({ status: 400, code: "LOGO_ASSET_NOT_FOUND" });
+
+    expect(mocks.queryPostgres).toHaveBeenCalledWith(
+      "SELECT 1 FROM tournament_assets WHERE id=$1 AND owner_user_id=$2 LIMIT 1",
+      [assetId, "user-1"],
+    );
+  });
 });

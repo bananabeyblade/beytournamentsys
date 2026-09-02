@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/tournaments")({
           return await requestRefereeAccess(request, body);
         } catch (error) {
           const status = error instanceof RefereeAccessError ? error.status : 500;
-          const code = error instanceof Error ? error.message : "INTERNAL_ERROR";
+          const code = error instanceof RefereeAccessError ? error.message : "INTERNAL_ERROR";
           if (status === 500) console.error("[api/tournaments/referee]", error);
           return Response.json({ error: code }, { status });
         }

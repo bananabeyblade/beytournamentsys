@@ -24,6 +24,7 @@ import {
 } from "./selected-organization.server";
 import { LEGACY_ORGANIZATION_ID } from "./tenant-onboarding.server";
 import { isOwnerEmail } from "./account-id";
+import { tournamentAssetIdFromPath } from "./tournament-logo";
 
 type Body = Record<string, unknown>;
 
@@ -645,6 +646,15 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     const name = text(body.name, "NAME", 60);
     const logoUrl =
       typeof body.logoUrl === "string" && body.logoUrl.trim() ? body.logoUrl.trim() : null;
+    if (logoUrl) {
+      const assetId = tournamentAssetIdFromPath(logoUrl);
+      if (!assetId) throw new AdminApiError(400, "LOGO_URL_INVALID");
+      const asset = await queryPostgres(
+        "SELECT 1 FROM tournament_assets WHERE id=$1 AND owner_user_id=$2 LIMIT 1",
+        [assetId, user.id],
+      );
+      if (!asset.rows[0]) throw new AdminApiError(400, "LOGO_ASSET_NOT_FOUND");
+    }
     for (let attempt = 0; attempt < 10; attempt += 1) {
       try {
         const result = await queryPostgres(

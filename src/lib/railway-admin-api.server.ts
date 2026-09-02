@@ -553,9 +553,9 @@ export async function railwayAdminPost(request: Request, action: string, body: B
       ? body.tournamentId == null
         ? null
         : uuid(body.tournamentId, "TOURNAMENT_ID")
-      : body.id == null
-        ? null
-        : uuid(body.id, "TOURNAMENT_ID");
+      : operatorActions.has(action) && body.id != null
+        ? uuid(body.id, "TOURNAMENT_ID")
+        : null;
   const user =
     operatorActions.has(action) && operatorTournamentId
       ? await requireRailwayOperator(request, operatorTournamentId)

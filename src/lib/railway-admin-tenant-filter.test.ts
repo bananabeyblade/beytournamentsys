@@ -2,13 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   queryPostgres: vi.fn(),
+  transactionQuery: vi.fn(),
+  withPostgresTransaction: vi.fn(),
   requireRailwayPermanentUser: vi.fn(),
   requireSelectedOrganizationRole: vi.fn(),
+  requireSelectedTournament: vi.fn(),
 }));
 
 vi.mock("@/integrations/postgres/client.server", () => ({
   queryPostgres: mocks.queryPostgres,
-  withPostgresTransaction: vi.fn(),
+  withPostgresTransaction: mocks.withPostgresTransaction,
 }));
 vi.mock("./railway-auth.server", () => ({
   requireRailwayPermanentUser: mocks.requireRailwayPermanentUser,
@@ -17,7 +20,7 @@ vi.mock("./railway-auth.server", () => ({
 }));
 vi.mock("./selected-organization.server", () => ({
   requireSelectedOrganizationRole: mocks.requireSelectedOrganizationRole,
-  requireSelectedTournament: vi.fn(),
+  requireSelectedTournament: mocks.requireSelectedTournament,
 }));
 vi.mock("./admin-password-vault.server", () => ({
   decryptAdminPassword: vi.fn(),
@@ -37,6 +40,12 @@ describe("admin tournament tenant filter", () => {
   beforeEach(() => {
     mocks.queryPostgres.mockReset();
     mocks.queryPostgres.mockResolvedValue({ rows: [] });
+    mocks.transactionQuery.mockReset();
+    mocks.withPostgresTransaction.mockReset();
+    mocks.withPostgresTransaction.mockImplementation((work) =>
+      work({ query: mocks.transactionQuery }),
+    );
+    mocks.requireSelectedTournament.mockReset();
     mocks.requireRailwayPermanentUser.mockResolvedValue({
       id: "user-1",
       email: "owner@example.com",
@@ -120,5 +129,40 @@ describe("admin tournament tenant filter", () => {
       null,
       ORGANIZATION_ID,
     ]);
+  });
+
+  it("does not treat a registration id as a tournament id when approving a sign-up", async () => {
+    mocks.requireSelectedOrganizationRole.mockResolvedValue({
+      user: { id: "user-1" },
+      organization: {
+        id: ORGANIZATION_ID,
+        slug: "alpha",
+        name: "Alpha",
+        role: "admin",
+      },
+    });
+    mocks.transactionQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            tournament_id: "20000000-0000-4000-8000-000000000002",
+            name: "Player",
+          },
+        ],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    const request = new Request("https://example.test/api/admin/delete-registration");
+    const registrationId = "30000000-0000-4000-8000-000000000003";
+
+    await expect(
+      railwayAdminPost(request, "delete-registration", {
+        id: registrationId,
+        keepRecoveryCode: true,
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(mocks.requireSelectedTournament).not.toHaveBeenCalled();
+    expect(mocks.transactionQuery.mock.calls[0]?.[1]).toEqual([registrationId, ORGANIZATION_ID]);
   });
 });

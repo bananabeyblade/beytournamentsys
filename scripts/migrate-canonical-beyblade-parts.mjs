@@ -13,7 +13,10 @@ if (!databaseUrl) throw new Error("DATABASE_URL is required.");
 if (sourceFlag >= 0 && !process.argv[sourceFlag + 1]) throw new Error("--source requires a path.");
 
 const master = JSON.parse(await readFile(sourcePath, "utf8")).parts;
-const normalize = (value) => String(value ?? "").trim().toUpperCase();
+const normalize = (value) =>
+  String(value ?? "")
+    .trim()
+    .toUpperCase();
 const partFields = [
   "bladeId",
   "lockChipId",
@@ -31,7 +34,7 @@ try {
   const catalog = await client.query(
     "SELECT id, part_type, code, functional_code, release_date FROM parts WHERE active = TRUE",
   );
-const byKey = new Map();
+  const byKey = new Map();
   for (const row of catalog.rows) {
     const key = `${row.part_type}:${normalize(row.functional_code || row.code)}`;
     const matches = byKey.get(key) ?? [];
@@ -48,22 +51,36 @@ const byKey = new Map();
   }
   const aliasMap = new Map(aliases);
   const decks = await client.query("SELECT recovery_code_id, combos FROM participant_decks");
-  const affectedDecks = decks.rows.filter(({ combos }) =>
-    Array.isArray(combos) && combos.some((combo) => partFields.some((field) => aliasMap.has(combo?.[field]))),
+  const affectedDecks = decks.rows.filter(
+    ({ combos }) =>
+      Array.isArray(combos) &&
+      combos.some((combo) => partFields.some((field) => aliasMap.has(combo?.[field]))),
   );
   console.table(
-    ["blade", "ratchet", "bit", "lock_chip", "main_blade", "assist_blade", "metal_blade", "over_blade"].map(
-      (partType) => ({
-        partType,
-        canonical: master.filter((part) => part.part_type === partType).length,
-        mapped: master.filter(
-          (part) =>
-            part.part_type === partType && byKey.has(`${part.part_type}:${normalize(part.code)}`),
-        ).length,
-      }),
-    ),
+    [
+      "blade",
+      "ratchet",
+      "bit",
+      "lock_chip",
+      "main_blade",
+      "assist_blade",
+      "metal_blade",
+      "over_blade",
+    ].map((partType) => ({
+      partType,
+      canonical: master.filter((part) => part.part_type === partType).length,
+      mapped: master.filter(
+        (part) =>
+          part.part_type === partType && byKey.has(`${part.part_type}:${normalize(part.code)}`),
+      ).length,
+    })),
   );
-  console.log({ canonicalParts: master.length, aliases: aliases.length, unresolved, affectedDecks: affectedDecks.length });
+  console.log({
+    canonicalParts: master.length,
+    aliases: aliases.length,
+    unresolved,
+    affectedDecks: affectedDecks.length,
+  });
   if (!apply) {
     console.log("Dry run only. Re-run with --apply after database/migration 0017 is present.");
     process.exitCode = unresolved.length ? 1 : 0;
@@ -99,13 +116,23 @@ const byKey = new Map();
         ],
       );
       for (const deck of affectedDecks) {
-        const combos = deck.combos.map((combo) => Object.fromEntries(
-          Object.entries(combo).map(([field, value]) => [field, typeof value === "string" ? aliasMap.get(value) || value : value]),
-        ));
-        await client.query("UPDATE participant_decks SET combos=$2::jsonb, updated_at=now() WHERE recovery_code_id=$1", [deck.recovery_code_id, JSON.stringify(combos)]);
+        const combos = deck.combos.map((combo) =>
+          Object.fromEntries(
+            Object.entries(combo).map(([field, value]) => [
+              field,
+              typeof value === "string" ? aliasMap.get(value) || value : value,
+            ]),
+          ),
+        );
+        await client.query(
+          "UPDATE participant_decks SET combos=$2::jsonb, updated_at=now() WHERE recovery_code_id=$1",
+          [deck.recovery_code_id, JSON.stringify(combos)],
+        );
       }
       await client.query("COMMIT");
-      console.log("Canonical parts and current Decks migrated. Tournament snapshots were intentionally left unchanged.");
+      console.log(
+        "Canonical parts and current Decks migrated. Tournament snapshots were intentionally left unchanged.",
+      );
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;

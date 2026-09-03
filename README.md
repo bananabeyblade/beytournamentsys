@@ -128,6 +128,8 @@ bun run dev
 | `DATABASE_POOL_MAX` | 資料庫連線池上限，預設為 `5`。 |
 | `GOOGLE_CLIENT_ID` | Google OAuth 網頁用戶端 ID。 |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth 用戶端密鑰。 |
+| `PLATFORM_OWNER_EMAIL` | 經 Google 驗證的平台擁有者信箱；伺服器端權限以此設定為準。 |
+| `VITE_PLATFORM_OWNER_EMAIL` | 與 `PLATFORM_OWNER_EMAIL` 相同，供舊版瀏覽器端管理介面辨識擁有者。 |
 | `ADMIN_PASSWORD_ENCRYPTION_KEY` | 管理者密碼資料的伺服器端加密金鑰；必須保密。 |
 | `MAX_TOURNAMENT_REGISTRATIONS` | 每場可接受的報名上限，預設為 `128`。 |
 | `VITE_RAILWAY_AUTH_ENABLED` | 啟用 Railway 的伺服器端登入與 API 路徑時設為 `true`。 |

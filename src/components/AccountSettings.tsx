@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import {
-  Eye,
-  EyeOff,
-  KeyRound,
-  Save,
-  ShieldPlus,
-  Terminal,
-  Trash2,
-  UserCog,
-  UserPlus,
-} from "lucide-react";
+import { KeyRound, Save, ShieldPlus, Terminal, Trash2, UserCog, UserPlus } from "lucide-react";
 import { useTournament } from "@/lib/tournament-store";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -19,7 +9,6 @@ import {
   listAdminsFn,
   removeSuperadminFn,
   removeAdminFn,
-  revealAdminPasswordFn,
   setAdminPasswordFn,
 } from "@/lib/admin-client";
 import { USERNAME_RE, displayAccount, isDeveloperEmail, isOwnerEmail } from "@/lib/account-id";
@@ -174,8 +163,6 @@ export function ManageAdmins() {
   const [busy, setBusy] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [newPass, setNewPass] = useState("");
-  const [revealed, setRevealed] = useState<Record<string, string>>({});
-  const [revealingId, setRevealingId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     listAdminsFn()
@@ -240,38 +227,9 @@ export function ManageAdmins() {
       }
       setNewPass("");
       setEditId(null);
-      setRevealed((current) => {
-        const next = { ...current };
-        delete next[userId];
-        return next;
-      });
       setMsg({ ok: true, text: "已更新該管理者密碼" });
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : "更新失敗" });
-    }
-  };
-
-  const togglePassword = async (userId: string) => {
-    if (revealed[userId]) {
-      setRevealed((current) => {
-        const next = { ...current };
-        delete next[userId];
-        return next;
-      });
-      return;
-    }
-    setRevealingId(userId);
-    try {
-      const result = await revealAdminPasswordFn({ data: { userId } });
-      if (!result.password) {
-        setMsg({ ok: false, text: "此帳號尚未設定可查看的密碼，請使用重設密碼功能。" });
-      } else {
-        setRevealed((current) => ({ ...current, [userId]: result.password! }));
-      }
-    } catch (error) {
-      setMsg({ ok: false, text: error instanceof Error ? error.message : "讀取密碼失敗" });
-    } finally {
-      setRevealingId(null);
     }
   };
 
@@ -297,23 +255,8 @@ export function ManageAdmins() {
       <ul className="space-y-2">
         {admins.map((a) => (
           <li key={a.id} className="rounded-lg border border-border bg-secondary/40 p-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
               <span className="truncate text-sm">{displayAccount(a.email) || a.user_id}</span>
-              {railwayAuthEnabled && (
-                <button
-                  type="button"
-                  disabled={revealingId === a.user_id}
-                  aria-label={revealed[a.user_id] ? "隱藏密碼" : "查看密碼"}
-                  onClick={() => void togglePassword(a.user_id)}
-                  className="grid h-10 w-10 place-items-center rounded-lg text-primary disabled:opacity-50"
-                >
-                  {revealed[a.user_id] ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
-              )}
               <button
                 onClick={() => setEditId(editId === a.user_id ? null : a.user_id)}
                 className="min-h-10 shrink-0 rounded-lg px-2 text-xs text-primary"
@@ -328,11 +271,6 @@ export function ManageAdmins() {
                 <Trash2 className="h-5 w-5" />
               </button>
             </div>
-            {revealed[a.user_id] && (
-              <div className="mt-2 rounded-lg border border-primary/30 bg-background/70 px-3 py-2 font-mono text-sm">
-                密碼：{revealed[a.user_id]}
-              </div>
-            )}
             {editId === a.user_id && (
               <div className="mt-3 space-y-2 border-t border-border pt-3">
                 <input
@@ -396,8 +334,8 @@ export function ManageSuperadmins() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
   const [busy, setBusy] = useState(false);
-  const [revealed, setRevealed] = useState<Record<string, string>>({});
-  const [revealingId, setRevealingId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [newPass, setNewPass] = useState("");
 
   const load = useCallback(() => {
     listAdminsFn()
@@ -433,27 +371,22 @@ export function ManageSuperadmins() {
     setBusy(false);
   };
 
-  const togglePassword = async (userId: string) => {
-    if (revealed[userId]) {
-      setRevealed((current) => {
-        const next = { ...current };
-        delete next[userId];
-        return next;
-      });
+  const resetPassword = async (userId: string) => {
+    if (newPass.length < 8) {
+      setMsg({ ok: false, text: "密碼至少需 8 碼" });
       return;
     }
-    setRevealingId(userId);
     try {
-      const result = await revealAdminPasswordFn({ data: { userId } });
-      if (!result.password) {
-        setMsg({ ok: false, text: "此帳號尚未設定可查看的密碼，請重新建立或重設密碼。" });
-      } else {
-        setRevealed((current) => ({ ...current, [userId]: result.password! }));
+      const result = await setAdminPasswordFn({ data: { userId, password: newPass } });
+      if (!result.ok) {
+        setMsg({ ok: false, text: result.message ?? "更新失敗" });
+        return;
       }
+      setNewPass("");
+      setEditId(null);
+      setMsg({ ok: true, text: "已重設該總管理者密碼" });
     } catch (error) {
-      setMsg({ ok: false, text: error instanceof Error ? error.message : "讀取密碼失敗" });
-    } finally {
-      setRevealingId(null);
+      setMsg({ ok: false, text: error instanceof Error ? error.message : "更新失敗" });
     }
   };
 
@@ -475,7 +408,7 @@ export function ManageSuperadmins() {
         <ShieldPlus className="h-4 w-4" /> 總管理者帳號 SUPERADMINS
       </h2>
       <p className="text-xs text-muted-foreground">
-        僅擁有者（{currentAdmin?.email}）可新增或刪除，帳號可用自訂名稱或信箱。
+        僅擁有者（{currentAdmin?.email}）可新增、重設密碼或刪除，帳號可用自訂名稱或信箱。
       </p>
       <ul className="space-y-2">
         {supers.map((a) => {
@@ -487,19 +420,12 @@ export function ManageSuperadmins() {
                   {displayAccount(a.email) || a.user_id}
                   {owner && <span className="ml-1 text-[10px] text-primary">擁有者</span>}
                 </span>
-                {!owner && railwayAuthEnabled && (
+                {!owner && (
                   <button
-                    type="button"
-                    disabled={revealingId === a.user_id}
-                    aria-label={revealed[a.user_id] ? "隱藏密碼" : "查看密碼"}
-                    onClick={() => void togglePassword(a.user_id)}
-                    className="grid h-10 w-10 place-items-center rounded-lg text-primary disabled:opacity-50"
+                    onClick={() => setEditId(editId === a.user_id ? null : a.user_id)}
+                    className="min-h-10 shrink-0 rounded-lg px-2 text-xs text-primary"
                   >
-                    {revealed[a.user_id] ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
+                    {editId === a.user_id ? "收合" : "重設密碼"}
                   </button>
                 )}
                 {!owner && (
@@ -512,9 +438,22 @@ export function ManageSuperadmins() {
                   </button>
                 )}
               </div>
-              {revealed[a.user_id] && (
-                <div className="mt-2 rounded-lg border border-primary/30 bg-background/70 px-3 py-2 font-mono text-sm">
-                  密碼：{revealed[a.user_id]}
+              {editId === a.user_id && !owner && (
+                <div className="mt-3 space-y-2 border-t border-border pt-3">
+                  <input
+                    value={newPass}
+                    type="password"
+                    onChange={(event) => setNewPass(event.target.value)}
+                    placeholder="新密碼（至少 8 碼）"
+                    autoComplete="new-password"
+                    className="min-h-12 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+                  />
+                  <button
+                    onClick={() => resetPassword(a.user_id)}
+                    className="min-h-12 w-full rounded-xl bg-primary font-display text-primary-foreground"
+                  >
+                    更新密碼
+                  </button>
                 </div>
               )}
             </li>
@@ -560,7 +499,7 @@ export function AccountSettings({ beforeAdminAccounts }: { beforeAdminAccounts?:
   return (
     <div className="space-y-4">
       <MyAccount key={currentAdmin.email} />
-      {isDeveloperEmail(currentAdmin.email) && (
+      {(currentAdmin.isDeveloper ?? isDeveloperEmail(currentAdmin.email)) && (
         <Link
           to="/developer"
           className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/60 bg-accent/40 font-display text-primary"
@@ -569,8 +508,8 @@ export function AccountSettings({ beforeAdminAccounts }: { beforeAdminAccounts?:
         </Link>
       )}
       {beforeAdminAccounts}
-      {isOwnerEmail(currentAdmin.email) && <ManageSuperadmins />}
-      {currentAdmin.isSuper && <ManageAdmins />}
+      {(currentAdmin.isDeveloper ?? isOwnerEmail(currentAdmin.email)) && <ManageSuperadmins />}
+      {(currentAdmin.isSuper || currentAdmin.organizationRole === "owner") && <ManageAdmins />}
     </div>
   );
 }

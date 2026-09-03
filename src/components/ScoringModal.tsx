@@ -102,7 +102,6 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
     renewMatchLock,
     releaseMatchLock,
     forceUnlockMatch,
-    isOwner,
     matches,
     currentTournament,
   } = useTournament();
@@ -112,7 +111,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
   const previous = match.events.at(-1);
   const [combo1Slot, setCombo1Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo1Slot);
   const [combo2Slot, setCombo2Slot] = useState<1 | 2 | 3 | undefined>(previous?.combo2Slot);
-  const deckRegistrationEnabled = useDeckRegistrationEnabled();
+  const deckRegistrationEnabled = useDeckRegistrationEnabled(currentTournament?.id);
   const top8Tracking = deckRegistrationEnabled && isTop8Match(match, matches);
 
   useEffect(() => {
@@ -346,7 +345,7 @@ export function ScoringModal({ match, onClose }: { match: Match; onClose: () => 
               <Lock className="h-4 w-4" /> {held?.name} 正在計分，此局暫為唯讀
             </p>
             <p className="mt-1 text-muted-foreground">對方關閉計分視窗或斷線 30 秒後會自動解鎖。</p>
-            {isOwner && (
+            {currentAdmin && !currentAdmin.isReferee && (
               <button
                 onClick={() => forceUnlockMatch(match.id)}
                 className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/60 bg-accent/40 font-semibold text-primary"

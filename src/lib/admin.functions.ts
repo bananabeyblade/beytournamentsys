@@ -249,7 +249,7 @@ const ownerOnly = (email: unknown) => {
   const v = String(email ?? "")
     .trim()
     .toLowerCase();
-  if (v !== "john410403123@gmail.com") throw new Error("Forbidden: 僅限擁有者操作");
+  if (v !== OWNER_EMAIL) throw new Error("Forbidden: 僅限擁有者操作");
 };
 
 /** Owner only: create another superadmin (email or custom username login). */

@@ -1,12 +1,11 @@
 import { randomInt } from "node:crypto";
 import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/client.server";
 import {
-  requireRailwayAdmin,
   requireRailwayOperator,
   requireRailwayOwner,
+  requireRailwayPermanentUser,
   type RailwaySessionUser,
 } from "./railway-auth.server";
-import { decryptAdminPassword, encryptAdminPassword } from "./admin-password-vault.server";
 import type { DeckCombo, PartType } from "./deck";
 import { collectComboUsage } from "./combo-usage";
 import {
@@ -18,6 +17,13 @@ import {
   adminTournamentListStatuses,
   developerStatisticsTournamentStatuses,
 } from "./tournament-visibility";
+import {
+  requireSelectedOrganizationRole,
+  requireSelectedTournament,
+} from "./selected-organization.server";
+import { LEGACY_ORGANIZATION_ID } from "./tenant-onboarding.server";
+import { isOwnerEmail } from "./account-id";
+import { tournamentAssetIdFromPath } from "./tournament-logo";
 
 type Body = Record<string, unknown>;
 
@@ -56,10 +62,20 @@ async function audit(
   detail: unknown,
   tournamentId?: string,
   tournamentName?: string,
+  organizationId?: string,
 ) {
+  let scopedOrganizationId = organizationId;
+  if (!scopedOrganizationId && tournamentId) {
+    const tournament = await queryPostgres<{ organization_id: string }>(
+      "SELECT organization_id FROM tournaments WHERE id=$1 LIMIT 1",
+      [tournamentId],
+    );
+    scopedOrganizationId = tournament.rows[0]?.organization_id;
+  }
   await queryPostgres(
-    `INSERT INTO admin_actions (actor_user_id, actor_email, action, detail, tournament_id, tournament_name)
-     VALUES ($1,$2,$3,$4::jsonb,$5,$6)`,
+    `INSERT INTO admin_actions
+       (actor_user_id, actor_email, action, detail, tournament_id, tournament_name, organization_id)
+     VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7)`,
     [
       user.role === "referee" ? null : user.id,
       user.email,
@@ -67,6 +83,7 @@ async function audit(
       json(detail ?? {}),
       tournamentId ?? null,
       tournamentName ?? null,
+      scopedOrganizationId ?? LEGACY_ORGANIZATION_ID,
     ],
   );
 }
@@ -122,51 +139,74 @@ export async function railwayAdminGet(request: Request, action: string) {
     action === "deck-report" ? uuid(url.searchParams.get("tournamentId"), "TOURNAMENT_ID") : null;
   const user = deckReportTournamentId
     ? await requireRailwayOperator(request, deckReportTournamentId)
-    : await requireRailwayAdmin(
-        request,
-        action === "admins" || action === "audit" || action === "admin-password",
-      );
+    : await requireRailwayPermanentUser(request);
+  const organizationOwnerActions = new Set([
+    "admins",
+    "audit",
+    "deck-statistics-state",
+    "feature-flags",
+    "statistics-tournaments",
+  ]);
+  const selected =
+    user.role === "referee"
+      ? null
+      : await requireSelectedOrganizationRole(
+          request,
+          organizationOwnerActions.has(action) ? ["owner"] : ["owner", "admin"],
+        );
+  if (deckReportTournamentId && user.role !== "referee") {
+    await requireSelectedTournament(request, deckReportTournamentId);
+  }
   if (action === "referee-access")
     return getRefereeAccess(request, url.searchParams.get("tournamentId"));
-  if (action === "role") return { role: user.role, user };
+  if (action === "role") return { role: user.role, user, organization: selected?.organization };
   if (action === "deck-statistics-state") {
-    await requireRailwayOwner(request);
     const state = await queryPostgres<{
       reset_at: string;
       updated_by: string | null;
-    }>("SELECT reset_at,updated_by FROM deck_statistics_state WHERE singleton=TRUE");
+    }>(
+      `SELECT reset_at,updated_by_email AS updated_by
+       FROM organization_deck_statistics_state WHERE organization_id=$1`,
+      [selected!.organization.id],
+    );
     const current = state.rows[0];
     if (!current) throw new AdminApiError(500, "DECK_STATISTICS_STATE_MISSING");
     return { resetAt: current.reset_at, updatedBy: current.updated_by };
   }
   if (action === "feature-flags") {
-    await requireRailwayOwner(request);
     const flags = await queryPostgres<{ key: string; enabled: boolean; updated_at: string }>(
-      "SELECT key,enabled,updated_at FROM app_feature_flags ORDER BY key",
+      `SELECT key,enabled,updated_at FROM organization_feature_flags
+       WHERE organization_id=$1 ORDER BY key`,
+      [selected!.organization.id],
     );
     return { flags: flags.rows };
   }
   if (action === "tournaments") {
     const latest = url.searchParams.get("latest") === "open";
+    const code = url.searchParams.get("code")?.trim().toUpperCase() || null;
+    if (code && !/^[A-Z2-9]{6}$/.test(code)) throw new AdminApiError(400, "CODE_INVALID");
     const statuses = adminTournamentListStatuses(latest);
     const result = await queryPostgres(
-      `SELECT ${tournamentColumns} FROM tournaments WHERE status = ANY($1::text[])
-       ORDER BY created_at DESC LIMIT ${latest ? 1 : 50}`,
-      [statuses],
+      `SELECT ${tournamentColumns} FROM tournaments
+       WHERE organization_id=$1 AND status = ANY($2::text[])
+         AND ($3::text IS NULL OR code=$3)
+       ORDER BY created_at DESC LIMIT ${latest || code ? 1 : 50}`,
+      [selected!.organization.id, statuses, code],
     );
     return { tournaments: result.rows };
   }
   if (action === "statistics-tournaments") {
-    await requireRailwayOwner(request);
     const result = await queryPostgres(
-      `SELECT ${tournamentColumns} FROM tournaments WHERE status = ANY($1::text[])
+      `SELECT ${tournamentColumns} FROM tournaments
+       WHERE organization_id=$1 AND status = ANY($2::text[])
        ORDER BY created_at DESC LIMIT 50`,
-      [developerStatisticsTournamentStatuses()],
+      [selected!.organization.id, developerStatisticsTournamentStatuses()],
     );
     return { tournaments: result.rows };
   }
   if (action === "registrations") {
     const tournamentId = uuid(url.searchParams.get("tournamentId"), "TOURNAMENT_ID");
+    await requireSelectedTournament(request, tournamentId);
     const result = await queryPostgres(
       "SELECT id,name,created_at FROM registrations WHERE tournament_id=$1 ORDER BY created_at",
       [tournamentId],
@@ -175,6 +215,7 @@ export async function railwayAdminGet(request: Request, action: string) {
   }
   if (action === "recovery-codes") {
     const tournamentId = uuid(url.searchParams.get("tournamentId"), "TOURNAMENT_ID");
+    await requireSelectedTournament(request, tournamentId);
     const result = await queryPostgres(
       "SELECT name,recovery_code FROM participant_recovery_codes WHERE tournament_id=$1 ORDER BY created_at",
       [tournamentId],
@@ -428,30 +469,14 @@ export async function railwayAdminGet(request: Request, action: string) {
   if (action === "admins") {
     const result = await queryPostgres(
       `SELECT r.id,u.id AS user_id,u.email,u.display_name,r.role,r.created_at
-       FROM admin_roles r JOIN app_users u ON u.id=r.user_id ORDER BY r.created_at`,
+       FROM organization_memberships membership
+       JOIN app_users u ON u.id=membership.user_id
+       LEFT JOIN admin_roles r ON r.user_id=u.id
+       WHERE membership.organization_id=$1 AND membership.status='active'
+       ORDER BY membership.created_at`,
+      [selected!.organization.id],
     );
     return { admins: result.rows };
-  }
-  if (action === "admin-password") {
-    const userId = uuid(url.searchParams.get("userId"), "USER_ID");
-    const result = await queryPostgres<{
-      password_ciphertext: string | null;
-      email: string;
-      is_superadmin: boolean;
-    }>(
-      `SELECT u.password_ciphertext,u.email,bool_or(r.role='superadmin') AS is_superadmin
-       FROM app_users u
-       JOIN admin_roles r ON r.user_id=u.id
-       WHERE u.id=$1 GROUP BY u.id,u.password_ciphertext,u.email`,
-      [userId],
-    );
-    if (!result.rows[0]) throw new AdminApiError(404, "ADMIN_NOT_FOUND");
-    if (result.rows[0].is_superadmin) await requireRailwayOwner(request);
-    const password = result.rows[0].password_ciphertext
-      ? decryptAdminPassword(result.rows[0].password_ciphertext)
-      : null;
-    await audit(user, "reveal_admin_password", { userId, email: result.rows[0].email });
-    return { password };
   }
   if (action === "audit") {
     const limit = Math.min(500, Math.max(1, Number(url.searchParams.get("limit")) || 200));
@@ -459,9 +484,10 @@ export async function railwayAdminGet(request: Request, action: string) {
     const tournamentName = url.searchParams.get("tournamentName")?.trim() || null;
     const result = await queryPostgres(
       `SELECT id,actor_email,action,detail,tournament_name,created_at FROM admin_actions
-       WHERE ($1::text IS NULL OR action=$1) AND ($2::text IS NULL OR tournament_name=$2)
-       ORDER BY created_at DESC LIMIT $3`,
-      [actionFilter, tournamentName, limit],
+       WHERE organization_id=$1 AND ($2::text IS NULL OR action=$2)
+         AND ($3::text IS NULL OR tournament_name=$3)
+       ORDER BY created_at DESC LIMIT $4`,
+      [selected!.organization.id, actionFilter, tournamentName, limit],
     );
     return { actions: result.rows };
   }
@@ -482,13 +508,10 @@ export async function railwayAdminPost(request: Request, action: string, body: B
       throw new AdminApiError(400, "REFEREE_DECISION_INVALID");
     return decideReferee(request, body.refereeId, decision);
   }
-  const superadminActions = new Set([
-    "reset",
+  const ownerOnlyActions = new Set([
     "create-admin",
     "remove-admin",
     "set-admin-password",
-  ]);
-  const ownerOnlyActions = new Set([
     "delete-tournament",
     "set-feature-flag",
     "reset-deck-statistics",
@@ -499,15 +522,23 @@ export async function railwayAdminPost(request: Request, action: string, body: B
       ? body.tournamentId == null
         ? null
         : uuid(body.tournamentId, "TOURNAMENT_ID")
-      : body.id == null
-        ? null
-        : uuid(body.id, "TOURNAMENT_ID");
+      : operatorActions.has(action) && body.id != null
+        ? uuid(body.id, "TOURNAMENT_ID")
+        : null;
   const user =
     operatorActions.has(action) && operatorTournamentId
       ? await requireRailwayOperator(request, operatorTournamentId)
-      : ownerOnlyActions.has(action)
-        ? await requireRailwayOwner(request)
-        : await requireRailwayAdmin(request, superadminActions.has(action));
+      : await requireRailwayPermanentUser(request);
+  const selected =
+    user.role === "referee"
+      ? null
+      : await requireSelectedOrganizationRole(
+          request,
+          ownerOnlyActions.has(action) ? ["owner"] : ["owner", "admin"],
+        );
+  if (operatorTournamentId && user.role !== "referee") {
+    await requireSelectedTournament(request, operatorTournamentId);
+  }
   if (action === "record-audit") {
     const auditAction = text(body.action, "ACTION", 60);
     const tournamentId =
@@ -528,6 +559,7 @@ export async function railwayAdminPost(request: Request, action: string, body: B
       body.detail,
       tournamentId,
       typeof body.tournamentName === "string" ? body.tournamentName.slice(0, 200) : undefined,
+      selected?.organization.id,
     );
     return { ok: true };
   }
@@ -535,11 +567,23 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     if (body.key !== "deck_registration" || typeof body.enabled !== "boolean")
       throw new AdminApiError(400, "FEATURE_FLAG_INVALID");
     await queryPostgres(
-      `INSERT INTO app_feature_flags (key,enabled,updated_at,updated_by) VALUES ($1,$2,now(),$3)
-       ON CONFLICT (key) DO UPDATE SET enabled=EXCLUDED.enabled,updated_at=EXCLUDED.updated_at,updated_by=EXCLUDED.updated_by`,
-      [body.key, body.enabled, user.email],
+      `INSERT INTO organization_feature_flags
+         (organization_id,key,enabled,updated_at,updated_by_user_id,updated_by_email)
+       VALUES ($1,$2,$3,now(),$4,$5)
+       ON CONFLICT (organization_id,key) DO UPDATE SET
+         enabled=EXCLUDED.enabled,updated_at=EXCLUDED.updated_at,
+         updated_by_user_id=EXCLUDED.updated_by_user_id,
+         updated_by_email=EXCLUDED.updated_by_email`,
+      [selected!.organization.id, body.key, body.enabled, user.id, user.email],
     );
-    await audit(user, "set_feature_flag", { key: body.key, enabled: body.enabled });
+    await audit(
+      user,
+      "set_feature_flag",
+      { key: body.key, enabled: body.enabled },
+      undefined,
+      undefined,
+      selected!.organization.id,
+    );
     return { ok: true, enabled: body.enabled };
   }
   if (action === "reset-deck-statistics") {
@@ -548,29 +592,53 @@ export async function railwayAdminPost(request: Request, action: string, body: B
       reset_at: string;
       updated_by: string | null;
     }>(
-      `UPDATE deck_statistics_state
-       SET reset_at=now(),updated_at=now(),updated_by=$1
-       WHERE singleton=TRUE
-       RETURNING reset_at,updated_by`,
-      [user.email],
+      `UPDATE organization_deck_statistics_state
+       SET reset_at=now(),updated_at=now(),updated_by_user_id=$2,updated_by_email=$3
+       WHERE organization_id=$1
+       RETURNING reset_at,updated_by_email AS updated_by`,
+      [selected!.organization.id, user.id, user.email],
     );
     const current = state.rows[0];
     if (!current) throw new AdminApiError(500, "DECK_STATISTICS_STATE_MISSING");
-    await audit(user, "reset_deck_statistics", { resetAt: current.reset_at });
+    await audit(
+      user,
+      "reset_deck_statistics",
+      { resetAt: current.reset_at },
+      undefined,
+      undefined,
+      selected!.organization.id,
+    );
     return { resetAt: current.reset_at, updatedBy: current.updated_by };
   }
   if (action === "create-tournament") {
     const name = text(body.name, "NAME", 60);
     const logoUrl =
       typeof body.logoUrl === "string" && body.logoUrl.trim() ? body.logoUrl.trim() : null;
+    if (logoUrl) {
+      const assetId = tournamentAssetIdFromPath(logoUrl);
+      if (!assetId) throw new AdminApiError(400, "LOGO_URL_INVALID");
+      const asset = await queryPostgres(
+        "SELECT 1 FROM tournament_assets WHERE id=$1 AND owner_user_id=$2 LIMIT 1",
+        [assetId, user.id],
+      );
+      if (!asset.rows[0]) throw new AdminApiError(400, "LOGO_ASSET_NOT_FOUND");
+    }
     for (let attempt = 0; attempt < 10; attempt += 1) {
       try {
         const result = await queryPostgres(
-          `INSERT INTO tournaments (name,code,created_by,logo_url) VALUES ($1,$2,$3,$4)
+          `INSERT INTO tournaments (organization_id,name,code,created_by,logo_url)
+           VALUES ($1,$2,$3,$4,$5)
            RETURNING ${tournamentColumns}`,
-          [name, makeCode(), user.id, logoUrl],
+          [selected!.organization.id, name, makeCode(), user.id, logoUrl],
         );
-        await audit(user, "create_tournament", { name }, result.rows[0].id as string, name);
+        await audit(
+          user,
+          "create_tournament",
+          { name },
+          result.rows[0].id as string,
+          name,
+          selected!.organization.id,
+        );
         return { tournament: result.rows[0] };
       } catch (error) {
         if ((error as { code?: string }).code !== "23505" || attempt === 9) throw error;
@@ -595,45 +663,70 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     const result = await queryPostgres<{ name: string }>(
       `UPDATE tournaments SET live_state=jsonb_build_object('players','[]'::jsonb,'matches','[]'::jsonb,
        'tableCount',$2::int,'removedPlayers','[]'::jsonb),live_updated_at=COALESCE($3::timestamptz,now())
-       WHERE id=$1 AND status='open' RETURNING name`,
-      [id, tableCount, body.stamp ?? null],
+       WHERE id=$1 AND organization_id=$4 AND status='open' RETURNING name`,
+      [id, tableCount, body.stamp ?? null, selected!.organization.id],
     );
     if (!result.rowCount) throw new AdminApiError(404, "OPEN_TOURNAMENT_NOT_FOUND");
-    await audit(user, "reset_tournament", { tableCount }, id, result.rows[0].name);
+    await audit(
+      user,
+      "reset_tournament",
+      { tableCount },
+      id,
+      result.rows[0].name,
+      selected!.organization.id,
+    );
     return { ok: true };
   }
   if (action === "finish") {
     const id = uuid(body.id);
     const result = await queryPostgres(
       `UPDATE tournaments SET status='finished',finished_at=now(),results=$2::jsonb
-       WHERE id=$1 AND status='open'
+       WHERE id=$1 AND ($4::uuid IS NULL OR organization_id=$4) AND status='open'
          AND ($3::boolean = false OR NOT EXISTS (
            SELECT 1 FROM jsonb_array_elements(COALESCE(live_state->'matches','[]'::jsonb)) AS match
            WHERE COALESCE(match->>'status','waiting') <> 'done'
          ))
        RETURNING ${tournamentColumns}`,
-      [id, json(body.results), user.role === "referee"],
+      [id, json(body.results), user.role === "referee", selected?.organization.id ?? null],
     );
     if (!result.rowCount) throw new AdminApiError(404, "OPEN_TOURNAMENT_NOT_FOUND");
-    await audit(user, "finish_tournament", body.results, id, result.rows[0].name as string);
+    await audit(
+      user,
+      "finish_tournament",
+      body.results,
+      id,
+      result.rows[0].name as string,
+      selected?.organization.id,
+    );
     return { tournament: result.rows[0] };
   }
   if (action === "delete-tournament") {
     const id = uuid(body.id);
     const result = await queryPostgres<{ name: string }>(
-      "UPDATE tournaments SET status='archived', finished_at=COALESCE(finished_at, now()) WHERE id=$1 RETURNING name",
-      [id],
+      `UPDATE tournaments SET status='archived', finished_at=COALESCE(finished_at, now())
+       WHERE id=$1 AND organization_id=$2 RETURNING name`,
+      [id, selected!.organization.id],
     );
     if (!result.rowCount) throw new AdminApiError(404, "TOURNAMENT_NOT_FOUND");
-    await audit(user, "delete_tournament", {}, undefined, result.rows[0].name);
+    await audit(
+      user,
+      "delete_tournament",
+      {},
+      undefined,
+      result.rows[0].name,
+      selected!.organization.id,
+    );
     return { ok: true };
   }
   if (action === "delete-registration") {
     const id = uuid(body.id);
     await withPostgresTransaction(async (client) => {
       const found = await client.query<{ tournament_id: string; name: string }>(
-        "SELECT tournament_id,name FROM registrations WHERE id=$1 FOR UPDATE",
-        [id],
+        `SELECT registration.tournament_id,registration.name
+         FROM registrations registration
+         JOIN tournaments tournament ON tournament.id=registration.tournament_id
+         WHERE registration.id=$1 AND tournament.organization_id=$2 FOR UPDATE`,
+        [id, selected!.organization.id],
       );
       if (!found.rowCount) throw new AdminApiError(404, "REGISTRATION_NOT_FOUND");
       if (body.keepRecoveryCode !== true)
@@ -649,7 +742,13 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     if (!Array.isArray(body.ids) || !body.ids.length || body.ids.length > 200)
       throw new AdminApiError(400, "IDS_INVALID");
     const ids = body.ids.map((id) => uuid(id));
-    await queryPostgres("DELETE FROM registrations WHERE id=ANY($1::uuid[])", [ids]);
+    await queryPostgres(
+      `DELETE FROM registrations registration
+       USING tournaments tournament
+       WHERE registration.tournament_id=tournament.id
+         AND registration.id=ANY($1::uuid[]) AND tournament.organization_id=$2`,
+      [ids, selected!.organization.id],
+    );
     return { ok: true, count: ids.length };
   }
   if (action === "create-admin") {
@@ -663,11 +762,10 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     )
       throw new AdminApiError(400, "ACCOUNT_INVALID");
     if (role === "superadmin") await requireRailwayOwner(request);
-    if (role === "superadmin" && email === "john410403123@gmail.com")
+    if (role === "superadmin" && isOwnerEmail(email))
       throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
     const password = text(body.password, "PASSWORD", 200);
     if (password.length < 8) throw new AdminApiError(400, "PASSWORD_TOO_SHORT");
-    const passwordCiphertext = encryptAdminPassword(password);
     const hashed = await queryPostgres<{ value: string }>(
       "SELECT crypt($1, gen_salt('bf', 12)) AS value",
       [password],
@@ -675,26 +773,39 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     const passwordHash = hashed.rows[0].value;
     const result = await withPostgresTransaction(async (client) => {
       const upserted = await client.query<{ id: string }>(
-        `INSERT INTO app_users(email,display_name,password_hash,password_ciphertext) VALUES($1,$2,$3,$4)
+        `INSERT INTO app_users(email,display_name,password_hash) VALUES($1,$2,$3)
          ON CONFLICT(email) DO UPDATE SET
            display_name=COALESCE(EXCLUDED.display_name,app_users.display_name),
-           password_hash=COALESCE(EXCLUDED.password_hash,app_users.password_hash),
-           password_ciphertext=COALESCE(EXCLUDED.password_ciphertext,app_users.password_ciphertext)
+           password_hash=EXCLUDED.password_hash
          RETURNING id`,
         [
           email,
           typeof body.displayName === "string" ? body.displayName.trim() || null : null,
           passwordHash,
-          passwordCiphertext,
         ],
       );
       await client.query(
         "INSERT INTO admin_roles(user_id,email,role) VALUES($1,$2,$3) ON CONFLICT(user_id,role) DO NOTHING",
         [upserted.rows[0].id, email, role],
       );
+      await client.query(
+        `INSERT INTO organization_memberships
+           (organization_id,user_id,role,status,created_by)
+         VALUES($1,$2,'admin','active',$3)
+         ON CONFLICT(organization_id,user_id) DO UPDATE SET
+           role='admin',status='active',updated_at=now()`,
+        [selected!.organization.id, upserted.rows[0].id, user.id],
+      );
       return upserted.rows[0];
     });
-    await audit(user, "create_admin", { email, role });
+    await audit(
+      user,
+      "create_admin",
+      { email, role },
+      undefined,
+      undefined,
+      selected!.organization.id,
+    );
     return { ok: true, userId: result.id };
   }
   if (action === "set-admin-password") {
@@ -704,20 +815,26 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     const target = await queryPostgres<{ email: string; is_superadmin: boolean }>(
       `SELECT u.email,bool_or(r.role='superadmin') AS is_superadmin
        FROM app_users u JOIN admin_roles r ON r.user_id=u.id
-       WHERE u.id=$1 GROUP BY u.id,u.email`,
-      [userId],
+       JOIN organization_memberships membership ON membership.user_id=u.id
+       WHERE u.id=$1 AND membership.organization_id=$2 AND membership.status='active'
+       GROUP BY u.id,u.email`,
+      [userId, selected!.organization.id],
     );
     if (!target.rows[0]) throw new AdminApiError(404, "ADMIN_NOT_FOUND");
-    if (target.rows[0].email.toLowerCase() === "john410403123@gmail.com")
-      throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
+    if (isOwnerEmail(target.rows[0].email)) throw new AdminApiError(409, "OWNER_GOOGLE_ONLY");
     if (target.rows[0].is_superadmin) await requireRailwayOwner(request);
-    const passwordCiphertext = encryptAdminPassword(password);
     await queryPostgres(
-      `UPDATE app_users SET password_hash=crypt($2,gen_salt('bf',12)),password_ciphertext=$3
-       WHERE id=$1`,
-      [userId, password, passwordCiphertext],
+      `UPDATE app_users SET password_hash=crypt($2,gen_salt('bf',12)) WHERE id=$1`,
+      [userId, password],
     );
-    await audit(user, "set_admin_password", { userId, email: target.rows[0].email });
+    await audit(
+      user,
+      "set_admin_password",
+      { userId, email: target.rows[0].email },
+      undefined,
+      undefined,
+      selected!.organization.id,
+    );
     return { ok: true };
   }
   if (action === "remove-admin") {
@@ -726,15 +843,28 @@ export async function railwayAdminPost(request: Request, action: string, body: B
     const target = await queryPostgres<{ email: string; is_superadmin: boolean }>(
       `SELECT u.email, bool_or(r.role='superadmin') AS is_superadmin
        FROM app_users u JOIN admin_roles r ON r.user_id=u.id
-       WHERE u.id=$1 GROUP BY u.id,u.email`,
-      [userId],
+       JOIN organization_memberships membership ON membership.user_id=u.id
+       WHERE u.id=$1 AND membership.organization_id=$2 AND membership.status='active'
+       GROUP BY u.id,u.email`,
+      [userId, selected!.organization.id],
     );
     if (!target.rows[0]) throw new AdminApiError(404, "ADMIN_NOT_FOUND");
-    if (target.rows[0].email.toLowerCase() === "john410403123@gmail.com")
-      throw new AdminApiError(409, "OWNER_CANNOT_BE_REMOVED");
+    if (isOwnerEmail(target.rows[0].email)) throw new AdminApiError(409, "OWNER_CANNOT_BE_REMOVED");
     if (target.rows[0].is_superadmin) await requireRailwayOwner(request);
-    await queryPostgres("DELETE FROM admin_roles WHERE user_id=$1", [userId]);
-    await audit(user, "remove_admin", { userId });
+    await withPostgresTransaction(async (client) => {
+      await client.query(
+        "DELETE FROM organization_memberships WHERE organization_id=$1 AND user_id=$2",
+        [selected!.organization.id, userId],
+      );
+      await client.query(
+        `DELETE FROM admin_roles role WHERE role.user_id=$1 AND NOT EXISTS (
+           SELECT 1 FROM organization_memberships membership
+           WHERE membership.user_id=$1 AND membership.status='active'
+         )`,
+        [userId],
+      );
+    });
+    await audit(user, "remove_admin", { userId }, undefined, undefined, selected!.organization.id);
     return { ok: true };
   }
   throw new AdminApiError(404, "NOT_FOUND");

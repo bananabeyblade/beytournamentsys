@@ -32,6 +32,7 @@ import {
 } from "./railway-auth";
 import {
   createTournament,
+  fetchAdminTournamentByCode,
   fetchTournamentByCode,
   fetchLatestOpenTournament,
   finishTournament,
@@ -42,7 +43,7 @@ import {
 } from "./tournaments";
 import { computeTop4 } from "./standings";
 import { LOCK_TTL_MS, activeLock, mergeMatches, mergePlayers, touchMatch } from "./live-merge";
-import { displayAccount, isOwnerEmail, toLoginEmail } from "./account-id";
+import { displayAccount, isDeveloperEmail, isOwnerEmail, toLoginEmail } from "./account-id";
 import { isUsernameAccount, padAdminPassword } from "./admin-password";
 import { logAction, type AuditAction } from "./audit";
 import { RECONNECT_EVENT } from "@/hooks/use-connection";
@@ -96,7 +97,7 @@ function writeActiveTournamentCode(code: string) {
   }
 }
 
-function clearActiveTournamentCode() {
+export function clearActiveTournamentCode() {
   if (typeof window === "undefined") return;
   try {
     sessionStorage.removeItem(ACTIVE_KEY);
@@ -171,7 +172,7 @@ interface Ctx extends TournamentState {
   syncStatus: SyncStatus;
   lastSyncedAt: number | null;
   retrySync: () => void;
-  /** True for the platform owner account (john410403123@gmail.com). */
+  /** True for the server-verified platform owner account. */
   isOwner: boolean;
   resetTournament: () => Promise<string | null>;
   loadSample: () => void;
@@ -211,7 +212,7 @@ export function TournamentProvider({
   // Restore the in-progress bracket so leaving the page (e.g. viewing past
   // results) and coming back does not wipe the live tournament.
   useEffect(() => {
-    if (spectator) {
+    if (spectator || railwayAuthEnabled) {
       setHydrated(true);
       return;
     }
@@ -361,6 +362,7 @@ export function TournamentProvider({
           isGoogle:
             user.app_metadata.provider === "google" ||
             user.identities?.some((identity) => identity.provider === "google") === true,
+          isDeveloper: isDeveloperEmail(user.email),
         });
         setRoleState("admin");
         setAuthIssue(null);
@@ -384,10 +386,10 @@ export function TournamentProvider({
         setAuthIssue(null);
         return "signed_out" as const;
       }
-      if (!user.role) {
+      if (!user.role && !user.organizationRole) {
         setCurrentAdmin(null);
         setRoleState("player");
-        setAuthIssue("此 Google 帳號尚未取得管理者權限。");
+        setAuthIssue("此 Google 帳號尚未加入任何組織。");
         return "not_authorized" as const;
       }
       if (user.role === "referee" && (!user.tournamentId || !user.tournamentCode)) {
@@ -419,6 +421,8 @@ export function TournamentProvider({
         email: displayAccount(user.email),
         isSuper: user.role === "superadmin",
         isGoogle: user.isGoogle,
+        isDeveloper: user.isDeveloper,
+        organizationRole: user.organizationRole,
         isReferee: user.role === "referee",
         tournamentId: user.tournamentId,
         tournamentCode: user.tournamentCode,
@@ -723,7 +727,8 @@ export function TournamentProvider({
 
   const forceUnlockMatch = useCallback(
     (matchId: string) => {
-      if (!isOwnerEmail(auditRef.current.admin?.email)) return;
+      const admin = auditRef.current.admin;
+      if (!admin || admin.isReferee) return;
       const m = matchesRef.current.find((x) => x.id === matchId);
       setLock(matchId, null);
       if (m) log("match_lock_force", { matchup: matchupOf(m), name: m.lockedByName ?? "" });
@@ -1039,19 +1044,21 @@ export function TournamentProvider({
 
   // Restore the last created tournament so the QR card survives reloads.
   useEffect(() => {
-    if (spectator) return;
+    if (spectator || (railwayAuthEnabled && !currentAdmin)) return;
     const code = readActiveTournamentCode();
     if (!code) return;
     let alive = true;
-    fetchTournamentByCode(code)
+    fetchAdminTournamentByCode(code)
       .then((row) => {
-        if (alive && row && readActiveTournamentCode() === code) setCurrentTournament(row);
+        if (!alive || readActiveTournamentCode() !== code) return;
+        if (row) setCurrentTournament(row);
+        else clearActiveTournamentCode();
       })
       .catch(() => undefined);
     return () => {
       alive = false;
     };
-  }, [spectator]);
+  }, [spectator, currentAdmin]);
 
   // Every signed-in admin follows the event explicitly selected in this tab.
   // Only a tab without a selection adopts the newest open event once.
@@ -1172,7 +1179,7 @@ export function TournamentProvider({
     const pull = async () => {
       const selectedCode = readActiveTournamentCode();
       const row = selectedCode
-        ? await fetchTournamentByCode(selectedCode).catch(() => null)
+        ? await fetchAdminTournamentByCode(selectedCode).catch(() => null)
         : await fetchLatestOpenTournament().catch(() => null);
 
       // Ignore an in-flight response when this tab selected another event while
@@ -1180,6 +1187,17 @@ export function TournamentProvider({
       const currentCode = readActiveTournamentCode();
       if (selectedCode ? currentCode !== selectedCode : currentCode && currentCode !== row?.code)
         return;
+      if (selectedCode && !row) {
+        clearActiveTournamentCode();
+        followedId.current = "";
+        removedPlayers.current = {};
+        playersRef.current = [];
+        matchesRef.current = [];
+        lastPayload.current = "";
+        setCurrentTournament(null);
+        setPlayers([]);
+        setMatches([]);
+      }
       if (row) apply(row);
       hasSyncedOnce.current = true;
     };
@@ -1480,7 +1498,13 @@ export function TournamentProvider({
     syncStatus,
     lastSyncedAt,
     retrySync,
-    isOwner: !spectator && isOwnerEmail(currentAdmin?.email),
+    isOwner:
+      !spectator &&
+      Boolean(
+        currentAdmin?.isDeveloper ||
+        currentAdmin?.organizationRole === "owner" ||
+        isOwnerEmail(currentAdmin?.email),
+      ),
     resetTournament,
     loadSample,
     spectator,

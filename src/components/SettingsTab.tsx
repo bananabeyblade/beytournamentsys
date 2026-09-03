@@ -7,6 +7,9 @@ import { TournamentHistory } from "./TournamentHistory";
 import { AuditLogCard } from "./AuditLogCard";
 import { AdminPlayerRegistration } from "./AdminPlayerRegistration";
 import { RefereeAccessCard } from "./RefereeAccessCard";
+import { OrganizationSettingsCard } from "./OrganizationSettingsCard";
+import { OrganizationInvitationsCard } from "./OrganizationInvitationsCard";
+import { railwayAuthEnabled } from "@/lib/railway-api";
 
 function TournamentSettingsPanel() {
   const {
@@ -24,7 +27,7 @@ function TournamentSettingsPanel() {
   const [resetBusy, setResetBusy] = useState(false);
   const [resetError, setResetError] = useState("");
 
-  if (!currentAdmin?.isSuper) return null;
+  if (!currentAdmin || currentAdmin.isReferee) return null;
 
   return (
     <div className="panel space-y-3 p-3">
@@ -150,7 +153,7 @@ export function SettingsTab() {
             <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-xs font-bold text-blue-600">
               G
             </span>
-            使用 Google 登入總管理者
+            使用 Google 登入／註冊組織
           </button>
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
             <span className="h-px flex-1 bg-border" />
@@ -236,7 +239,11 @@ export function SettingsTab() {
       <div className="panel p-3">
         <p className="text-sm">
           已登入：<span className="text-primary">{currentAdmin.email}</span>
-          {currentAdmin.isSuper && " · 總管理者"}
+          {currentAdmin.isDeveloper
+            ? " · 平台擁有者"
+            : currentAdmin.organizationRole === "owner"
+              ? " · 組織擁有者"
+              : " · 組織管理者"}
         </p>
         <button
           onClick={() => void logout()}
@@ -245,6 +252,10 @@ export function SettingsTab() {
           <LogOut className="h-4 w-4" /> 登出
         </button>
       </div>
+
+      {railwayAuthEnabled && <OrganizationSettingsCard />}
+
+      {railwayAuthEnabled && <OrganizationInvitationsCard />}
 
       <AccountSettings beforeAdminAccounts={<TournamentSettingsPanel />} />
 

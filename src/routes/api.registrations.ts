@@ -78,7 +78,10 @@ export const Route = createFileRoute("/api/registrations")({
             return Response.json(await listActiveParts());
           }
           if (url.searchParams.get("deck-registration") === "1") {
-            return Response.json({ enabled: await deckRegistrationEnabled() });
+            return Response.json(
+              { enabled: await deckRegistrationEnabled(url.searchParams.get("tournamentId")) },
+              { headers: { "cache-control": "no-store" } },
+            );
           }
           return Response.json(
             await registrationNameTaken(

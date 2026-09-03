@@ -99,11 +99,11 @@ export function LiveTab() {
   const { matches, tableCount, startMatch, role, results, currentTournament, locked, playerName } =
     useTournament();
   const joinedName = useJoinedName(currentTournament?.code);
-  const deckRegistrationEnabled = useDeckRegistrationEnabled();
+  const tournamentId = currentTournament?.id;
+  const deckRegistrationEnabled = useDeckRegistrationEnabled(tournamentId);
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [startId, setStartId] = useState<string | null>(null);
-  const tournamentId = currentTournament?.id;
   const podiumReport = useQuery({
     queryKey: ["podium-deck-report", tournamentId],
     queryFn: () => fetchDeckReport(tournamentId!),

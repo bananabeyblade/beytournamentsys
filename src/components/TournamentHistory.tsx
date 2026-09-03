@@ -64,7 +64,10 @@ export function TournamentHistory() {
   }, []);
 
   if (!currentAdmin) return null;
-  const isDeveloper = isOwnerEmail(currentAdmin.email);
+  const canArchive =
+    currentAdmin.organizationRole === "owner" ||
+    currentAdmin.isDeveloper ||
+    isOwnerEmail(currentAdmin.email);
 
   return (
     <div className="panel space-y-3 p-3">
@@ -123,7 +126,7 @@ export function TournamentHistory() {
                 >
                   <Copy className="h-4 w-4" />
                 </button>
-                {isDeveloper && (
+                {canArchive && (
                   <button
                     aria-label="刪除賽事"
                     onClick={() => void remove(r)}
@@ -140,7 +143,7 @@ export function TournamentHistory() {
       ) : (
         <p className="text-sm text-muted-foreground">尚無賽事紀錄。</p>
       )}
-      {isDeveloper && (
+      {canArchive && (
         <p className="text-[11px] text-muted-foreground">
           刪除會改為封存賽事，Deck／Combo 與紀錄不會被刪除。
         </p>

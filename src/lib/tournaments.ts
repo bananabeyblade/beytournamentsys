@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { railwayApi, railwayAuthEnabled } from "./railway-api";
+import { isValidTournamentLogo } from "./tournament-logo";
 
 export interface Top4Entry {
   rank: number;
@@ -90,9 +91,10 @@ const MAX_LOGO_BYTES = 5 * 1024 * 1024;
  * Called before `createTournament` so the URL can be saved on insert.
  */
 export async function uploadTournamentLogo(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (file.size === 0 || file.size > MAX_LOGO_BYTES || !isValidTournamentLogo(file.type, bytes))
+    throw new Error("LOGO_INVALID");
   if (railwayAuthEnabled) {
-    if (!file.type.startsWith("image/") || file.size > MAX_LOGO_BYTES)
-      throw new Error("LOGO_INVALID");
     const form = new FormData();
     form.set("file", file);
     const response = await fetch("/api/admin/logo", {
@@ -104,8 +106,6 @@ export async function uploadTournamentLogo(file: File): Promise<string> {
     if (!response.ok || !result.url) throw new Error(result.error || "LOGO_UPLOAD_FAILED");
     return result.url;
   }
-  if (!file.type.startsWith("image/")) throw new Error("logo 必須是圖片檔");
-  if (file.size > MAX_LOGO_BYTES) throw new Error("logo 檔案不能超過 5MB");
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("請先登入管理者帳號");
   const ext = file.name.split(".").pop()?.toLowerCase() || "png";
@@ -185,6 +185,15 @@ export async function fetchTournamentByCode(code: string): Promise<TournamentRow
     .maybeSingle();
   if (error) return null;
   return (data as unknown as TournamentRow) ?? null;
+}
+
+/** Admin-only lookup constrained by the active server-verified tenant. */
+export async function fetchAdminTournamentByCode(code: string): Promise<TournamentRow | null> {
+  if (!railwayAuthEnabled) return fetchTournamentByCode(code);
+  const result = await railwayApi<{ tournaments: TournamentRow[] }>(
+    `/api/admin/tournaments?code=${encodeURIComponent(code)}`,
+  );
+  return result.tournaments[0] ?? null;
 }
 
 /** History list — visible to signed-in admins in the settings tab. */

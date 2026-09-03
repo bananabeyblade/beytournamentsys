@@ -1,7 +1,10 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { PoolClient } from "pg";
 import { queryPostgres, withPostgresTransaction } from "@/integrations/postgres/client.server";
+import { OWNER_EMAIL } from "./account-id";
 import { enforceRateLimit } from "./rate-limit.server";
+import { ensureLegacyOwnerForVerifiedGoogleUser } from "./tenant-onboarding.server";
+import { claimOrganizationInvitationsForVerifiedGoogleUser } from "./organization-invitation-claim.server";
 
 const SESSION_COOKIE = "beyx_session";
 export const REFEREE_SESSION_COOKIE = "beyx_referee_session";
@@ -9,8 +12,6 @@ const OAUTH_STATE_COOKIE = "beyx_oauth_state";
 const OAUTH_VERIFIER_COOKIE = "beyx_oauth_verifier";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 const OAUTH_SECONDS = 60 * 10;
-const OWNER_EMAIL = "john410403123@gmail.com";
-
 type AppRole = "admin" | "superadmin" | "referee";
 
 export interface RailwaySessionUser {
@@ -199,17 +200,35 @@ export async function finishGoogleOAuth(request: Request): Promise<Response> {
   try {
     const profile = await exchangeGoogleCode(request, code, verifier);
     const token = base64url(randomBytes(32));
-    await withPostgresTransaction(async (client) => {
+    const needsOnboarding = await withPostgresTransaction(async (client) => {
       const userId = await upsertGoogleUser(client, profile);
+      await ensureLegacyOwnerForVerifiedGoogleUser(client, {
+        id: userId,
+        email: profile.email,
+        googleSubject: profile.subject,
+      });
+      await claimOrganizationInvitationsForVerifiedGoogleUser(client, {
+        id: userId,
+        email: profile.email,
+        googleSubject: profile.subject,
+      });
+      const memberships = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1 FROM organization_memberships
+           WHERE user_id = $1 AND status = 'active'
+         ) AS exists`,
+        [userId],
+      );
       await client.query(
         `INSERT INTO app_sessions (user_id, token_hash, expires_at)
          VALUES ($1, $2, now() + interval '30 days')`,
         [userId, sha256(token)],
       );
       await client.query("DELETE FROM app_sessions WHERE expires_at <= now()");
+      return memberships.rows[0]?.exists !== true;
     });
     headers.append("set-cookie", secureCookie(SESSION_COOKIE, token, SESSION_SECONDS));
-    headers.set("location", "/?auth=success");
+    headers.set("location", needsOnboarding ? "/onboarding?auth=success" : "/?auth=success");
     return new Response(null, { status: 302, headers });
   } catch (error) {
     console.error("[auth/google] callback failed", error);
@@ -299,7 +318,10 @@ export async function readRailwaySession(request: Request): Promise<RailwaySessi
         isGoogle: Boolean(row.google_subject),
         isDeveloper: row.email.trim().toLowerCase() === OWNER_EMAIL && Boolean(row.google_subject),
       };
-      if (row.role) return signedInUser;
+      // A permanent Google account may be authorized entirely through an
+      // organization membership and therefore have no legacy admin_roles row.
+      // It must still take precedence over any stale referee cookie.
+      return signedInUser;
     }
   }
 
@@ -359,7 +381,7 @@ export async function readRailwayRefereeClaim(request: Request) {
 export async function requireRailwayOperator(request: Request, tournamentId: string) {
   const user = await readRailwaySession(request);
   if (!user) throw Object.assign(new Error("AUTH_REQUIRED"), { status: 401 });
-  if (user.role === "admin" || user.role === "superadmin") return user;
+  if (user.role !== "referee") return user;
   if (user.role === "referee" && user.tournamentId === tournamentId) return user;
   throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
 }
@@ -368,24 +390,16 @@ export function refereeSessionCookie(token: string) {
   return secureCookie(REFEREE_SESSION_COOKIE, token, SESSION_SECONDS);
 }
 
-export async function requireRailwayAdmin(
-  request: Request,
-  superadminOnly = false,
-): Promise<RailwaySessionUser> {
+export async function requireRailwayPermanentUser(request: Request): Promise<RailwaySessionUser> {
   const user = await readRailwaySession(request);
   if (!user) throw Object.assign(new Error("AUTH_REQUIRED"), { status: 401 });
-  if (
-    (user.role !== "admin" && user.role !== "superadmin") ||
-    (superadminOnly && user.role !== "superadmin")
-  ) {
-    throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
-  }
+  if (user.role === "referee") throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
   return user;
 }
 
 export async function requireRailwayOwner(request: Request): Promise<RailwaySessionUser> {
-  const user = await requireRailwayAdmin(request, true);
-  if (user.email.toLowerCase() !== OWNER_EMAIL || !user.isGoogle)
+  const user = await requireRailwayPermanentUser(request);
+  if (user.role !== "superadmin" || user.email.toLowerCase() !== OWNER_EMAIL || !user.isGoogle)
     throw Object.assign(new Error("OWNER_REQUIRED"), { status: 403 });
   return user;
 }
@@ -396,5 +410,6 @@ export async function logoutRailwaySession(request: Request): Promise<Response> 
   const headers = new Headers({ "cache-control": "no-store" });
   headers.append("set-cookie", clearCookie(SESSION_COOKIE));
   headers.append("set-cookie", clearCookie(REFEREE_SESSION_COOKIE));
+  headers.append("set-cookie", clearCookie("beyx_organization"));
   return Response.json({ ok: true }, { headers });
 }

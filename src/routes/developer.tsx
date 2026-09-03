@@ -3,16 +3,22 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   BarChart3,
+  Building2,
   ChevronRight,
   ClipboardList,
   Database,
   Power,
+  Plus,
   RotateCcw,
   Shield,
   Terminal,
   Users,
 } from "lucide-react";
-import { TournamentProvider, useTournament } from "@/lib/tournament-store";
+import {
+  clearActiveTournamentCode,
+  TournamentProvider,
+  useTournament,
+} from "@/lib/tournament-store";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { ManageAdmins, ManageSuperadmins } from "@/components/AccountSettings";
 import { TournamentHistory } from "@/components/TournamentHistory";
@@ -66,7 +72,8 @@ function DeveloperConsolePage() {
   // internal admin-role gate is satisfied even though this route mounts a
   // fresh TournamentProvider (role defaults back to "player" per instance).
   useEffect(() => {
-    if (currentAdmin && isDeveloperEmail(currentAdmin.email)) setRole("admin");
+    if (currentAdmin && (currentAdmin.isDeveloper ?? isDeveloperEmail(currentAdmin.email)))
+      setRole("admin");
   }, [currentAdmin, setRole]);
 
   const [activeTab, setActiveTab] = useState<string | null>(null);
@@ -76,6 +83,12 @@ function DeveloperConsolePage() {
       { id: "superadmins", label: "總管理者", icon: Shield, content: <ManageSuperadmins /> },
       { id: "admins", label: "管理者", icon: Users, content: <ManageAdmins /> },
       { id: "status", label: "系統狀態", icon: Database, content: <SystemStatusCard /> },
+      {
+        id: "organizations",
+        label: "組織管理",
+        icon: Building2,
+        content: <DeveloperOrganizations />,
+      },
       { id: "features", label: "功能開關", icon: Power, content: <DeveloperFeatureFlags /> },
       { id: "stats", label: "Combo／Deck 統計", icon: BarChart3, content: <DeveloperDeckStats /> },
     ],
@@ -112,7 +125,7 @@ function DeveloperConsolePage() {
             前往登入
           </Link>
         </div>
-      ) : !isDeveloperEmail(currentAdmin.email) ? (
+      ) : !(currentAdmin.isDeveloper ?? isDeveloperEmail(currentAdmin.email)) ? (
         <div className="panel space-y-3 p-3">
           <p className="text-sm text-muted-foreground">此頁面僅限開發者帳號使用。</p>
           <Link
@@ -159,6 +172,205 @@ function DeveloperConsolePage() {
         </div>
       )}
     </main>
+  );
+}
+
+type OrganizationSummary = {
+  id: string;
+  slug: string;
+  name: string;
+  status: "active" | "suspended" | "archived";
+  role: "owner" | "admin";
+};
+
+function organizationError(error: unknown) {
+  const code = error instanceof Error ? error.message : "";
+  if (code === "ORGANIZATION_SLUG_EXISTS") return "此組織代碼已被使用。";
+  if (code === "ORGANIZATION_SLUG_INVALID") return "組織代碼僅能使用小寫英文字母、數字與連字號。";
+  if (code === "ORGANIZATION_NAME_INVALID") return "組織名稱需為 1–80 個字元。";
+  if (code === "PLATFORM_OWNER_REQUIRED") return "僅平台擁有者可建立組織。";
+  if (code === "SELECTED_ORGANIZATION_FORBIDDEN")
+    return "目前選取的組織已無法存取，請登出後重新登入。";
+  if (code === "ORGANIZATION_ID_INVALID") return "組織識別資料無效，請重新整理後再試。";
+  return "組織資料處理失敗，請稍後重試。";
+}
+
+function DeveloperOrganizations() {
+  const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    const result = await railwayApi<{
+      organizations: OrganizationSummary[];
+      selectedOrganizationId: string;
+    }>("/api/organizations");
+    setOrganizations(result.organizations);
+    setSelectedOrganizationId(result.selectedOrganizationId);
+  };
+
+  useEffect(() => {
+    let alive = true;
+    void railwayApi<{ organizations: OrganizationSummary[]; selectedOrganizationId: string }>(
+      "/api/organizations",
+    )
+      .then((result) => {
+        if (alive) {
+          setOrganizations(result.organizations);
+          setSelectedOrganizationId(result.selectedOrganizationId);
+        }
+      })
+      .catch((cause: unknown) => {
+        if (alive) setError(organizationError(cause));
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const create = async () => {
+    if (saving) return;
+    const cleanName = name.trim();
+    const cleanSlug = slug.trim().toLowerCase();
+    if (!cleanName || !cleanSlug) {
+      setError("請輸入組織名稱與組織代碼。");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await railwayApi<{ organization: OrganizationSummary }>("/api/organizations", {
+        method: "POST",
+        body: JSON.stringify({ name: cleanName, slug: cleanSlug }),
+      });
+      await load();
+      setName("");
+      setSlug("");
+    } catch (cause) {
+      setError(organizationError(cause));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const select = async (organizationId: string) => {
+    if (saving || organizationId === selectedOrganizationId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await railwayApi("/api/organizations/select", {
+        method: "POST",
+        body: JSON.stringify({ organizationId }),
+      });
+      clearActiveTournamentCode();
+      window.location.assign("/");
+    } catch (cause) {
+      setError(organizationError(cause));
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="panel space-y-4 p-4">
+      <div>
+        <h2 className="font-display text-lg neon-text">組織管理</h2>
+        <p className="text-xs text-muted-foreground">
+          顯示目前帳號可管理的組織。切換後，賽事、管理者與功能設定會完全分開。
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">我的組織</h3>
+        {loading ? (
+          <p className="text-xs text-muted-foreground">讀取組織中…</p>
+        ) : organizations.length ? (
+          <ul className="space-y-2">
+            {organizations.map((organization) => (
+              <li
+                key={organization.id}
+                className="rounded-xl border border-border bg-secondary/30 px-3 py-2"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 font-semibold">{organization.name}</span>
+                  <span className="shrink-0 rounded border border-primary/40 px-2 py-0.5 text-[10px] text-primary">
+                    {organization.id === selectedOrganizationId
+                      ? "目前組織"
+                      : organization.role === "owner"
+                        ? "擁有者"
+                        : "管理者"}
+                  </span>
+                </div>
+                <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
+                  {organization.slug} · {organization.status}
+                </p>
+                {organization.id !== selectedOrganizationId && (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void select(organization.id)}
+                    className="mt-2 min-h-9 w-full rounded-lg border border-primary/50 text-xs text-primary disabled:opacity-50"
+                  >
+                    切換至此組織
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-muted-foreground">目前沒有可用組織。</p>
+        )}
+      </div>
+
+      <div className="space-y-3 border-t border-border pt-4">
+        <div>
+          <h3 className="text-sm font-semibold">建立組織</h3>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            名稱可自由填寫；建立後，各組織的賽事、管理者、功能設定與操作紀錄皆分開保存。
+          </p>
+        </div>
+        <label className="block space-y-1 text-xs">
+          <span className="text-muted-foreground">組織名稱（自訂）</span>
+          <input
+            value={name}
+            maxLength={80}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="例如：北區聯盟、陀螺店或校園社團"
+            className="min-h-11 w-full rounded-xl border border-input bg-input/40 px-3 outline-none focus:border-primary"
+          />
+        </label>
+        <label className="block space-y-1 text-xs">
+          <span className="text-muted-foreground">組織代碼</span>
+          <input
+            value={slug}
+            maxLength={48}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            onChange={(event) =>
+              setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+            }
+            placeholder="例如：north-test"
+            className="min-h-11 w-full rounded-xl border border-input bg-input/40 px-3 font-mono outline-none focus:border-primary"
+          />
+        </label>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void create()}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-display text-primary-foreground disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" /> {saving ? "建立中…" : "建立組織"}
+        </button>
+      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </section>
   );
 }
 

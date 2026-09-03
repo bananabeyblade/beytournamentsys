@@ -46,7 +46,7 @@ export function GoogleSignInButton({ onError }: { onError?: (msg: string) => voi
           d="M24 48c6.2 0 11.5-2.1 15.5-5.6l-7.6-5.9c-2.1 1.4-4.8 2.3-7.9 2.3-6.4 0-11.7-3.7-13.6-9.1l-7.8 6.1C6.5 42.6 14.6 48 24 48z"
         />
       </svg>
-      使用 Google 登入
+      使用 Google 登入／註冊
     </button>
   );
 }

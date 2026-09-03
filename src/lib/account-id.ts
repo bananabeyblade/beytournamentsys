@@ -16,8 +16,24 @@ export function displayAccount(id: string | null | undefined): string {
   return id.endsWith(`@${USERNAME_DOMAIN}`) ? id.slice(0, -(USERNAME_DOMAIN.length + 1)) : id;
 }
 
-/** Only this account may create or delete superadmins. */
-export const OWNER_EMAIL = "john410403123@gmail.com";
+/**
+ * Default platform owner. Railway may override this at runtime with
+ * PLATFORM_OWNER_EMAIL; VITE_PLATFORM_OWNER_EMAIL keeps legacy browser-only
+ * authorization screens in sync when a different owner is configured.
+ */
+export const DEFAULT_OWNER_EMAIL = "john410403123@gmail.com";
+
+const runtimeOwnerEmail =
+  typeof process !== "undefined" ? process.env.PLATFORM_OWNER_EMAIL?.trim() : undefined;
+
+/** Only this verified Google account may perform platform-owner operations. */
+export const OWNER_EMAIL = (
+  runtimeOwnerEmail ||
+  import.meta.env.VITE_PLATFORM_OWNER_EMAIL ||
+  DEFAULT_OWNER_EMAIL
+)
+  .trim()
+  .toLowerCase();
 
 export function isOwnerEmail(email: string | null | undefined): boolean {
   return (email ?? "").trim().toLowerCase() === OWNER_EMAIL;

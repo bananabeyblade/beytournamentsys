@@ -7,7 +7,7 @@ function failure(error: unknown) {
     error instanceof AdminApiError
       ? error.status
       : Number((error as { status?: number })?.status) || 500;
-  const code = error instanceof Error ? error.message : "INTERNAL_ERROR";
+  const code = error instanceof Error && status < 500 ? error.message : "INTERNAL_ERROR";
   if (status === 500) console.error("[api/admin]", error);
   return Response.json({ error: code }, { status });
 }

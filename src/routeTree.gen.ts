@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as DeveloperRouteImport } from './routes/developer'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -20,6 +21,9 @@ import { Route as HealthDatabaseRouteImport } from './routes/health.database'
 import { Route as ApiTournamentsRouteImport } from './routes/api.tournaments'
 import { Route as ApiRegistrationsRouteImport } from './routes/api.registrations'
 import { Route as ApiRecoveryRouteImport } from './routes/api.recovery'
+import { Route as ApiOrganizationsRouteImport } from './routes/api.organizations'
+import { Route as ApiOrganizationInvitationsRouteImport } from './routes/api.organization-invitations'
+import { Route as ApiOrganizationsSelectRouteImport } from './routes/api.organizations.select'
 import { Route as ApiAuthSessionRouteImport } from './routes/api.auth.session'
 import { Route as ApiAuthPasswordRouteImport } from './routes/api.auth.password'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api.auth.google'
@@ -36,6 +40,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DeveloperRoute = DeveloperRouteImport.update({
@@ -83,6 +92,22 @@ const ApiRecoveryRoute = ApiRecoveryRouteImport.update({
   path: '/api/recovery',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOrganizationsRoute = ApiOrganizationsRouteImport.update({
+  id: '/api/organizations',
+  path: '/api/organizations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOrganizationInvitationsRoute =
+  ApiOrganizationInvitationsRouteImport.update({
+    id: '/api/organization-invitations',
+    path: '/api/organization-invitations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiOrganizationsSelectRoute = ApiOrganizationsSelectRouteImport.update({
+  id: '/select',
+  path: '/select',
+  getParentRoute: () => ApiOrganizationsRoute,
+} as any)
 const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
   id: '/api/auth/session',
   path: '/api/auth/session',
@@ -123,8 +148,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/developer': typeof DeveloperRoute
+  '/onboarding': typeof OnboardingRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/organization-invitations': typeof ApiOrganizationInvitationsRoute
+  '/api/organizations': typeof ApiOrganizationsRouteWithChildren
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -137,14 +165,18 @@ export interface FileRoutesByFullPath {
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/auth/password': typeof ApiAuthPasswordRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/organizations/select': typeof ApiOrganizationsSelectRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/developer': typeof DeveloperRoute
+  '/onboarding': typeof OnboardingRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/organization-invitations': typeof ApiOrganizationInvitationsRoute
+  '/api/organizations': typeof ApiOrganizationsRouteWithChildren
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -157,6 +189,7 @@ export interface FileRoutesByTo {
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/auth/password': typeof ApiAuthPasswordRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/organizations/select': typeof ApiOrganizationsSelectRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRoutesById {
@@ -164,8 +197,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/developer': typeof DeveloperRoute
+  '/onboarding': typeof OnboardingRoute
   '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/api/organization-invitations': typeof ApiOrganizationInvitationsRoute
+  '/api/organizations': typeof ApiOrganizationsRouteWithChildren
   '/api/recovery': typeof ApiRecoveryRoute
   '/api/registrations': typeof ApiRegistrationsRoute
   '/api/tournaments': typeof ApiTournamentsRoute
@@ -178,6 +214,7 @@ export interface FileRoutesById {
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/auth/password': typeof ApiAuthPasswordRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/organizations/select': typeof ApiOrganizationsSelectRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRouteTypes {
@@ -186,8 +223,11 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/developer'
+    | '/onboarding'
     | '/register'
     | '/sitemap.xml'
+    | '/api/organization-invitations'
+    | '/api/organizations'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -200,14 +240,18 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/auth/password'
     | '/api/auth/session'
+    | '/api/organizations/select'
     | '/api/auth/google/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin'
     | '/developer'
+    | '/onboarding'
     | '/register'
     | '/sitemap.xml'
+    | '/api/organization-invitations'
+    | '/api/organizations'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -220,14 +264,18 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/auth/password'
     | '/api/auth/session'
+    | '/api/organizations/select'
     | '/api/auth/google/callback'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/developer'
+    | '/onboarding'
     | '/register'
     | '/sitemap.xml'
+    | '/api/organization-invitations'
+    | '/api/organizations'
     | '/api/recovery'
     | '/api/registrations'
     | '/api/tournaments'
@@ -240,6 +288,7 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/auth/password'
     | '/api/auth/session'
+    | '/api/organizations/select'
     | '/api/auth/google/callback'
   fileRoutesById: FileRoutesById
 }
@@ -247,8 +296,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   DeveloperRoute: typeof DeveloperRoute
+  OnboardingRoute: typeof OnboardingRoute
   RegisterRoute: typeof RegisterRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiOrganizationInvitationsRoute: typeof ApiOrganizationInvitationsRoute
+  ApiOrganizationsRoute: typeof ApiOrganizationsRouteWithChildren
   ApiRecoveryRoute: typeof ApiRecoveryRoute
   ApiRegistrationsRoute: typeof ApiRegistrationsRoute
   ApiTournamentsRoute: typeof ApiTournamentsRoute
@@ -277,6 +329,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/developer': {
@@ -342,6 +401,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRecoveryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/organizations': {
+      id: '/api/organizations'
+      path: '/api/organizations'
+      fullPath: '/api/organizations'
+      preLoaderRoute: typeof ApiOrganizationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/organization-invitations': {
+      id: '/api/organization-invitations'
+      path: '/api/organization-invitations'
+      fullPath: '/api/organization-invitations'
+      preLoaderRoute: typeof ApiOrganizationInvitationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/organizations/select': {
+      id: '/api/organizations/select'
+      path: '/select'
+      fullPath: '/api/organizations/select'
+      preLoaderRoute: typeof ApiOrganizationsSelectRouteImport
+      parentRoute: typeof ApiOrganizationsRoute
+    }
     '/api/auth/session': {
       id: '/api/auth/session'
       path: '/api/auth/session'
@@ -394,6 +474,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ApiOrganizationsRouteChildren {
+  ApiOrganizationsSelectRoute: typeof ApiOrganizationsSelectRoute
+}
+
+const ApiOrganizationsRouteChildren: ApiOrganizationsRouteChildren = {
+  ApiOrganizationsSelectRoute: ApiOrganizationsSelectRoute,
+}
+
+const ApiOrganizationsRouteWithChildren =
+  ApiOrganizationsRoute._addFileChildren(ApiOrganizationsRouteChildren)
+
 interface ApiAuthGoogleRouteChildren {
   ApiAuthGoogleCallbackRoute: typeof ApiAuthGoogleCallbackRoute
 }
@@ -410,8 +501,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   DeveloperRoute: DeveloperRoute,
+  OnboardingRoute: OnboardingRoute,
   RegisterRoute: RegisterRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiOrganizationInvitationsRoute: ApiOrganizationInvitationsRoute,
+  ApiOrganizationsRoute: ApiOrganizationsRouteWithChildren,
   ApiRecoveryRoute: ApiRecoveryRoute,
   ApiRegistrationsRoute: ApiRegistrationsRoute,
   ApiTournamentsRoute: ApiTournamentsRoute,

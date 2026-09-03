@@ -39,6 +39,9 @@ export async function postgresReadinessCheck(): Promise<void> {
       to_regclass('public.app_users') IS NOT NULL
       AND to_regclass('public.app_sessions') IS NOT NULL
       AND to_regclass('public.admin_roles') IS NOT NULL
+      AND to_regclass('public.organizations') IS NOT NULL
+      AND to_regclass('public.organization_memberships') IS NOT NULL
+      AND to_regclass('public.platform_roles') IS NOT NULL
       AND to_regclass('public.tournaments') IS NOT NULL
       AND to_regclass('public.registrations') IS NOT NULL
       AND to_regclass('public.participant_recovery_codes') IS NOT NULL
@@ -47,6 +50,11 @@ export async function postgresReadinessCheck(): Promise<void> {
       AND to_regclass('public.request_rate_limits') IS NOT NULL
       AND to_regprocedure('public.merge_tournament_live_state(uuid,jsonb,timestamptz)') IS NOT NULL
       AND EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='app_users'
+          AND column_name='password_hash'
+      )
+      AND NOT EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema='public' AND table_name='app_users'
           AND column_name='password_ciphertext'
